@@ -12,6 +12,9 @@ All notable changes to SteadyFlow will be documented in this file.
 - **LLM (@steadyflow/llm):** LlmAdapter interface, Deepseek adapter (OpenAI-compatible), shop analyzer with structured JSON prompts, confidence scoring heuristic
 - **Web Dashboard (Next.js 15):** Supabase SSR auth, login/dashboard/intents/insights/keys/audit/settings pages, intent submission API route
 - **Chrome Extension (MV3):** Background service worker, context menu integration, content script page capture, popup UI with auth and submit flow
+- **Security:** RLS tests (131 total), Zod input fuzz, Gitleaks CI config, env-var-based test credentials
+- **CI/CD:** GitHub Actions pipeline (typecheck, lint, test, secret scan, deploy)
+- **Docs:** DEPLOYMENT.md, CHANGELOG.md, SECURITY.md
 
 ### Dependencies
 - Supabase Managed (Postgres + RLS + pgmq + Edge Functions)
