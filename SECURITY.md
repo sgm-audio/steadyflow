@@ -35,6 +35,13 @@ files only (enforced by lint rule + CI check).
 Per-user token bucket in `rate_limits` table. Enforced in
 `lib/rateLimit.ts` before any provider call.
 
+## CI Security
+
+- **Gitleaks:** Scans every commit for secrets. Config in `.gitleaks.toml`.
+- **Dependency audit:** `pnpm audit --audit-level=high` on every PR.
+- **npm audit:** Vite CVE resolved (PostCSS moderate remaining, non-exploitable).
+- **Service role keys:** Moved from test fixtures to vitest `env` config.
+
 ## Reporting
 
 security@sgm-studios.com (configure before public launch)
