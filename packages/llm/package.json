@@ -1,0 +1,45 @@
+{
+  "name": "@steadyflow/llm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./adapters/deepseek": {
+      "types": "./dist/adapters/deepseek.d.ts",
+      "import": "./dist/adapters/deepseek.js"
+    },
+    "./adapters/nvidia-nim": {
+      "types": "./dist/adapters/nvidia-nim.d.ts",
+      "import": "./dist/adapters/nvidia-nim.js"
+    },
+    "./adapters/groq": {
+      "types": "./dist/adapters/groq.d.ts",
+      "import": "./dist/adapters/groq.js"
+    },
+    "./adapters/openai-compatible": {
+      "types": "./dist/adapters/openai-compatible.d.ts",
+      "import": "./dist/adapters/openai-compatible.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src/",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo coverage"
+  },
+  "dependencies": {
+    "@steadyflow/core": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

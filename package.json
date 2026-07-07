@@ -1,0 +1,39 @@
+{
+  "name": "steadyflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SteadyFlow — production-grade, auditable e-commerce growth system (Shopify + Etsy primary, Amazon roadmap).",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "contract": "turbo run contract",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,sql}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,sql}\"",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "db:lint": "supabase db lint",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "functions:serve": "supabase functions serve",
+    "functions:deploy": "supabase functions deploy",
+    "prepare": "husky || true"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/node": "^20.14.10",
+    "eslint": "^9.10.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.7",
+    "prettier": "^3.3.3",
+    "turbo": "^2.1.1",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.0.0"
+  }
+}
