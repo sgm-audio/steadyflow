@@ -12,9 +12,34 @@ create extension if not exists "pgcrypto";
 create extension if not exists "pgmq";
 create extension if not exists "pgsodium";
 
--- ──────────────────────────────────────────────────────────────────────────
+-- orgs
+
+create table public.orgs (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(name) between 1 and 200),
+  default_llm_provider text not null default 'deepseek'
+    check (default_llm_provider in ('deepseek','nvidia-nim','groq','openai-compatible')),
+  default_llm_base_url text,
+  default_llm_model text not null default 'deepseek-chat',
+  llm_daily_budget_cents integer not null default 500 check (llm_daily_budget_cents >= 0),
+  kdf_params jsonb not null default '{"algo":"argon2id","mem":19456,"t":2,"p":1}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- memberships
+
+create table public.memberships (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.orgs(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'member' check (role in ('owner','admin','member','viewer')),
+  created_at timestamptz not null default now(),
+  unique (org_id, user_id)
+);
+
 -- Helper: membership check used by every RLS policy.
--- ──────────────────────────────────────────────────────────────────────────
+-- Must be defined AFTER memberships table exists.
 
 create or replace function public.is_member_of(_org_id uuid)
 returns boolean
@@ -41,22 +66,7 @@ as $$
   select org_id from public.memberships where user_id = auth.uid();
 $$;
 
--- ──────────────────────────────────────────────────────────────────────────
--- orgs
--- ──────────────────────────────────────────────────────────────────────────
-
-create table public.orgs (
-  id uuid primary key default gen_random_uuid(),
-  name text not null check (char_length(name) between 1 and 200),
-  default_llm_provider text not null default 'deepseek'
-    check (default_llm_provider in ('deepseek','nvidia-nim','groq','openai-compatible')),
-  default_llm_base_url text,
-  default_llm_model text not null default 'deepseek-chat',
-  llm_daily_budget_cents integer not null default 500 check (llm_daily_budget_cents >= 0),
-  kdf_params jsonb not null default '{"algo":"argon2id","mem":19456,"t":2,"p":1}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
+-- RLS policies for orgs
 
 alter table public.orgs enable row level security;
 
@@ -76,18 +86,7 @@ create policy "orgs_update_member"
   using (public.is_member_of(id))
   with check (public.is_member_of(id));
 
--- ──────────────────────────────────────────────────────────────────────────
--- memberships
--- ──────────────────────────────────────────────────────────────────────────
-
-create table public.memberships (
-  id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references public.orgs(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  role text not null default 'member' check (role in ('owner','admin','member','viewer')),
-  created_at timestamptz not null default now(),
-  unique (org_id, user_id)
-);
+-- RLS policies for memberships
 
 alter table public.memberships enable row level security;
 
@@ -135,9 +134,7 @@ create policy "memberships_delete_owner"
     )
   );
 
--- ──────────────────────────────────────────────────────────────────────────
 -- Trigger: when an org is created, add the creator as owner.
--- ──────────────────────────────────────────────────────────────────────────
 
 create or replace function public.handle_new_org()
 returns trigger
@@ -156,9 +153,7 @@ create trigger on_org_created
   after insert on public.orgs
   for each row execute function public.handle_new_org();
 
--- ──────────────────────────────────────────────────────────────────────────
 -- keys_envelopes (BYOK)
--- ──────────────────────────────────────────────────────────────────────────
 
 create table public.keys_envelopes (
   id uuid primary key default gen_random_uuid(),
@@ -201,9 +196,7 @@ create policy "keys_envelopes_member_delete"
   to authenticated
   using (public.is_member_of(org_id));
 
--- ──────────────────────────────────────────────────────────────────────────
 -- intents
--- ──────────────────────────────────────────────────────────────────────────
 
 create table public.intents (
   id uuid primary key default gen_random_uuid(),
@@ -243,9 +236,7 @@ create policy "intents_member_update"
   using (public.is_member_of(org_id))
   with check (public.is_member_of(org_id));
 
--- ──────────────────────────────────────────────────────────────────────────
 -- sources (scraped artifacts)
--- ──────────────────────────────────────────────────────────────────────────
 
 create table public.sources (
   id uuid primary key default gen_random_uuid(),
@@ -272,9 +263,7 @@ create policy "sources_member_read"
 
 -- Writes only via service_role (workers).
 
--- ──────────────────────────────────────────────────────────────────────────
 -- insights
--- ──────────────────────────────────────────────────────────────────────────
 
 create table public.insights (
   id uuid primary key default gen_random_uuid(),
@@ -303,9 +292,7 @@ create policy "insights_member_read"
 
 -- Writes only via service_role (workers).
 
--- ──────────────────────────────────────────────────────────────────────────
 -- audit_log (append-only)
--- ──────────────────────────────────────────────────────────────────────────
 
 create table public.audit_log (
   id uuid primary key default gen_random_uuid(),
@@ -334,6 +321,7 @@ create policy "audit_log_member_read"
 
 -- Writes only via service_role (workers).
 -- Append-only enforcement:
+
 create or replace function public.audit_log_block_mutations()
 returns trigger
 language plpgsql
@@ -357,9 +345,7 @@ create trigger audit_log_no_delete
   before delete on public.audit_log
   for each row execute function public.audit_log_block_mutations();
 
--- ──────────────────────────────────────────────────────────────────────────
 -- rate_limits (per-user token bucket)
--- ──────────────────────────────────────────────────────────────────────────
 
 create table public.rate_limits (
   id uuid primary key default gen_random_uuid(),
@@ -380,9 +366,7 @@ create policy "rate_limits_self_read"
 
 -- Writes only via service_role.
 
--- ──────────────────────────────────────────────────────────────────────────
 -- devices (paired desktop/extension)
--- ──────────────────────────────────────────────────────────────────────────
 
 create table public.devices (
   id uuid primary key default gen_random_uuid(),
@@ -420,18 +404,14 @@ create policy "devices_self_delete"
   to authenticated
   using (user_id = auth.uid());
 
--- ──────────────────────────────────────────────────────────────────────────
 -- pgmq queues
--- ──────────────────────────────────────────────────────────────────────────
 
 select pgmq.create('q:scrape');
 select pgmq.create('q:enrich');
 select pgmq.create('q:analyze');
 select pgmq.create('q:sync_keys');
 
--- ──────────────────────────────────────────────────────────────────────────
 -- Realtime publication (filtered by RLS automatically)
--- ──────────────────────────────────────────────────────────────────────────
 
 alter publication supabase_realtime add table public.intents;
 alter publication supabase_realtime add table public.insights;

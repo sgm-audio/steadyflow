@@ -32,6 +32,9 @@ values (
 )
 on conflict (id) do nothing;
 
+-- Disable the auto-membership trigger so we can seed manually.
+alter table public.orgs disable trigger on_org_created;
+
 -- Create the dev org.
 insert into public.orgs (id, name, default_llm_provider, default_llm_model)
 values (
@@ -41,6 +44,9 @@ values (
   'deepseek-chat'
 )
 on conflict (id) do nothing;
+
+-- Re-enable the trigger.
+alter table public.orgs enable trigger on_org_created;
 
 -- Add the dev user as owner of the dev org.
 insert into public.memberships (org_id, user_id, role)
