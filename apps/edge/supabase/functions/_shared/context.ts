@@ -1,57 +1,81 @@
-// Supabase Edge Function entrypoint conventions for SteadyFlow.
-// Every function:
-//   1. Verifies the JWT (handled by the gateway when verify_jwt = true).
-//   2. Validates input via Zod.
-//   3. Enforces rate limit.
-//   4. Writes to audit_log.
-//   5. Returns a typed response.
+/**
+ * Edge Function request context.
+ *
+ * Import this in every BFF function to get typed request handling.
+ */
 
-import { z } from 'zod';
-import type { SteadyFlowError } from '@steadyflow/core';
-import { error as sfError } from '@steadyflow/core';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAnonClient } from './supabase.ts';
+
+export { json, jsonError, ok, created, noContent, badRequest, unauthorized, forbidden, notFound, rateLimited, internalError, parseInput, requireAuth, handleCors } from './response.ts';
+export { createServiceRoleClient } from './supabase.ts';
+export { writeAudit } from './audit.ts';
+export { checkRateLimit } from './rateLimit.ts';
+export { enqueue, dequeue, archive } from './queue.ts';
+export { withProviderKey, zeroBuffer } from './envelope.ts';
+export type { QueueName } from './queue.ts';
 
 export interface EdgeContext {
-  request: Request;
+  req: Request;
+  supabase: SupabaseClient;
   userId: string;
   orgId: string;
   requestId: string;
 }
 
-export const json = <T>(data: T, init: ResponseInit = {}): Response => {
-  return new Response(JSON.stringify(data), {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      'x-request-id': crypto.randomUUID(),
-      ...(init.headers ?? {}),
-    },
-  });
-};
+let _cachedSupabase: SupabaseClient | undefined;
 
-export const jsonError = (e: SteadyFlowError, status: number): Response => {
-  return json({ error: e }, { status });
-};
-
-export const parseInput = <T>(schema: z.ZodType<T>, raw: unknown): { ok: true; value: T } | { ok: false; error: SteadyFlowError } => {
-  const r = schema.safeParse(raw);
-  if (r.success) return { ok: true, value: r.data };
-  return {
-    ok: false,
-    error: sfError('VALIDATION_FAILED', 'Input validation failed', { issues: r.error.issues }),
-  };
-};
-
-export const requireAuth = (req: Request): { userId: string; orgId: string } | Response => {
-  // The Supabase gateway injects these headers when verify_jwt = true.
-  const userId = req.headers.get('x-sb-user-id');
-  const orgId = req.headers.get('x-sb-org-id');
-  if (!userId || !orgId) {
-    return jsonError(sfError('UNAUTHENTICATED', 'Missing auth context'), 401);
+const getAnonClient = (): SupabaseClient => {
+  if (!_cachedSupabase) {
+    _cachedSupabase = createAnonClient();
   }
-  return { userId, orgId };
+  return _cachedSupabase;
 };
 
-export const withRequestId = (headers: Headers): string => {
-  const id = headers.get('x-request-id') ?? crypto.randomUUID();
-  return id;
+/**
+ * Initialize request context for a BFF function.
+ *
+ * Auth flow:
+ *   1. Supabase gateway validates the JWT and injects x-sb-user-id header.
+ *   2. We look up the user's org from memberships (or from x-sb-org-id if passed).
+ *
+ * Returns a 401 Response if auth is missing.
+ */
+export const createContext = async (req: Request): Promise<EdgeContext | Response> => {
+  const userId = req.headers.get('x-sb-user-id');
+  if (!userId) {
+    return new Response(
+      JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'Missing auth context' } }),
+      { status: 401, headers: { 'content-type': 'application/json' } },
+    );
+  }
+
+  const supabase = getAnonClient();
+  let orgId = req.headers.get('x-sb-org-id') ?? '';
+
+  // If orgId not in headers, look it up from memberships
+  if (!orgId) {
+    const { data, error } = await supabase
+      .from('memberships')
+      .select('org_id')
+      .eq('user_id', userId)
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      return new Response(
+        JSON.stringify({ error: { code: 'NOT_FOUND', message: 'No org found for user' } }),
+        { status: 404, headers: { 'content-type': 'application/json' } },
+      );
+    }
+    orgId = (data as { org_id: string }).org_id;
+  }
+
+  return {
+    req,
+    supabase,
+    userId,
+    orgId,
+    requestId: req.headers.get('x-request-id') ?? crypto.randomUUID(),
+  };
 };

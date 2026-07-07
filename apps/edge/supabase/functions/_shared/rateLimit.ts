@@ -1,7 +1,7 @@
 // Per-user token bucket rate limiter.
 // Backed by the rate_limits table; only service_role writes.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface RateLimitConfig {
   bucket: string;
@@ -36,7 +36,7 @@ export interface RateLimitResult {
  * Returns allowed=false when the bucket is empty.
  */
 export const checkRateLimit = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
   orgId: string,
   bucket: string,
