@@ -1,9 +1,5 @@
-/**
- * Supabase server client for Next.js App Router.
- * Uses @supabase/ssr for cookie-based auth in server components.
- */
-
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+/* eslint-disable @typescript-eslint/no-deprecated */
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export const createClient = async () => {
@@ -14,13 +10,11 @@ export const createClient = async () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }>) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]) => {
+          for (const { name, value, options } of cookiesToSet) {
             cookieStore.set(name, value, options);
-          });
+          }
         },
       },
     },
