@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { PLACEHOLDER } from './index.js';
+import { DeepseekAdapter } from './index.js';
 
 describe('@steadyflow/llm', () => {
-  it('placeholder', () => {
-    expect(PLACEHOLDER).toBe(true);
+  it('exports DeepseekAdapter', () => {
+    expect(DeepseekAdapter).toBeDefined();
   });
 });
