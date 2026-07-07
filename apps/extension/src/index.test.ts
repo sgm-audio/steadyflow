@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { PLACEHOLDER } from './index.js';
+import { VERSION } from './index.js';
 
 describe('@steadyflow/extension', () => {
-  it('placeholder', () => {
-    expect(PLACEHOLDER).toBe(true);
+  it('exports version', () => {
+    expect(VERSION).toBe('0.1.0');
   });
 });
