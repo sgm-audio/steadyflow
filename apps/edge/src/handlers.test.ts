@@ -15,10 +15,10 @@ import {
   handleCors, type HandlerCtx,
 } from './handlers.js';
 
-const URL = 'http://127.0.0.1:54321';
-const KEY = 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz';
-const USER_ID = '11111111-1111-1111-1111-111111111111';
-const ORG_ID = '22222222-2222-2222-2222-222222222222';
+const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
+const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+const USER_ID = process.env.TEST_USER_ID ?? '11111111-1111-1111-1111-111111111111';
+const ORG_ID = process.env.TEST_ORG_ID ?? '22222222-2222-2222-2222-222222222222';
 
 let supabase: ReturnType<typeof createClient>;
 
