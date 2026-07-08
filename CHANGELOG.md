@@ -4,6 +4,16 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-07-08 — Edge Function restructure + lint fixes + extension v0.2.0
+
+- **Restructure:** Move Edge Function `_shared` modules from `apps/edge/` to `supabase/` root
+- **Edge Functions:** Add 7 new handlers — keys-list, keys-set, keys-test, proxy-firecrawl, proxy-hunter, proxy-llm, proxy-tavily (BYOK key management + provider proxies)
+- **Config:** Enable `[db.vault]` in supabase/config.toml, add KEK setup script (supabase/scripts/setup-kek.sql)
+- **Extension:** Bump to v0.2.0, add `build:zip` script, store listing draft, icon assets
+- **Chore:** Update doc comments in core (dek.ts, provider.ts), add Vercel config, env template vars
+- **Lint fix:** Resolve 16 ESLint errors in @steadyflow/llm (array-type, no-base-to-string, require-await, no-useless-assignment, no-unnecessary-condition, no-confusing-void-expression)
+- **Test fix:** Fix extension VERSION test mismatch (0.1.0 → 0.2.0)
+
 ### Session 2026-07-07 (evening) — SteadyFlow MVP: Full Build, Test, Deploy, Release
 
 **150+ files across 10 packages.** Full e-commerce growth system built from scaffold to production in a single session.

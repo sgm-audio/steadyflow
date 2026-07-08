@@ -6,7 +6,7 @@
  * The DEK itself is wrapped with a server-held KEK before being stored.
  *
  * This module is the CLIENT side (passphrase -> DEK).
- * Server-side unwrap uses pgsodium (see apps/edge/supabase/functions/keys/exchange).
+ * Server-side unwrap uses pgsodium (see supabase/functions/proxy-llm).
  */
 
 export interface KdfParams {

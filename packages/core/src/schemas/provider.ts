@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Provider identifiers. Used as keys in the BYOK vault and in audit logs.
  * Adding a provider requires updating:
  *   - packages/llm/src/adapters/*
- *   - apps/edge/supabase/functions/keys/proxy/*
+ *   - supabase/functions/proxy-*
  *   - apps/edge/supabase/migrations/* (CHECK constraint)
  */
 export const Provider = z.enum([

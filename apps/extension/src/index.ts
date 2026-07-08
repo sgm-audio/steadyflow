@@ -11,4 +11,4 @@
  *   - src/lib/api.ts            — SteadyFlow BFF API client
  */
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';

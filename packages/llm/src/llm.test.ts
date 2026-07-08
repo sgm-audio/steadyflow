@@ -7,8 +7,8 @@ import type { LlmAdapter } from './adapter.js';
 class MockAdapter implements LlmAdapter {
   readonly provider = 'mock';
 
-  async chat() {
-    return {
+  chat() {
+    return Promise.resolve({
       content: JSON.stringify({
         insights: [
           {
@@ -31,7 +31,7 @@ class MockAdapter implements LlmAdapter {
       inputTokens: 100,
       outputTokens: 50,
       finishReason: 'stop' as const,
-    };
+    });
   }
 }
 
@@ -63,7 +63,7 @@ describe('analyzeShop', () => {
   it('handles empty LLM response', async () => {
     const emptyAdapter: LlmAdapter = {
       provider: 'empty',
-      chat: async () => ({
+      chat: () => Promise.resolve({
         content: 'not json',
         model: 'test', inputTokens: 0, outputTokens: 0, finishReason: 'stop',
       }),
@@ -78,7 +78,7 @@ describe('analyzeShop', () => {
   it('caps insights at 5', async () => {
     const manyAdapter: LlmAdapter = {
       provider: 'many',
-      chat: async () => ({
+      chat: () => Promise.resolve({
         content: JSON.stringify({
           insights: Array.from({ length: 10 }, (_, i) => ({
             title: `Insight ${i}`, category: 'positioning', severity: 'medium', body: 'x', citations: [],

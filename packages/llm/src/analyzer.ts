@@ -69,7 +69,7 @@ export const analyzeShop = async (
   );
 
   // Parse the structured response
-  let rawInsights: unknown[] = [];
+  let rawInsights: unknown[];
   try {
     const parsed = JSON.parse(response.content) as { insights?: unknown[] };
     rawInsights = parsed.insights ?? [];
@@ -79,24 +79,26 @@ export const analyzeShop = async (
   }
 
   // Map to typed Insight objects
+  const toStr = (v: unknown, fallback: string): string => typeof v === 'string' ? v : fallback;
+
   const insights: Insight[] = rawInsights.slice(0, 5).map((raw, _idx) => {
     const i = raw as Record<string, unknown>;
-    const citations = (Array.isArray(i.citations) ? i.citations.slice(0, 20) : []) as Array<Record<string, unknown>>;
+    const citations = (Array.isArray(i.citations) ? i.citations.slice(0, 20) : []) as Record<string, unknown>[];
 
     return {
-      category: validCategory(String(i.category ?? 'positioning')),
-      severity: validSeverity(String(i.severity ?? 'medium')),
-      title: String(i.title ?? 'Untitled insight').slice(0, 200),
-      body: String(i.body ?? 'No details provided').slice(0, 5000),
+      category: validCategory(toStr(i.category, 'positioning')),
+      severity: validSeverity(toStr(i.severity, 'medium')),
+      title: toStr(i.title, 'Untitled insight').slice(0, 200),
+      body: toStr(i.body, 'No details provided').slice(0, 5000),
       citations: citations.map((c) => ({
         sourceId: request.sourceId,
         url: request.url,
-        excerpt: String(c.excerpt ?? '').slice(0, 500),
+        excerpt: toStr(c.excerpt, '').slice(0, 500),
       })),
       promptVersion,
       promptHash: '', // Filled by the worker after hashing
     };
-  }) as Insight[];
+  });
 
   return {
     insights,

@@ -22,7 +22,7 @@ export class DeepseekAdapter implements LlmAdapter {
   async chat(messages: LlmMessage[], options: LlmChatOptions = {}): Promise<LlmResponse> {
     const model = options.model ?? this.defaultModel;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 60000);
+    const timeout = setTimeout(() => { controller.abort(); }, options.timeoutMs ?? 60000);
 
     try {
       const body: Record<string, unknown> = {
@@ -52,17 +52,17 @@ export class DeepseekAdapter implements LlmAdapter {
       }
 
       const json = await res.json() as {
-        choices: Array<{ message: { content: string }; finish_reason: string }>;
+        choices: { message: { content: string }; finish_reason: string }[];
         model: string;
         usage?: { prompt_tokens: number; completion_tokens: number };
       };
 
-      const choice = json.choices?.[0];
+      const choice = json.choices[0];
       if (!choice) throw new Error('Deepseek returned empty choices');
 
       return {
-        content: choice.message.content ?? '',
-        model: json.model ?? model,
+        content: choice.message.content,
+        model: json.model,
         inputTokens: json.usage?.prompt_tokens ?? 0,
         outputTokens: json.usage?.completion_tokens ?? 0,
         finishReason: mapFinishReason(choice.finish_reason),
