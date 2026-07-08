@@ -2,6 +2,20 @@
 
 All notable changes to SteadyFlow will be documented in this file.
 
+## [Unreleased]
+
+### Session 2026-07-07 (evening) — SteadyFlow MVP: Full Build, Test, Deploy, Release
+
+**150+ files across 10 packages.** Full e-commerce growth system built from scaffold to production in a single session.
+
+- **Foundation:** pnpm monorepo, TypeScript strict mode, 5 DB migrations (8 tables, RLS, pgmq)
+- **Edge Functions:** 17 handlers (10 BFF + 4 BYOK proxies + 3 pgmq workers), 2 deployed live
+- **LLM:** Deepseek adapter, shop analyzer with structured JSON prompts
+- **Web Dashboard:** Next.js 15 — auth, intents, insights, keys, audit, settings (17 routes)
+- **Chrome Extension:** MV3 — popup, context menu, page capture with Supabase auth
+- **Security:** 131 tests (RLS, fuzz, gitleaks), CI/CD pipeline, audit hardening
+- **Deploy:** v0.1.1 released, DB migrations pushed, 2 Edge Functions live
+
 ## [0.1.1] - 2026-07-07
 
 ### Added
