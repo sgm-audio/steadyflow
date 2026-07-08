@@ -1,6 +1,6 @@
 {
   "name": "steadyflow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "SteadyFlow — production-grade, auditable e-commerce growth system (Shopify + Etsy primary, Amazon roadmap).",
   "license": "UNLICENSED",

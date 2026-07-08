@@ -2,9 +2,26 @@
 
 All notable changes to SteadyFlow will be documented in this file.
 
-## [Unreleased]
+## [0.1.1] - 2026-07-07
 
-### Added (v0.1 MVP)
+### Added
+- **Security:** RLS tests (131 total), Zod input fuzz, Gitleaks CI config, env-var-based test credentials
+- **CI/CD:** GitHub Actions pipeline (typecheck, lint, test, secret scan, deploy)
+- **Docs:** DEPLOYMENT.md, CHANGELOG.md, SECURITY.md
+
+### Fixed
+- Edge Functions: flat naming for Supabase compatibility
+- Edge Functions: inline @steadyflow/core deps for Deno runtime (core-shim.ts)
+- Web build: createServerClient cookie API, settings page type narrowing
+- Audit: vite upgraded (9→2 vulns), Supabase keys moved to vitest env
+
+### Infrastructure
+- Edge Functions deployed: `intel-analyze-shop`, `insights-list`
+- DB migrations applied to Supabase Managed (seed excluded)
+- Supabase MCP configured in opencode
+- GitHub releases pipeline established
+
+## [0.1.0] - 2026-07-07
 - **Foundation:** pnpm monorepo (Turborepo), TypeScript strict mode, ESLint strictTypeChecked, Prettier, Husky + lint-staged
 - **Core package (@steadyflow/core):** Zod schemas (10 API contracts), audit hashing (SHA-256 + secret redaction), BYOK envelope encryption (AES-GCM), discriminated Result type, error codes
 - **Database:** 8 tables (orgs, memberships, keys_envelopes, intents, sources, insights, audit_log, rate_limits, devices), 4 pgmq queues, RLS on every table, append-only audit_log trigger
