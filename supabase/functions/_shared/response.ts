@@ -5,8 +5,8 @@
  */
 
 import { z } from 'zod';
-import type { SteadyFlowError } from '@steadyflow/core';
-import { error as sfError } from '@steadyflow/core';
+import type { SteadyFlowError } from './core-shim.ts';
+import { error as sfError } from './core-shim.ts';
 
 export const corsHeaders = {
   'access-control-allow-origin': '*',

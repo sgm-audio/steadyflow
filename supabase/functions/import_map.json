@@ -1,7 +1,5 @@
 {
   "imports": {
-    "@steadyflow/core": "../../packages/core/src/index.ts",
-    "@steadyflow/core/": "../../packages/core/src/",
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
     "zod": "npm:zod@3",
     "_shared/": "./_shared/"
