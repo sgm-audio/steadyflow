@@ -2,12 +2,20 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+const getEnv = (key: string): string => {
+  const val = process.env[key];
+  if (!val) {
+    throw new Error(`Missing required env var: ${key}. Set in .env.local for development or Vercel dashboard for production.`);
+  }
+  return val;
+};
+
 export const createClient = async () => {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
+    getEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     {
       cookies: {
         getAll: () => cookieStore.getAll(),
