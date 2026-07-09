@@ -4,6 +4,22 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-07-09 — Full gate green: Supabase identity fix, edge typed + audited, desktop descoped
+
+- **Supabase identity fix (root cause of all edge test failures):** local `supabase/config.toml` had `project_id = "shopicunt"` and a remote link to an unrelated `making-madi` project — leftover scaffold, never renamed. Corrected to `project_id = "steadyflow"`, cleared the stale local link cache, removed the mis-named `supabase_*_shopicunt` containers, and started a clean `supabase_*_steadyflow` stack. This alone fixed 12 of the 13 failing edge integration tests.
+- **Edge test isolation:** added `vitest.global-setup.ts` to wipe org-scoped rows before the run, and set `fileParallelism: false` — integration tests share one live Postgres instance and were racing across files.
+- **Real bugs found via the identity fix, not lint:**
+  - `proxyFirecrawl`/`proxyLlm` threw when no BYOK key was configured, instead of returning the documented MVP placeholder (matching `proxyHunter`/`proxyTavily`) — meant every scrape/analyze intent hard-failed before any provider key was ever wired up.
+  - `orgLlmConfigSet`'s audit log entry was mislabeled `action: 'intent.create'` (copy-paste leftover) instead of describing what happened.
+  - `apps/edge` hashed audit `input_hash` values without redacting secret-shaped keys first — `@steadyflow/core` already ships a tested `buildAuditEvent`/`redactSecrets`/`hashObject` pipeline that was never wired up; `handlers.ts` now uses it instead of a hand-rolled duplicate.
+- **Dependency corruption (pre-existing, from commit a4575f2):** the committed `pnpm-lock.yaml` had resolved versions (`zod@4.4.3`, `typescript@6.0.3`, `@types/node@26.1.0`) that violate every package.json's own declared semver range (`^3.23.8`, `^5.5.4`, `^20.14.10`) — a fresh clone would have failed to build immediately. Re-resolved within the declared ranges across the workspace.
+- **`apps/web` fallout from the dependency fix:** `@supabase/ssr@0.5.2` (pinned `^0.5.0`) was ~65 minor versions behind `@supabase/supabase-js@2.110.1`; its `createServerClient` generics didn't line up with the current `SupabaseClient` type, silently resolving every query's row type to `never` across all 7 pages. Bumped to `^0.12.0`.
+- **`packages/db`:** added generated Supabase types (`database.types.ts`, regenerate via `supabase gen types typescript --local`) and threaded `SupabaseClient<Database>` through every Supabase client in `apps/edge` and `apps/web`, eliminating ~150 `no-unsafe-*`/`as`-cast lint errors in favor of real inference.
+- **Desktop descoped:** `apps/desktop` has no `src-tauri/`, no `tauri.conf.json` — never scaffolded despite being advertised as a shipped surface. Moved to Roadmap in README (architecture diagram + prose), `build` script now only compiles the shared TS stub instead of claiming a `tauri build` that can't succeed.
+- **Tooling:** `.gitleaks.toml` used an old config schema current gitleaks rejects outright (`allowlist.rules` vs `allowlists`) — the security scan has been non-functional since it was added. Fixed the schema; scan now runs clean.
+- **Known gap, not fixed this session:** `rate_limit_take` RPC exists in the DB (migration `0002_rate_limit_take`) and its own doc comment says "called from Edge Functions before any provider call," but no handler calls it — rate limiting is fully unimplemented despite being a README non-negotiable. Left as-is rather than rushed; needs its own pass.
+- **Result:** `pnpm typecheck && pnpm lint && pnpm test && pnpm build` — 14/14, 14/14, 146/146 tests, 10/10, all green (desktop's `build` is now an honest no-Tauri compile step, not a claimed Tauri build).
+
 ### Session 2026-07-08 (evening) — All Edge Functions populated + extension lint clean
 
 - **Edge Functions:** Implement 8 remaining handlers — intel-list, intel-cancel, audit-query, org-llm-config-get, org-llm-config-set, workers-scrape, workers-enrich, workers-analyze

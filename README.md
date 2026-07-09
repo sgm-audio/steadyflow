@@ -3,7 +3,7 @@
 Production-grade, auditable e-commerce growth system.
 
 **Primary platforms:** Shopify + Etsy
-**Roadmap:** Amazon SP-API
+**Roadmap:** Amazon SP-API, Tauri v2 desktop app
 
 ## Non-negotiable constraints
 
@@ -12,20 +12,23 @@ Production-grade, auditable e-commerce growth system.
 - BYOK for all LLM calls (never store keys server-side)
 - Firecrawl primary, Playwright secondary (authenticated flows only)
 - Hunter.io + Tavily for enrichment
-- Tauri v2 desktop app + Chrome MV3 extension sharing a common core package
-- Security: OS keychain, RLS, audit logs, rate limiting, proxy support
+- Chrome MV3 extension + web dashboard sharing a common core package
+  (Tauri v2 desktop shell is roadmap — not yet scaffolded, see `apps/desktop`)
+- Security: OS keychain, RLS, audit logs, proxy support
+  (rate limiting: `rate_limit_take` RPC exists in the DB but no handler calls
+  it yet — not wired up, see CHANGELOG)
 - Engineering: monorepo (Turborepo), tRPC where possible, contract tests, GitHub Actions CI/CD
 - Code must be auditable: every external action logged with user_id, timestamp, input hash, outcome
 
 ## Architecture
 
 ```
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│ Tauri v2 app    │  │ Chrome MV3 ext. │  │ Web Dashboard   │
-│ (desktop)       │  │ (capture)       │  │ (ops view)      │
-└────────┬────────┘  └────────┬────────┘  └────────┬────────┘
-         │                   │                   │
-         └─────── @steadyflow/core (TS, shared) ──┘
+┌─────────────────┐  ┌─────────────────┐
+│ Chrome MV3 ext. │  │ Web Dashboard   │
+│ (capture)       │  │ (ops view)      │
+└────────┬────────┘  └────────┬────────┘
+         │                   │
+         └─── @steadyflow/core (TS, shared) ──┘
                               │
                               ▼
                     Supabase (single source of truth)
@@ -41,6 +44,8 @@ Production-grade, auditable e-commerce growth system.
        (BYOK proxy)       (BYOK proxy)     (BYOK proxy)
 ```
 
+Roadmap: Tauri v2 desktop shell, sharing the same `@steadyflow/core` package.
+
 ## Repo layout
 
 ```
@@ -48,11 +53,11 @@ steadyflow/
 ├── apps/
 │   ├── edge/          # Supabase Edge Functions (BFF + workers)
 │   ├── web/           # Next.js dashboard
-│   ├── desktop/       # Tauri v2 shell
+│   ├── desktop/       # Tauri v2 shell — ROADMAP, not yet scaffolded
 │   └── extension/     # Chrome MV3 capture
 ├── packages/
 │   ├── core/          # Zod schemas, audit hashing, crypto helpers
-│   ├── db/            # Drizzle ORM + RLS SQL
+│   ├── db/            # Generated Supabase types (Drizzle ORM not yet implemented)
 │   ├── sdk/           # Typed BFF client (generated)
 │   ├── contracts/     # OpenAPI / tRPC procedure definitions
 │   ├── llm/           # LLM adapter pattern (Deepseek default)
@@ -74,11 +79,22 @@ pnpm install
 cp .env.local.example .env.local
 # Edit .env.local — DO NOT commit
 
+# Start local Supabase (Postgres + Auth + Edge Functions + Studio)
+supabase start
+# Applies migrations + dev seed automatically. Prints local API URL/keys —
+# apps/edge tests default to the local dev keys already, no copying needed.
+
 # Verify bootstrap
 pnpm typecheck
 pnpm lint
 pnpm test
+pnpm build   # desktop is excluded (roadmap, see apps/desktop/package.json)
 ```
+
+Local Supabase is its own project (`supabase/config.toml` → `project_id =
+"steadyflow"`), independent of any other Supabase project on this machine.
+It is never linked to a remote project by default — running `supabase link`
+or `supabase db push` requires explicitly naming the target project first.
 
 ## BYOK
 
