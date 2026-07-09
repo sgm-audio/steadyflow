@@ -4,22 +4,11 @@
 
 title = "SteadyFlow Gitleaks Config"
 
-[allowlist]
-  description = "Allowed patterns"
-
-  # Allow local dev Supabase keys (non-production, only localhost)
-  [[allowlist.rules]]
-    id = "generic-api-key"
-    description = "Local Supabase dev keys"
-    regexes = [
-      '''sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH''',
-    ]
-
-  # Allow test fixture UUIDs
-  [[allowlist.rules]]
-    id = "generic-api-key"
-    description = "Test fixture UUIDs"
-    regexes = [
-      '''11111111-1111-1111-1111-111111111111''',
-      '''22222222-2222-2222-2222-222222222222''',
-    ]
+# Local dev Supabase keys (non-production, localhost only) + test fixture UUIDs.
+[[allowlists]]
+  description = "Local dev Supabase keys and test fixture UUIDs"
+  regexes = [
+    '''sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH''',
+    '''11111111-1111-1111-1111-111111111111''',
+    '''22222222-2222-2222-2222-222222222222''',
+  ]
