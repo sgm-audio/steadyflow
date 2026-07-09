@@ -4,6 +4,12 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-07-08 (evening) — All Edge Functions populated + extension lint clean
+
+- **Edge Functions:** Implement 8 remaining handlers — intel-list, intel-cancel, audit-query, org-llm-config-get, org-llm-config-set, workers-scrape, workers-enrich, workers-analyze
+- **Extension lint:** Resolve all 91 ESLint errors (no-non-null-assertion, no-misused-promises, no-deprecated, no-unsafe-*, no-floating-promises, no-confusing-void-expression, no-base-to-string)
+- **Cleanup:** Remove stale org-llm-config subdirectories
+
 ### Session 2026-07-08 — Edge Function restructure + lint fixes + extension v0.2.0
 
 - **Restructure:** Move Edge Function `_shared` modules from `apps/edge/` to `supabase/` root

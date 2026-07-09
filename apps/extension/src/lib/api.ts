@@ -37,11 +37,11 @@ export const analyzeShop = async (params: AnalyzeShopParams): Promise<AnalyzeSho
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
-    throw new Error((err as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}`);
+    const err = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } })) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? `HTTP ${res.status}`);
   }
 
-  return res.json();
+  return res.json() as Promise<AnalyzeShopResult>;
 };
 
 /**
@@ -56,5 +56,5 @@ export const getLlmConfig = async () => {
   });
 
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return res.json() as Promise<Record<string, unknown>>;
 };

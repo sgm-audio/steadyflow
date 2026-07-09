@@ -6,8 +6,9 @@
  */
 
 // Listen for messages from background/popup
+// eslint-disable-next-line @typescript-eslint/no-deprecated
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === 'CAPTURE_PAGE') {
+  if ((message as { type?: string }).type === 'CAPTURE_PAGE') {
     const info = extractPageInfo();
     sendResponse(info);
     return false;
@@ -21,7 +22,7 @@ interface PageExtract {
   description: string;
   hasProductGrid: boolean;
   productCount: number;
-  metaTags: Array<{ name: string; content: string }>;
+  metaTags: { name: string; content: string }[];
 }
 
 const extractPageInfo = (): PageExtract => {

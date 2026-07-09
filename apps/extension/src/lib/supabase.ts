@@ -14,13 +14,16 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: {
       async getItem(key: string) {
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         const result = await chrome.storage.local.get(key);
-        return result[key] ?? null;
+        return (result[key] as string | null) ?? null;
       },
       async setItem(key: string, value: string) {
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         await chrome.storage.local.set({ [key]: value });
       },
       async removeItem(key: string) {
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         await chrome.storage.local.remove(key);
       },
     },

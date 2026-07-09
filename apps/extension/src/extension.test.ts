@@ -4,19 +4,23 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 const mockStorage: Record<string, unknown> = {};
 
 beforeAll(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
   (globalThis as Record<string, unknown>).chrome = {
     storage: {
       local: {
-        get: async (keys: string | string[]) => {
+        get: (keys: string | string[]) => {
           const key = Array.isArray(keys) ? keys[0] : keys;
-          return { [key ?? '']: mockStorage[key ?? ''] };
+          return Promise.resolve({ [key ?? '']: mockStorage[key ?? ''] });
         },
-        set: async (items: Record<string, unknown>) => {
+        set: (items: Record<string, unknown>) => {
           Object.assign(mockStorage, items);
+          return Promise.resolve();
         },
-        remove: async (keys: string | string[]) => {
+        remove: (keys: string | string[]) => {
           const key = Array.isArray(keys) ? keys[0] : keys;
+          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
           delete mockStorage[key ?? ''];
+          return Promise.resolve();
         },
       },
     },
@@ -38,6 +42,7 @@ beforeAll(() => {
     notifications: {
       create: vi.fn(),
     },
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
   } as unknown as typeof chrome;
 });
 
@@ -47,14 +52,19 @@ afterAll(() => {
 
 describe('Extension Supabase Auth', () => {
   it('storage set/get roundtrip works', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     await chrome.storage.local.set({ 'test-key': 'test-value' });
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const result = await chrome.storage.local.get('test-key');
     expect(result['test-key']).toBe('test-value');
   });
 
   it('storage remove works', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     await chrome.storage.local.set({ 'rm-key': 'x' });
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     await chrome.storage.local.remove('rm-key');
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const result = await chrome.storage.local.get('rm-key');
     expect(result['rm-key']).toBeUndefined();
   });
