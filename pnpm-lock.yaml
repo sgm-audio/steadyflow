@@ -143,6 +143,9 @@ importers:
       '@steadyflow/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@steadyflow/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@steadyflow/db':
         specifier: workspace:*
         version: link:../../packages/db
