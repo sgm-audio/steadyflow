@@ -51,7 +51,7 @@ describe('analyzeShop', () => {
 
   it('output requires intentId and status', () => {
     const r = analyzeShop.output.safeParse({
-      intentId: '00000000-0000-0000-0000-000000000001',
+      intentId: '00000000-0000-4000-8000-000000000001',
       status: 'queued',
     });
     expect(r.success).toBe(true);
@@ -157,7 +157,7 @@ describe('orgLlmConfig', () => {
 describe('intentCancel', () => {
   it('requires intentId', () => {
     const r = intentCancel.input.safeParse({
-      intentId: '00000000-0000-0000-0000-000000000001',
+      intentId: '00000000-0000-4000-8000-000000000001',
     });
     expect(r.success).toBe(true);
   });

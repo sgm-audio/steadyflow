@@ -42,10 +42,10 @@ describe('SteadyFlowError', () => {
       code: 'VALIDATION_FAILED',
       message: 'Invalid input',
       details: { field: 'url' },
-      requestId: '00000000-0000-0000-0000-000000000001',
+      requestId: '00000000-0000-4000-8000-000000000001',
     });
     expect(e.details).toEqual({ field: 'url' });
-    expect(e.requestId).toBe('00000000-0000-0000-0000-000000000001');
+    expect(e.requestId).toBe('00000000-0000-4000-8000-000000000001');
   });
 
   it('rejects empty message', () => {

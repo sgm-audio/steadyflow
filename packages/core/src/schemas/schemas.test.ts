@@ -31,7 +31,7 @@ describe('Shop', () => {
   it('parses a Shopify shop', () => {
     const s = Shop.parse({
       platform: 'shopify',
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '00000000-0000-4000-8000-000000000001',
       handle: 'demo-store',
       domain: 'demo.myshopify.com',
       name: 'Demo',
@@ -43,7 +43,7 @@ describe('Shop', () => {
   it('parses an Etsy shop', () => {
     const s = Shop.parse({
       platform: 'etsy',
-      id: '00000000-0000-0000-0000-000000000002',
+      id: '00000000-0000-4000-8000-000000000002',
       handle: 'demo-shop',
       name: 'Demo',
       capturedAt: new Date().toISOString(),
@@ -55,7 +55,7 @@ describe('Shop', () => {
     expect(() =>
       Shop.parse({
         platform: 'amazon',
-        id: '00000000-0000-0000-0000-000000000003',
+        id: '00000000-0000-4000-8000-000000000003',
         handle: 'x',
         name: 'X',
         capturedAt: new Date().toISOString(),
@@ -73,7 +73,7 @@ describe('Shop', () => {
     expect(() =>
       ShopifyShop.parse({
         platform: 'shopify',
-        id: '00000000-0000-0000-0000-000000000001',
+        id: '00000000-0000-4000-8000-000000000001',
         handle: 'x',
         domain: 'x',
         name: 'X',
@@ -87,7 +87,7 @@ describe('Shop', () => {
     expect(() =>
       EtsyShop.parse({
         platform: 'etsy',
-        id: '00000000-0000-0000-0000-000000000001',
+        id: '00000000-0000-4000-8000-000000000001',
         handle: 'x',
         name: 'X',
         capturedAt: new Date().toISOString(),
@@ -100,7 +100,7 @@ describe('Shop', () => {
 describe('Product', () => {
   it('parses a minimal product', () => {
     const p = Product.parse({
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '00000000-0000-4000-8000-000000000001',
       platform: 'shopify',
       externalId: 'gid://shopify/Product/1',
       title: 'Mug',
@@ -114,7 +114,7 @@ describe('Product', () => {
   it('rejects negative price', () => {
     expect(() =>
       Product.parse({
-        id: '00000000-0000-0000-0000-000000000001',
+        id: '00000000-0000-4000-8000-000000000001',
         platform: 'shopify',
         externalId: '1',
         title: 'Mug',
@@ -129,12 +129,12 @@ describe('Product', () => {
 describe('Insight', () => {
   it('parses a valid insight', () => {
     const i = Insight.parse({
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '00000000-0000-4000-8000-000000000001',
       category: 'pricing',
       severity: 'high',
       title: 'Underpriced',
       body: 'Your average price is 20% below category median.',
-      citations: [{ sourceId: '00000000-0000-0000-0000-000000000002' }],
+      citations: [{ sourceId: '00000000-0000-4000-8000-000000000002' }],
       model: 'deepseek-chat',
       provider: 'deepseek',
       generatedAt: new Date().toISOString(),
@@ -146,9 +146,9 @@ describe('Insight', () => {
 describe('Intent', () => {
   it('parses a queued intent', () => {
     const i = Intent.parse({
-      id: '00000000-0000-0000-0000-000000000001',
-      orgId: '00000000-0000-0000-0000-000000000002',
-      userId: '00000000-0000-0000-0000-000000000003',
+      id: '00000000-0000-4000-8000-000000000001',
+      orgId: '00000000-0000-4000-8000-000000000002',
+      userId: '00000000-0000-4000-8000-000000000003',
       kind: 'analyze_shop',
       status: 'queued',
       inputHash: 'a'.repeat(64),
@@ -163,9 +163,9 @@ describe('Intent', () => {
   it('rejects bad inputHash length', () => {
     expect(() =>
       Intent.parse({
-        id: '00000000-0000-0000-0000-000000000001',
-        orgId: '00000000-0000-0000-0000-000000000002',
-        userId: '00000000-0000-0000-0000-000000000003',
+        id: '00000000-0000-4000-8000-000000000001',
+        orgId: '00000000-0000-4000-8000-000000000002',
+        userId: '00000000-0000-4000-8000-000000000003',
         kind: 'analyze_shop',
         status: 'queued',
         inputHash: 'short',
@@ -181,9 +181,9 @@ describe('Intent', () => {
 describe('AuditEvent', () => {
   it('parses a success event', () => {
     const e = AuditEvent.parse({
-      id: '00000000-0000-0000-0000-000000000001',
-      orgId: '00000000-0000-0000-0000-000000000002',
-      userId: '00000000-0000-0000-0000-000000000003',
+      id: '00000000-0000-4000-8000-000000000001',
+      orgId: '00000000-0000-4000-8000-000000000002',
+      userId: '00000000-0000-4000-8000-000000000003',
       action: 'scrape.firecrawl',
       outcome: 'success',
       inputHash: 'a'.repeat(64),
