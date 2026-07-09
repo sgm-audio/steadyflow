@@ -477,6 +477,8 @@ export type Database = {
           retry_after_seconds: number
         }[]
       }
+      unwrap_dek: { Args: { p_wrapped: string }; Returns: string }
+      wrap_dek: { Args: { p_dek: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
