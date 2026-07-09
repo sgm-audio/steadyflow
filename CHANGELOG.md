@@ -4,6 +4,16 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-07-09 (later) — BYOK key entry form + local worker loop
+
+- **Worker loop:** nothing scheduled workers-scrape/workers-analyze/workers-enrich locally (no pg_cron, no scheduler anywhere) — confirmed live, 19 stale q:scrape messages had piled up. Added `apps/edge/scripts/worker-loop.ts` (`pnpm worker:loop`), a simple interval poller. Verified against the real local stack: drained the backlog, flipped 3 intents to succeeded.
+- **`@steadyflow/crypto` implemented** (was a bare placeholder): `wrapProviderKey`/`unwrapProviderKey` — a fresh random DEK (AES-256-GCM) wraps the raw provider key, a passphrase-derived key (Argon2id, `@noble/hashes`, OWASP 2024 params) wraps the DEK. Passphrase and raw DEK never leave the browser. 5 tests including a real round-trip and a wrong-passphrase-rejects check.
+- **Server-side KEK layer:** new migration `20260109000006_dek_pgsodium_wrap.sql` adds `wrap_dek()`/`unwrap_dek()` — SECURITY DEFINER functions that add a third encryption layer (pgsodium, server KEK) on top of the client's passphrase-wrapped DEK before it's persisted. Granted to `authenticated` + `service_role`.
+- **`supabase/scripts/setup-kek.sql` was broken:** called `pgsodium.create_key('steadyflow-kek')` — wrong argument order for the installed pgsodium 3.x (`name` is the 2nd positional arg, not 1st; also needs `grant pgsodium_keyholder` first, which requires `supabase_admin`, not the `postgres` role migrations run as — so that grant can't live in a migration either). Fixed and verified against the real local KEK.
+- **New:** `/keys/[provider]` — the BYOK key-entry form (was a dead link, flagged in the previous session). `/api/keys` route handler wraps up the flow: validates input, adds the pgsodium layer via RPC, upserts `keys_envelopes`. Discovered along the way that PostgREST expects `bytea` RPC/column values in Postgres's native `\x<hex>` text format, not base64 — verified empirically before writing the conversion helper.
+- **Verified live, not just unit-tested:** logged in as the seeded dev user, wrapped a real key client-side, POSTed through `/api/keys`, then independently unwrapped the stored envelope (pgsodium RPC + passphrase layer) and confirmed it recovers the exact original key. Wrong passphrase correctly rejected.
+- **Known inconsistency, not fixed:** `apps/edge`'s `keysSet` handler (the tested BFF/edge-function path) still stores the client-wrapped blob directly, without calling `wrap_dek()`. Nothing in the web app or extension actually calls that edge function today — `/api/keys` is the real, reachable path — so this was left alone rather than expanding scope further.
+
 ### Session 2026-07-09 — Full gate green: Supabase identity fix, edge typed + audited, desktop descoped
 
 - **Supabase identity fix (root cause of all edge test failures):** local `supabase/config.toml` had `project_id = "shopicunt"` and a remote link to an unrelated `making-madi` project — leftover scaffold, never renamed. Corrected to `project_id = "steadyflow"`, cleared the stale local link cache, removed the mis-named `supabase_*_shopicunt` containers, and started a clean `supabase_*_steadyflow` stack. This alone fixed 12 of the 13 failing edge integration tests.
