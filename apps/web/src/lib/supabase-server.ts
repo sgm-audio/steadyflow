@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-deprecated */
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import type { Database } from '@steadyflow/db';
 
 const getEnv = (key: string): string => {
   const val = process.env[key];
@@ -13,7 +13,7 @@ const getEnv = (key: string): string => {
 export const createClient = async () => {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     getEnv('NEXT_PUBLIC_SUPABASE_URL'),
     getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     {

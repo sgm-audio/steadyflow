@@ -12,19 +12,18 @@ export default async function IntentsPage() {
 
   // Get org ID
   const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
-  const orgId = (member as { org_id?: string })?.org_id;
+  const orgId = member?.org_id;
 
   // Get recent intents
-  let intents: Array<Record<string, unknown>> = [];
-  if (orgId) {
-    const { data } = await supabase
-      .from('intents')
-      .select('id, kind, status, input_hash, created_at')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    intents = data ?? [];
-  }
+  const { data: intentsData } = orgId
+    ? await supabase
+        .from('intents')
+        .select('id, kind, status, input_hash, created_at')
+        .eq('org_id', orgId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+    : { data: [] };
+  const intents = intentsData ?? [];
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -53,16 +52,16 @@ export default async function IntentsPage() {
             </thead>
             <tbody>
               {intents.map((intent) => (
-                <tr key={intent.id as string} style={{ borderBottom: '1px solid #27272a' }}>
-                  <td style={{ padding: '0.5rem' }}>{String(intent.kind)}</td>
+                <tr key={intent.id} style={{ borderBottom: '1px solid #27272a' }}>
+                  <td style={{ padding: '0.5rem' }}>{intent.kind}</td>
                   <td style={{ padding: '0.5rem' }}>
-                    <StatusBadge status={String(intent.status)} />
+                    <StatusBadge status={intent.status} />
                   </td>
                   <td style={{ padding: '0.5rem', fontSize: '0.875rem', color: '#a1a1aa' }}>
-                    {new Date(intent.created_at as string).toLocaleString()}
+                    {new Date(intent.created_at).toLocaleString()}
                   </td>
                   <td style={{ padding: '0.5rem' }}>
-                    <a href={`/intents/${intent.id as string}`}>View</a>
+                    <a href={`/intents/${intent.id}`}>View</a>
                   </td>
                 </tr>
               ))}

@@ -17,7 +17,7 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
     .eq('id', id)
     .single();
 
-  if (error || !intent) notFound();
+  if (error) notFound();
 
   // Get linked insights
   const { data: insights } = await supabase
@@ -30,32 +30,32 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
       <header style={{ marginBottom: '2rem' }}>
         <a href="/intents">← Back to Intents</a>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.5rem' }}>
-          Intent: {String(intent.kind)}
+          Intent: {intent.kind}
         </h1>
       </header>
 
       <div style={{ display: 'grid', gap: '1rem', maxWidth: 800 }}>
         <DetailRow label="Status">
-          <StatusBadge status={String(intent.status)} />
+          <StatusBadge status={intent.status} />
         </DetailRow>
-        <DetailRow label="Created" value={new Date(intent.created_at as string).toLocaleString()} />
-        <DetailRow label="Updated" value={new Date(intent.updated_at as string).toLocaleString()} />
-        <DetailRow label="Input Hash" value={(intent.input_hash as string)?.slice(0, 16) + '...'} />
+        <DetailRow label="Created" value={new Date(intent.created_at).toLocaleString()} />
+        <DetailRow label="Updated" value={new Date(intent.updated_at).toLocaleString()} />
+        <DetailRow label="Input Hash" value={intent.input_hash.slice(0, 16) + '...'} />
         {intent.error_message ? (
-          <DetailRow label="Error" value={String(intent.error_message)} />
+          <DetailRow label="Error" value={intent.error_message} />
         ) : null}
       </div>
 
       {insights && insights.length > 0 && (
         <div style={{ marginTop: '2rem' }}>
           <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>Insights ({insights.length})</h2>
-          {insights.map((ins: Record<string, unknown>) => (
-            <div key={ins.id as string} style={{
+          {insights.map((ins) => (
+            <div key={ins.id} style={{
               padding: '1rem', marginBottom: '1rem',
               background: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem',
             }}>
-              <h3 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{String(ins.title)}</h3>
-              <p style={{ fontSize: '0.875rem', color: '#a1a1aa' }}>{String(ins.body).slice(0, 200)}...</p>
+              <h3 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{ins.title}</h3>
+              <p style={{ fontSize: '0.875rem', color: '#a1a1aa' }}>{ins.body.slice(0, 200)}...</p>
             </div>
           ))}
         </div>

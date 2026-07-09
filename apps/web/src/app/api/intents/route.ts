@@ -7,9 +7,13 @@ import { createClient } from '../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { redirect } from 'next/navigation';
 
-export async function GET() {
+export function GET() {
   redirect('/intents');
 }
+
+// Form fields must be actual strings, not File uploads.
+const formString = (value: FormDataEntryValue | null, fallback: string): string =>
+  typeof value === 'string' ? value : fallback;
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -17,15 +21,15 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const form = await request.formData();
-  const platform = String(form.get('platform') ?? 'shopify');
-  const url = String(form.get('url') ?? '');
-  const idempotencyKey = String(form.get('idempotencyKey') ?? `web-${Date.now()}`);
+  const platform = formString(form.get('platform'), 'shopify');
+  const url = formString(form.get('url'), '');
+  const idempotencyKey = formString(form.get('idempotencyKey'), `web-${Date.now()}`);
 
   if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 });
 
   // Get org ID
   const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
-  const orgId = (member as { org_id?: string })?.org_id;
+  const orgId = member?.org_id;
   if (!orgId) return NextResponse.json({ error: 'No org' }, { status: 400 });
 
   // Hash input
@@ -50,7 +54,7 @@ export async function POST(request: Request) {
     if (error.code === '23505') {
       // Duplicate — redirect to existing
       const { data: existing } = await supabase.from('intents').select('id').eq('org_id', orgId).eq('idempotency_key', idempotencyKey).single();
-      if (existing) return NextResponse.redirect(new URL(`/intents/${(existing as { id: string }).id}`, request.url));
+      if (existing) return NextResponse.redirect(new URL(`/intents/${existing.id}`, request.url));
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -59,10 +63,10 @@ export async function POST(request: Request) {
   await supabase.rpc('enqueue_message', {
     p_queue_name: 'q:scrape',
     p_message: {
-      intentId: (intent as { id: string }).id,
+      intentId: intent.id,
       orgId, platform, url, requiresAuth: false,
     },
   });
 
-  return NextResponse.redirect(new URL(`/intents/${(intent as { id: string }).id}`, request.url));
+  return NextResponse.redirect(new URL(`/intents/${intent.id}`, request.url));
 }

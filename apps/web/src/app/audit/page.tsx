@@ -7,14 +7,16 @@ export default async function AuditPage() {
   if (!session) redirect('/login');
 
   const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
-  const orgId = (member as { org_id?: string })?.org_id;
+  const orgId = member?.org_id;
 
-  const { data: logs } = await supabase
-    .from('audit_log')
-    .select('*')
-    .eq('org_id', orgId)
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const { data: logs } = orgId
+    ? await supabase
+        .from('audit_log')
+        .select('*')
+        .eq('org_id', orgId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+    : { data: [] };
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -33,14 +35,14 @@ export default async function AuditPage() {
           </tr>
         </thead>
         <tbody>
-          {(logs ?? []).map((log: Record<string, unknown>) => (
-            <tr key={log.id as string} style={{ borderBottom: '1px solid #27272a' }}>
-              <td style={{ padding: '0.5rem', fontSize: '0.875rem' }}>{String(log.action)}</td>
-              <td style={{ padding: '0.5rem' }}>{String(log.outcome)}</td>
-              <td style={{ padding: '0.5rem', fontSize: '0.875rem' }}>{String(log.provider ?? '-')}</td>
-              <td style={{ padding: '0.5rem', fontSize: '0.875rem' }}>{String(log.duration_ms)}ms</td>
+          {(logs ?? []).map((log) => (
+            <tr key={log.id} style={{ borderBottom: '1px solid #27272a' }}>
+              <td style={{ padding: '0.5rem', fontSize: '0.875rem' }}>{log.action}</td>
+              <td style={{ padding: '0.5rem' }}>{log.outcome}</td>
+              <td style={{ padding: '0.5rem', fontSize: '0.875rem' }}>{log.provider ?? '-'}</td>
+              <td style={{ padding: '0.5rem', fontSize: '0.875rem' }}>{log.duration_ms}ms</td>
               <td style={{ padding: '0.5rem', fontSize: '0.75rem', color: '#a1a1aa' }}>
-                {new Date(log.created_at as string).toLocaleString()}
+                {new Date(log.created_at).toLocaleString()}
               </td>
             </tr>
           ))}

@@ -2,6 +2,11 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
+
+const LoginErrorResponse = z.object({
+  error: z.object({ message: z.string() }).optional(),
+});
 
 export default function LoginPage() {
   const [email, setEmail] = useState('dev@steadyflow.local');
@@ -21,8 +26,8 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error?.message ?? 'Login failed');
+        const body = LoginErrorResponse.parse(await res.json());
+        throw new Error(body.error?.message ?? 'Login failed');
       }
       router.push('/dashboard');
       router.refresh();
@@ -39,13 +44,13 @@ export default function LoginPage() {
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem', textAlign: 'center' }}>
           SteadyFlow
         </h1>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={(e) => { void handleSubmit(e); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Email</label>
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); }}
               required
               style={{ width: '100%' }}
             />
@@ -55,7 +60,7 @@ export default function LoginPage() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); }}
               required
               style={{ width: '100%' }}
             />

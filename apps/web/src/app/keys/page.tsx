@@ -7,12 +7,14 @@ export default async function KeysPage() {
   if (!session) redirect('/login');
 
   const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
-  const orgId = (member as { org_id?: string })?.org_id;
+  const orgId = member?.org_id;
 
-  const { data: keys } = await supabase.from('keys_envelopes').select('provider, created_at, rotated_at').eq('org_id', orgId);
+  const { data: keys } = orgId
+    ? await supabase.from('keys_envelopes').select('provider, created_at, rotated_at').eq('org_id', orgId)
+    : { data: [] };
 
   const allProviders = ['firecrawl', 'hunter', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible'];
-  const configured = new Set((keys ?? []).map((k: { provider: string }) => k.provider));
+  const configured = new Set((keys ?? []).map((k) => k.provider));
 
   return (
     <div style={{ padding: '2rem' }}>
