@@ -16,12 +16,12 @@
     "@steadyflow/core": "workspace:*",
     "@steadyflow/sdk": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
-    "zod": "^3.23.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.25",
     "@types/chrome": "^0.0.270",
-    "typescript": "^5.5.4",
+    "typescript": "^5.9.3",
     "vite": "^5.4.0",
     "vitest": "^2.0.5"
   }

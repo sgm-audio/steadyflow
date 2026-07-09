@@ -13,12 +13,13 @@
   },
   "dependencies": {
     "@steadyflow/core": "workspace:*",
+    "@steadyflow/db": "workspace:*",
     "@steadyflow/llm": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
-    "zod": "^3.23.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
+    "typescript": "^5.9.3",
     "vitest": "^2.0.5"
   }
 }
