@@ -16,18 +16,14 @@ supabase init
 supabase link --project-ref <your-project-ref>
 ```
 
-### 1.2 Configure secrets
-Add to Supabase Dashboard → Project Settings → Edge Functions → Secrets:
-```
-SUPABASE_KEK_ID=<pgsodium-key-id>
-```
-
-Generate the KEK:
+### 1.2 Generate the KEK
+Run once, in Supabase Dashboard → SQL Editor (see `supabase/scripts/setup-kek.sql`):
 ```sql
--- In Supabase SQL Editor
-select pgsodium.create_key('steadyflow-kek');
--- Copy the returned UUID to SUPABASE_KEK_ID
+grant pgsodium_keyholder to postgres;
+select pgsodium.create_key(key_type => 'aead-ietf', name => 'steadyflow-kek');
 ```
+No secret/env var to copy anywhere — `wrap_dek()`/`unwrap_dek()` (see migration
+`20260109000006_dek_pgsodium_wrap.sql`) look the key up by name at call time.
 
 ### 1.3 Apply migrations
 ```bash
