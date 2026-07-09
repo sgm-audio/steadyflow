@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "next dev",
     "build": "next build",
     "lint": "eslint src/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
