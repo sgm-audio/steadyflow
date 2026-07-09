@@ -83,7 +83,7 @@ describe('Zod Input Fuzz', () => {
 
     it('rejects nested object bombs', () => {
       const bomb: Record<string, unknown> = { platform: 'shopify', url: 'https://x.com', idempotencyKey: 'k1' };
-      (bomb as Record<string, unknown>).__proto__ = { evil: true };
+      bomb.__proto__ = { evil: true };
       const r = PlatformUrl.safeParse(bomb);
       expect(r.success).toBe(true); // Zod ignores prototype pollution
     });

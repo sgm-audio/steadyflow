@@ -5,12 +5,14 @@
  * Worker functions: pgmq consumers that drive the analysis pipeline.
  */
 
+import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, Json } from '@steadyflow/db';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 export interface WorkerCtx {
-  supabase: SupabaseClient;
+  supabase: SupabaseClient<Database>;
   orgId: string;
 }
 
@@ -21,24 +23,61 @@ const sha256 = async (input: string): Promise<string> => {
     .join('');
 };
 
+// Matches the generated `Json` type — lets Zod prove a value is safe to
+// write into a jsonb column instead of `as Json` casting past the compiler.
+const JsonValue: z.ZodType<Json> = z.lazy(() =>
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(JsonValue), z.record(z.string(), JsonValue)]),
+);
+
+// `dequeue_message` is declared `returns jsonb` in Postgres, so Supabase
+// codegen can only give us `Json`. Parse the pgmq envelope + per-queue
+// payload shape at this boundary instead of `as` casting blind trust.
+const QueueEnvelope = z.object({
+  msg_id: z.number(),
+  message: z.unknown(),
+});
+
+const ScrapeMessage = z.object({
+  intentId: z.string(),
+  url: z.string(),
+  platform: z.string().optional(),
+});
+
+const AnalyzeMessage = z.object({
+  intentId: z.string(),
+  sourceId: z.string(),
+});
+
+const LlmInsightsResponse = z.object({
+  insights: z.array(z.unknown()).default([]),
+});
+
+const InsightItem = z.object({
+  category: z.string().default('positioning'),
+  severity: z.string().default('medium'),
+  title: z.string().default('Analysis result'),
+  body: z.string().default('No details'),
+  citations: z.array(JsonValue).default([]),
+});
+
 // ── Proxy: Firecrawl ───────────────────────────────────────────────────────
 
 export const proxyFirecrawl = async (
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   orgId: string,
   url: string,
-): Promise<{ markdown: string; metadata: Record<string, unknown> }> => {
-  const { error } = await supabase
+): Promise<{ markdown: string; metadata: Json }> => {
+  await supabase
     .from('keys_envelopes')
     .select('provider')
     .eq('org_id', orgId)
     .eq('provider', 'firecrawl')
     .single();
 
-  if (error) throw new Error('Firecrawl key not configured');
-
   // In production: unwrap key via pgsodium, call Firecrawl API, zero key.
-  // For MVP: return placeholder (actual scraping requires a real key).
+  // For MVP: always return placeholder, key configured or not — same
+  // fallback behavior as proxyHunter/proxyTavily, so the scrape->analyze
+  // pipeline completes end to end before any provider key is wired up.
   return {
     markdown: `# Scraped content for ${url}\n\nPlaceholder — configure Firecrawl API key to enable scraping.`,
     metadata: { url, scrapedAt: new Date().toISOString() },
@@ -48,7 +87,7 @@ export const proxyFirecrawl = async (
 // ── Proxy: Hunter.io ────────────────────────────────────────────────────────
 
 export const proxyHunter = async (
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   orgId: string,
   _domain: string,
 ): Promise<Record<string, unknown>> => {
@@ -66,7 +105,7 @@ export const proxyHunter = async (
 // ── Proxy: Tavily ───────────────────────────────────────────────────────────
 
 export const proxyTavily = async (
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   orgId: string,
   _query: string,
 ): Promise<Record<string, unknown>> => {
@@ -84,7 +123,7 @@ export const proxyTavily = async (
 // ── Proxy: LLM ──────────────────────────────────────────────────────────────
 
 export const proxyLlm = async (
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   orgId: string,
   prompt: string,
   model?: string,
@@ -95,19 +134,19 @@ export const proxyLlm = async (
     .eq('id', orgId)
     .single();
 
-  if (orgError || !org) throw new Error('Org not found');
+  if (orgError) throw new Error('Org not found');
 
-  const defaultModel = model ?? (org as { default_llm_model: string }).default_llm_model;
-  const { error } = await supabase
+  const defaultModel = model ?? org.default_llm_model;
+  await supabase
     .from('keys_envelopes')
     .select('provider')
     .eq('org_id', orgId)
-    .eq('provider', (org as { default_llm_provider: string }).default_llm_provider)
+    .eq('provider', org.default_llm_provider)
     .single();
 
-  if (error) throw new Error(`LLM key not configured for ${(org as { default_llm_provider: string }).default_llm_provider}`);
-
   // In production: unwrap key, call LLM API, zero key.
+  // For MVP: always return placeholder, key configured or not — see
+  // proxyFirecrawl for the same rationale.
   // For MVP: return placeholder analysis.
   return JSON.stringify({
     insights: [
@@ -131,10 +170,12 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
 
   if (deqError || !msg) return;
 
-  const payload = (msg as { message?: { intentId?: string; orgId?: string; url?: string; platform?: string } }).message;
-  if (!payload?.url || !payload?.intentId) return;
+  const envelope = QueueEnvelope.safeParse(msg);
+  if (!envelope.success) return;
+  const payload = ScrapeMessage.safeParse(envelope.data.message);
+  if (!payload.success) return;
 
-  const { intentId, url } = payload;
+  const { intentId, url, platform } = payload.data;
 
   await ctx.supabase.from('intents').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', intentId);
 
@@ -147,7 +188,7 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
     const { data: source } = await ctx.supabase.from('sources').insert({
       org_id: ctx.orgId,
       intent_id: intentId,
-      platform: payload.platform ?? 'shopify',
+      platform: platform ?? 'shopify',
       url,
       url_hash: urlHash,
       raw_markdown: result.markdown,
@@ -160,8 +201,8 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
         p_message: {
           intentId,
           orgId: ctx.orgId,
-          sourceId: (source as { id: string }).id,
-          platform: payload.platform,
+          sourceId: source.id,
+          platform,
         },
       });
     }
@@ -176,7 +217,7 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
 
     await ctx.supabase.rpc('archive_message', {
       p_queue_name: 'q:scrape',
-      p_msg_id: (msg as { msg_id: number }).msg_id,
+      p_msg_id: envelope.data.msg_id,
     });
   } catch (err) {
     await ctx.supabase.from('intents').update({
@@ -196,10 +237,13 @@ export const workerEnrich = async (ctx: WorkerCtx): Promise<void> => {
   });
   if (error || !msg) return;
 
+  const envelope = QueueEnvelope.safeParse(msg);
+  if (!envelope.success) return;
+
   // Post-MVP: call proxyHunter + proxyTavily
   await ctx.supabase.rpc('archive_message', {
     p_queue_name: 'q:enrich',
-    p_msg_id: (msg as { msg_id: number }).msg_id,
+    p_msg_id: envelope.data.msg_id,
   });
 };
 
@@ -211,10 +255,12 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
   });
   if (error || !msg) return;
 
-  const payload = (msg as { message?: { intentId?: string; orgId?: string; sourceId?: string; platform?: string } }).message;
-  if (!payload?.intentId || !payload?.sourceId) return;
+  const envelope = QueueEnvelope.safeParse(msg);
+  if (!envelope.success) return;
+  const payload = AnalyzeMessage.safeParse(envelope.data.message);
+  if (!payload.success) return;
 
-  const { intentId, sourceId } = payload;
+  const { intentId, sourceId } = payload.data;
 
   try {
     const { data: source, error: srcError } = await ctx.supabase
@@ -223,29 +269,31 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
       .eq('id', sourceId)
       .single();
 
-    if (srcError || !source) throw new Error('Source not found');
+    if (srcError) throw new Error('Source not found');
 
-    const prompt = `Analyze this Shopify store page content. Return JSON with insights array.\n\nContent: ${(source as { raw_markdown?: string }).raw_markdown?.slice(0, 8000) ?? '(empty)'}`;
+    const prompt = `Analyze this Shopify store page content. Return JSON with insights array.\n\nContent: ${source.raw_markdown?.slice(0, 8000) ?? '(empty)'}`;
     const llmResponse = await proxyLlm(ctx.supabase, ctx.orgId, prompt);
 
     let insights: unknown[] = [];
     try {
-      const parsed: unknown = JSON.parse(llmResponse);
-      insights = (parsed as { insights?: unknown[] }).insights ?? [];
+      const parsedResponse: unknown = JSON.parse(llmResponse);
+      insights = LlmInsightsResponse.parse(parsedResponse).insights;
     } catch {
       // Parse failure — no insights
     }
 
-    for (const ins of insights.slice(0, 5)) {
-      const i = ins as Record<string, unknown>;
+    for (const raw of insights.slice(0, 5)) {
+      const parsedItem = InsightItem.safeParse(raw);
+      if (!parsedItem.success) continue;
+      const i = parsedItem.data;
       await ctx.supabase.from('insights').insert({
         org_id: ctx.orgId,
         intent_id: intentId,
-        category: String(i.category ?? 'positioning'),
-        severity: String(i.severity ?? 'medium'),
-        title: String(i.title ?? 'Analysis result').slice(0, 200),
-        body: String(i.body ?? 'No details').slice(0, 5000),
-        citations: (i.citations as unknown[]) ?? [],
+        category: i.category,
+        severity: i.severity,
+        title: i.title.slice(0, 200),
+        body: i.body.slice(0, 5000),
+        citations: i.citations,
         model: 'deepseek-chat',
         provider: 'deepseek',
         generated_at: new Date().toISOString(),
@@ -266,7 +314,7 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
 
     await ctx.supabase.rpc('archive_message', {
       p_queue_name: 'q:analyze',
-      p_msg_id: (msg as { msg_id: number }).msg_id,
+      p_msg_id: envelope.data.msg_id,
     });
   } catch (err) {
     await ctx.supabase.from('intents').update({

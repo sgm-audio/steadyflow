@@ -16,26 +16,34 @@
 
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@steadyflow/db';
+import { redactSecrets, hashObject } from '@steadyflow/core';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-export const hashInput = async (obj: unknown): Promise<string> => {
-  const hashBuffer = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(JSON.stringify(obj)),
-  );
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-};
+/** Redact secret-shaped keys before hashing — never hash raw provider keys into the audit log. */
+export const hashInput = (obj: unknown): string => hashObject(redactSecrets(obj));
 
 export interface HandlerCtx {
   req: Request;
-  supabase: SupabaseClient;
+  supabase: SupabaseClient<Database>;
   userId: string;
   orgId: string;
   body: unknown;
 }
+
+/** Fire-and-forget audit write — logs to console.error on failure instead of swallowing it. */
+const auditInsert = (
+  supabase: SupabaseClient<Database>,
+  row: Database['public']['Tables']['audit_log']['Insert'],
+): void => {
+  void supabase
+    .from('audit_log')
+    .insert(row)
+    .then(({ error }) => {
+      if (error) console.error('audit_log insert failed:', error.message);
+    });
+};
 
 // ── Zod schemas (mirrored from @steadyflow/core) ───────────────────────────
 
@@ -132,7 +140,7 @@ export const analyzeShop = async (ctx: HandlerCtx): Promise<Response> => {
   if (!parsed.success) return badRequest('Invalid input');
 
   const input = parsed.data;
-  const inputHash = await hashInput({ platform: input.platform, url: input.url });
+  const inputHash = hashInput({ platform: input.platform, url: input.url });
 
   // Create intent
   const { data: intent, error } = await ctx.supabase
@@ -166,21 +174,21 @@ export const analyzeShop = async (ctx: HandlerCtx): Promise<Response> => {
   const { error: qError } = await ctx.supabase.rpc('enqueue_message', {
     p_queue_name: 'q:scrape',
     p_message: {
-      intentId: (intent as { id: string }).id,
+      intentId: intent.id,
       orgId: ctx.orgId,
       platform: input.platform,
       url: input.url,
-      requiresAuth: input.requiresAuth ?? false,
+      requiresAuth: input.requiresAuth,
     },
   });
 
   if (qError) {
-    await ctx.supabase.from('intents').update({ status: 'failed', error_code: 'QUEUE_FAILED', error_message: qError.message }).eq('id', (intent as { id: string }).id);
+    await ctx.supabase.from('intents').update({ status: 'failed', error_code: 'QUEUE_FAILED', error_message: qError.message }).eq('id', intent.id);
     return internal('Failed to queue analysis job');
   }
 
   // Audit
-  ctx.supabase.from('audit_log').insert({
+  auditInsert(ctx.supabase, {
     org_id: ctx.orgId,
     user_id: ctx.userId,
     action: 'intent.create',
@@ -189,9 +197,9 @@ export const analyzeShop = async (ctx: HandlerCtx): Promise<Response> => {
     duration_ms: 0,
     idempotency_key: input.idempotencyKey,
     metadata: {},
-  }).then(() => {}, () => {});
+  });
 
-  return json({ intentId: (intent as { id: string }).id, status: (intent as { status: string }).status });
+  return json({ intentId: intent.id, status: intent.status });
 };
 
 export const listInsights = async (ctx: HandlerCtx): Promise<Response> => {
@@ -256,7 +264,7 @@ export const keysSet = async (ctx: HandlerCtx): Promise<Response> => {
   if (!parsed.success) return badRequest('Invalid input');
 
   const input = parsed.data;
-  const inputHash = await hashInput({ provider: input.provider });
+  const inputHash = hashInput({ provider: input.provider });
 
   const { data, error } = await ctx.supabase
     .from('keys_envelopes')
@@ -276,12 +284,12 @@ export const keysSet = async (ctx: HandlerCtx): Promise<Response> => {
 
   if (error) return internal(`Failed to store key: ${error.message}`);
 
-  ctx.supabase.from('audit_log').insert({
+  auditInsert(ctx.supabase, {
     org_id: ctx.orgId, user_id: ctx.userId,
     action: 'keys.set', outcome: 'success',
     input_hash: inputHash, duration_ms: 0,
     provider: input.provider, metadata: {},
-  }).then(() => {}, () => {});
+  });
 
   return json(data);
 };
@@ -304,25 +312,25 @@ export const keysTest = async (ctx: HandlerCtx): Promise<Response> => {
   const start = Date.now();
 
   // Look up the key envelope
-  const { data: envelope, error } = await ctx.supabase
+  const { error } = await ctx.supabase
     .from('keys_envelopes')
-    .select('*')
+    .select('provider')
     .eq('org_id', ctx.orgId)
     .eq('provider', provider)
     .single();
 
-  if (error || !envelope) return notFound();
+  if (error) return notFound();
 
   // For MVP, just verify the key exists and return a latency measurement.
   // The actual unwrap+test-call is handled by the proxy functions.
   const latencyMs = Date.now() - start;
 
-  ctx.supabase.from('audit_log').insert({
+  auditInsert(ctx.supabase, {
     org_id: ctx.orgId, user_id: ctx.userId,
     action: 'keys.test', outcome: 'success',
-    input_hash: await hashInput({ provider }),
+    input_hash: hashInput({ provider }),
     duration_ms: latencyMs, provider, metadata: {},
-  }).then(() => {}, () => {});
+  });
 
   return json({ provider, ok: true, latencyMs });
 };
@@ -334,7 +342,7 @@ export const orgLlmConfigGet = async (ctx: HandlerCtx): Promise<Response> => {
     .eq('id', ctx.orgId)
     .single();
 
-  if (error || !data) return notFound();
+  if (error) return notFound();
 
   return json({
     provider: data.default_llm_provider,
@@ -363,12 +371,12 @@ export const orgLlmConfigSet = async (ctx: HandlerCtx): Promise<Response> => {
 
   if (error) return internal(error.message);
 
-  ctx.supabase.from('audit_log').insert({
+  auditInsert(ctx.supabase, {
     org_id: ctx.orgId, user_id: ctx.userId,
-    action: 'intent.create', outcome: 'success',
-    input_hash: await hashInput({ provider }),
+    action: 'org_llm_config.set', outcome: 'success',
+    input_hash: hashInput({ provider }),
     duration_ms: 0, metadata: {},
-  }).then(() => {}, () => {});
+  });
 
   return json({
     provider: data.default_llm_provider,
@@ -425,12 +433,12 @@ export const intentCancel = async (ctx: HandlerCtx): Promise<Response> => {
     return internal(error.message);
   }
 
-  ctx.supabase.from('audit_log').insert({
+  auditInsert(ctx.supabase, {
     org_id: ctx.orgId, user_id: ctx.userId,
     action: 'intent.cancel', outcome: 'success',
-    input_hash: await hashInput({ intentId }),
+    input_hash: hashInput({ intentId }),
     duration_ms: 0, metadata: {},
-  }).then(() => {}, () => {});
+  });
 
   return json({ intentId: data.id, status: data.status });
 };

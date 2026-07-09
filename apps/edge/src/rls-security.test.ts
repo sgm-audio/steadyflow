@@ -30,14 +30,15 @@ describe('RLS: Cross-org access prevention', () => {
 
     // Try to update audit_log — RLS restricts to org's rows
     // A non-matching org_id means 0 rows affected, which is secure
-    const { error } = await userA
+    const { data, error } = await userA
       .from('audit_log')
       .update({ action: 'hacked' })
-      .eq('org_id', '00000000-0000-0000-0000-000000000000');
+      .eq('org_id', '00000000-0000-0000-0000-000000000000')
+      .select('id');
 
-    // Secure: either permission denied or no rows matched (both fine)
-    // If no error, it just means 0 rows were updated — still secure
-    expect(error === null || error !== null).toBe(true);
+    // Secure: either permission denied, or 0 rows matched/returned
+    const safe = error !== null || data.length === 0;
+    expect(safe).toBe(true);
   });
 
   it('RLS restricts intent updates to own org (0 rows affected)', async () => {
@@ -53,7 +54,7 @@ describe('RLS: Cross-org access prevention', () => {
       .select('id');
 
     // Secure: either permission denied, or 0 rows matched/returned
-    const safe = error !== null || (data !== null && data.length === 0);
+    const safe = error !== null || data.length === 0;
     expect(safe).toBe(true);
   });
 });
