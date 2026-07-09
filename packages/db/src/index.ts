@@ -1,7 +1,17 @@
 /**
- * @steadyflow/db — Drizzle ORM schema and database client.
+ * @steadyflow/db — generated Supabase database types.
  *
- * Placeholder. Implementation lands in Phase 2.
+ * Drizzle ORM schema/client is not yet implemented; this currently only
+ * exports the generated Postgres -> TS type surface used to type
+ * `SupabaseClient<Database>` in consumers (see apps/edge).
  */
 
-export const PLACEHOLDER = true;
+export type {
+  Json,
+  Database,
+  Tables,
+  TablesInsert,
+  TablesUpdate,
+  Enums,
+  CompositeTypes,
+} from './database.types.js';

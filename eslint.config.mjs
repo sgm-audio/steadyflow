@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/*.config.{js,mjs,cjs,ts}',
       '**/src-tauri/**',
       '**/supabase/functions/**',
+      '**/database.types.ts',
     ],
   },
   js.configs.recommended,
