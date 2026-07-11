@@ -30,7 +30,7 @@ SUPABASE_URL=$(docker exec supabase_db_steadyflow psql -U supabase_admin -d post
 echo ""
 echo "=== Login ==="
 echo "  Email:    dev@steadyflow.local"
-echo "  Password: dev-password-not-for-production"
+echo "  Password: admin"
 echo "  Studio:   http://127.0.0.1:54323"
 echo ""
 echo "=== Commands ==="

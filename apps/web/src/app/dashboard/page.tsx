@@ -64,7 +64,7 @@ export default async function DashboardPage() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const firstName =
-    (session.user.user_metadata?.full_name as string | undefined)?.split(' ')[0] ??
+    (session.user.user_metadata.full_name as string | undefined)?.split(' ')[0] ??
     session.user.email?.split('@')[0] ??
     'there';
 

@@ -6,7 +6,7 @@
 --
 -- Test credentials:
 --   Email: dev@steadyflow.local
---   Password: dev-password-not-for-production
+--   Password: admin
 --   Org: Dev Org
 
 -- Create a test user via Supabase Auth.
@@ -23,7 +23,7 @@ values (
   '11111111-1111-1111-1111-111111111111',
   'authenticated', 'authenticated',
   'dev@steadyflow.local',
-  crypt('dev-password-not-for-production', gen_salt('bf')),
+  crypt('admin', gen_salt('bf')),
   now(),
   '{"provider":"email","providers":["email"]}'::jsonb,
   '{}'::jsonb,

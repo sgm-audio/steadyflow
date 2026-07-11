@@ -1,5 +1,6 @@
 import { createClient } from '../../lib/supabase-server';
 import { redirect } from 'next/navigation';
+import RemoveKeyButton from './RemoveKeyButton';
 
 export default async function KeysPage() {
   const supabase = await createClient();
@@ -37,12 +38,15 @@ export default async function KeysPage() {
                 <span style={{ marginLeft: '0.5rem', color: '#a1a1aa', fontSize: '0.75rem' }}>Not set</span>
               )}
             </div>
-            <a
-              href={`/keys/${provider}`}
-              style={{ fontSize: '0.875rem', padding: '0.25rem 0.75rem', background: '#27272a', borderRadius: '0.25rem' }}
-            >
-              {configured.has(provider) ? 'Update' : 'Add'}
-            </a>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <a
+                href={`/keys/${provider}`}
+                style={{ fontSize: '0.875rem', padding: '0.25rem 0.75rem', background: '#27272a', borderRadius: '0.25rem' }}
+              >
+                {configured.has(provider) ? 'Update' : 'Add'}
+              </a>
+              {configured.has(provider) && <RemoveKeyButton provider={provider} />}
+            </div>
           </div>
         ))}
       </div>
