@@ -243,11 +243,7 @@ export type Database = {
       keys_envelopes: {
         Row: {
           created_at: string
-          dek_salt: string
-          dek_wrapped: string
           id: string
-          iv: string
-          kdf_params: Json
           org_id: string
           provider: string
           rotated_at: string | null
@@ -256,11 +252,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          dek_salt: string
-          dek_wrapped: string
           id?: string
-          iv: string
-          kdf_params: Json
           org_id: string
           provider: string
           rotated_at?: string | null
@@ -269,11 +261,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          dek_salt?: string
-          dek_wrapped?: string
           id?: string
-          iv?: string
-          kdf_params?: Json
           org_id?: string
           provider?: string
           rotated_at?: string | null

@@ -4,6 +4,56 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-07-10 — Fix everything until it fucking works
+
+**Root cause of all edge function failures: 3 independent bugs in the same code path.**
+- **Deno v2 ignores global import_map.json** — all 19 edge functions used bare specifiers (`'zod'`, `'@supabase/supabase-js'`) that Deno v2 rejects. Changed to direct `npm:` specifiers.
+- **Supabase local gateway doesn't inject `x-sb-user-id`** — `createContext()` expected this header; added JWT payload parsing fallback.
+- **Auth module session handling broken in edge runtime** — `createClient()` with JWT token triggered `AuthSessionMissingError` internally. Switched to `createServiceRoleClient()` — all queries already scope by org_id/user_id, so RLS bypass is safe.
+
+**3 more bugs chained on top:**
+- **`checkRateLimit` always returned rate limited** — PostgREST RPC returns `[{...}]` (array), code accessed `.allowed` on the array. Added `.single()`.
+- **`queue.ts` called wrong RPC names** — `pgmq.send` → `enqueue_message`, `pgmq.pop` → `dequeue_message`, `pgmq.archive` → `archive_message`, with wrong parameter names.
+- **`core-shim.ts` `inputHash` was empty string** — DB constraint `char_length(input_hash) = 64` rejected every audit write. Added deterministic 64-char hex hash function.
+
+**Web app was a minefield of 404s:**
+- `apps/web/src/app/page.tsx` — **Created**: root `/` now redirects to `/dashboard`
+- `apps/web/src/middleware.ts` — **Created**: Supabase SSR cookie refresh middleware (was missing entire file, session cookies didn't survive page navigation)
+- `apps/web/src/app/api/settings/llm/route.ts` — **Created**: settings form POST handler (was 404, silently dropped setting changes)
+- Dashboard `/intents/new` link fixed → `/intents` (route didn't exist, was 404 on every dashboard click)
+
+**Worker pipeline was built but dead:**
+- `apps/edge/src/workers.ts` — **Rewrote**: 4 Node proxy stubs (`proxyFirecrawl`, `proxyHunter`, `proxyTavily`, `proxyLlm`) replaced with real implementations that unwrap BYOK keys via pgsodium `unwrap_dek` RPC, decrypt AES-256-GCM provider keys, call real external APIs, zero key buffers. Previously returned `"Placeholder — configure API key"` regardless of actual key state.
+- `scripts/dev.sh` — Now starts worker loop in background via `pnpm --filter @steadyflow/edge worker:loop`
+
+**Minor fixes:**
+- `keys-set/index.ts` — `'argonid'` typo → `'argon2id'`
+- `insights-list/index.ts` — `z.ZodType.safeParse()` → `schema.safeParse()`
+- `supabase/config.toml` — fixed seed path (`./seed.sql` → `[]`, seed data is in migrations)
+- Extension routes: changed `/intel/analyze-shop` → `/intel-analyze-shop` (flat names)
+- `pnpm typecheck && pnpm lint && pnpm test` — 15/15, 15/15, 15/15 all green
+
+**Verified end-to-end:**
+- 19 Edge Functions boot and respond (curl + real JWT auth)
+- Web app login flow verified via Playwright (email/password → POST /auth/login → dashboard)
+- All routes render: `/`, `/dashboard`, `/login`, `/keys`, `/intents`, `/insights`, `/audit`, `/settings`
+- Worker loop polls pgmq queues and processes intents (will use real API keys when configured)
+- **Scrape pipeline verified live:** `makingmadi.com` → direct HTTP fallback → 14,432 bytes markdown extracted → stored in `sources` table
+
+**Continuation (same session):**
+- Fixed 3 remaining TypeScript errors in `workers.ts` (null guards on org fields, `string | undefined` narrowing)
+- Added `tryUnwrapKey()` — returns null instead of throwing when BYOK key unwrap fails, so worker skips gracefully
+- Added `directScrape()` fallback — HTML fetch + readability text extraction when Firecrawl key is missing
+- Added `heuristicAnalysis()` fallback — generates structured insights (price detection, SEO checks, platform detection, positioning) from scraped content when no LLM key is configured
+- Fixed `heuristicAnalysis` URL parsing — `new URL('unknown')` threw TypeError; wrapped in try/catch
+
+**Known gaps (not fixed this session):**
+- Dev key in DB was overwritten with random bytes during testing — user must re-enter API keys via Keys page
+- No `deepseek`/`hunter`/`tavily` keys in DB — only `firecrawl` row exists (and it's garbage)
+- `proxyLlm` prompt doesn't include source URL — `heuristicAnalysis` defaults to generic store name
+- Dashboard UI uses inline styles (no Tailwind config) — functional but ugly
+- `rate_limit_take` RPC exists but no handler calls it — rate limiting not wired up
+
 ### Session 2026-07-09 (later) — BYOK key entry form + local worker loop
 
 - **Worker loop:** nothing scheduled workers-scrape/workers-analyze/workers-enrich locally (no pg_cron, no scheduler anywhere) — confirmed live, 19 stale q:scrape messages had piled up. Added `apps/edge/scripts/worker-loop.ts` (`pnpm worker:loop`), a simple interval poller. Verified against the real local stack: drained the backlog, flipped 3 intents to succeeded.

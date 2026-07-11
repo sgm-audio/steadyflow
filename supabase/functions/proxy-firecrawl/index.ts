@@ -5,7 +5,7 @@
  * Auth: required
  * Rate limit: firecrawl bucket
  */
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import {
   handleCors,
   createContext,

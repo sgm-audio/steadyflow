@@ -5,7 +5,7 @@
  * Auth: required
  */
 
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import {
   handleCors, createContext, ok, badRequest,
 } from '../_shared/context.ts';
@@ -26,10 +26,10 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const raw = Object.fromEntries(url.searchParams);
 
-  const parsed = z.ZodType.safeParse(ListInput, raw);
+  const parsed = ListInput.safeParse(raw);
   if (!parsed.success) return badRequest('Invalid parameters');
 
-  const { category, limit, cursor } = (parsed as { success: true; data: z.infer<typeof ListInput> }).data;
+  const { category, limit, cursor } = parsed.data;
 
   let query = ctx.supabase
     .from('insights')

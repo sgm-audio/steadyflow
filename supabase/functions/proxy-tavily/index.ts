@@ -5,7 +5,7 @@
  * Auth: required
  * Rate limit: tavily bucket
  */
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import {
   handleCors,
   createContext,

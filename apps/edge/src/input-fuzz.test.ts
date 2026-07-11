@@ -19,16 +19,7 @@ const PlatformUrl = z.object({
 
 const KeysSetInput = z.object({
   provider: z.enum(['firecrawl','hunter','tavily','deepseek','nvidia-nim','groq','openai-compatible']),
-  wrappedKey: z.string().min(1),
-  iv: z.string().min(1),
-  dekWrapped: z.string().min(1),
-  dekSalt: z.string().min(1),
-  kdfParams: z.object({
-    algo: z.enum(['argon2id', 'pbkdf2-sha256']),
-    mem: z.number().int().nonnegative(),
-    t: z.number().int().positive(),
-    p: z.number().int().positive(),
-  }),
+  rawKey: z.string().min(1),
 });
 
 const LlmConfigInput = z.object({
@@ -90,27 +81,24 @@ describe('Zod Input Fuzz', () => {
   });
 
   describe('KeysSetInput', () => {
-    it('rejects negative memory cost', () => {
+    it('rejects an empty raw key', () => {
       expect(KeysSetInput.safeParse({
         provider: 'firecrawl',
-        wrappedKey: 'a', iv: 'a', dekWrapped: 'a', dekSalt: 'a',
-        kdfParams: { algo: 'argon2id', mem: -1, t: 2, p: 1 },
+        rawKey: '',
       }).success).toBe(false);
     });
 
-    it('rejects unknown KDF algo', () => {
+    it('rejects an unknown provider', () => {
       expect(KeysSetInput.safeParse({
-        provider: 'firecrawl',
-        wrappedKey: 'a', iv: 'a', dekWrapped: 'a', dekSalt: 'a',
-        kdfParams: { algo: 'bcrypt' as 'argon2id', mem: 0, t: 1, p: 1 },
+        provider: 'not-a-real-provider',
+        rawKey: 'sk-test',
       }).success).toBe(false);
     });
 
-    it('rejects zero iterations', () => {
+    it('rejects a non-string raw key', () => {
       expect(KeysSetInput.safeParse({
         provider: 'firecrawl',
-        wrappedKey: 'a', iv: 'a', dekWrapped: 'a', dekSalt: 'a',
-        kdfParams: { algo: 'argon2id', mem: 0, t: 0, p: 0 },
+        rawKey: 12345,
       }).success).toBe(false);
     });
   });

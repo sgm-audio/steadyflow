@@ -1,6 +1,6 @@
 // Audit log writer. Service-role only.
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { buildAuditEvent, type AuditAction, type AuditOutcome } from './core-shim.ts';
 
 export const writeAudit = async (

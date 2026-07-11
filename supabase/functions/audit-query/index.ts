@@ -5,7 +5,7 @@
  * Auth: required
  */
 
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import {
   handleCors, createContext, ok, badRequest,
 } from '../_shared/context.ts';

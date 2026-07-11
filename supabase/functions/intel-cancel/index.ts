@@ -6,7 +6,7 @@
  * Body: { intentId: string }
  */
 
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import {
   handleCors, createContext, parseInput,
   writeAudit, ok, badRequest, notFound, internalError,

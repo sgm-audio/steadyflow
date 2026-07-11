@@ -148,11 +148,7 @@ describe('keys', () => {
   it('sets and lists a key', async () => {
     const setRes = await keysSet(ctx({
       provider,
-      wrappedKey: 'dGVzdC1rZXk=', // base64 "test-key"
-      iv: 'AAAAAAAAAAAA', // 12 bytes base64
-      dekWrapped: 'dGVzdC1kZWstZW5jcnlwdGVk',
-      dekSalt: 'dGVzdC1zYWx0',
-      kdfParams: { algo: 'argon2id', mem: 19456, t: 2, p: 1 },
+      rawKey: 'sk-test-key',
     }));
 
     expect(setRes.status).toBe(200);

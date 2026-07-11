@@ -4,7 +4,7 @@
  * Standardizes JSON responses, errors, and paginated lists.
  */
 
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import type { SteadyFlowError } from './core-shim.ts';
 import { error as sfError } from './core-shim.ts';
 

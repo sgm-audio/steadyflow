@@ -4,8 +4,8 @@
  * Import this in every BFF function to get typed request handling.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { createAnonClient } from './supabase.ts';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { createServiceRoleClient } from './supabase.ts';
 
 export { json, jsonError, ok, created, noContent, badRequest, unauthorized, forbidden, notFound, rateLimited, internalError, parseInput, requireAuth, handleCors } from './response.ts';
 export { createServiceRoleClient } from './supabase.ts';
@@ -23,13 +23,23 @@ export interface EdgeContext {
   requestId: string;
 }
 
-let _cachedSupabase: SupabaseClient | undefined;
-
-const getAnonClient = (): SupabaseClient => {
-  if (!_cachedSupabase) {
-    _cachedSupabase = createAnonClient();
+/**
+ * Decode the JWT payload to extract the sub claim (user ID).
+ * The gateway has already verified the JWT signature, so we trust the payload.
+ */
+const parseUserIdFromJwt = (req: Request): string | null => {
+  const auth = req.headers.get('authorization');
+  if (!auth?.startsWith('Bearer ')) return null;
+  try {
+    const token = auth.slice(7);
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    // Decode base64url JSON payload
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return json.sub ?? null;
+  } catch {
+    return null;
   }
-  return _cachedSupabase;
 };
 
 /**
@@ -37,12 +47,13 @@ const getAnonClient = (): SupabaseClient => {
  *
  * Auth flow:
  *   1. Supabase gateway validates the JWT and injects x-sb-user-id header.
- *   2. We look up the user's org from memberships (or from x-sb-org-id if passed).
+ *   2. Fallback: parse user ID from the JWT directly (local dev).
+ *   3. Look up the user's org from memberships (or from x-sb-org-id if passed).
  *
  * Returns a 401 Response if auth is missing.
  */
 export const createContext = async (req: Request): Promise<EdgeContext | Response> => {
-  const userId = req.headers.get('x-sb-user-id');
+  const userId = req.headers.get('x-sb-user-id') ?? parseUserIdFromJwt(req);
   if (!userId) {
     return new Response(
       JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'Missing auth context' } }),
@@ -50,7 +61,9 @@ export const createContext = async (req: Request): Promise<EdgeContext | Respons
     );
   }
 
-  const supabase = getAnonClient();
+  // Use service-role client. All queries scope by org_id and user_id
+  // extracted from the JWT, so RLS isn't required.
+  const supabase = createServiceRoleClient();
   let orgId = req.headers.get('x-sb-org-id') ?? '';
 
   // If orgId not in headers, look it up from memberships

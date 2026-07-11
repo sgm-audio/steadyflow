@@ -118,21 +118,8 @@ export const auditQuery = defineProcedure({
 
 export const KeysSetInput = z.object({
   provider: Provider,
-  /** Base64-encoded ciphertext (AES-GCM). */
-  wrappedKey: z.string().min(1),
-  /** Base64-encoded IV. */
-  iv: z.string().min(1),
-  /** Base64-encoded DEK, wrapped with server KEK. */
-  dekWrapped: z.string().min(1),
-  /** Base64-encoded salt for DEK derivation. */
-  dekSalt: z.string().min(1),
-  /** KDF parameters used. */
-  kdfParams: z.object({
-    algo: z.enum(['argon2id', 'pbkdf2-sha256']),
-    mem: z.number().int().nonnegative(),
-    t: z.number().int().positive(),
-    p: z.number().int().positive(),
-  }),
+  /** Raw provider API key. Encrypted server-side with the pgsodium KEK (wrap_dek) before storage — never persisted in plaintext. */
+  rawKey: z.string().min(1),
 });
 export type KeysSetInput = z.infer<typeof KeysSetInput>;
 

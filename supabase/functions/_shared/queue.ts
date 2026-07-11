@@ -5,7 +5,7 @@
  * Workers dequeue with visibility timeout; BFF procedures enqueue.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 export type QueueName = 'q:scrape' | 'q:enrich' | 'q:analyze' | 'q:sync_keys';
 
@@ -18,12 +18,12 @@ export const enqueue = async (
   queue: QueueName,
   message: Record<string, unknown>,
 ): Promise<number> => {
-  const { data, error } = await supabase.rpc('pgmq.send', {
-    queue_name: queue,
-    msg: message,
-  });
-  if (error) throw new Error(`pgmq.send failed for ${queue}: ${error.message}`);
-  return (data as { msg_id: number }).msg_id;
+  const { data, error } = await supabase.rpc('enqueue_message', {
+    p_queue_name: queue,
+    p_message: message,
+  }).single();
+  if (error) throw new Error(`enqueue_message failed for ${queue}: ${error.message}`);
+  return Number(data);
 };
 
 /**
@@ -33,15 +33,15 @@ export const enqueue = async (
 export const dequeue = async (
   supabase: SupabaseClient,
   queue: QueueName,
-  vtSeconds = 300,
+  _vtSeconds = 300,
 ): Promise<{ msgId: number; readCt: number; enqueuedAt: string; vt: string; message: Record<string, unknown> } | null> => {
-  const { data, error } = await supabase.rpc('pgmq.pop', {
-    queue_name: queue,
-  });
-  if (error) throw new Error(`pgmq.pop failed for ${queue}: ${error.message}`);
-  if (!data || (data as unknown[]).length === 0) return null;
+  const { data, error } = await supabase.rpc('dequeue_message', {
+    p_queue_name: queue,
+  }).single();
+  if (error) throw new Error(`dequeue_message failed for ${queue}: ${error.message}`);
+  if (!data) return null;
 
-  const row = (data as unknown[])[0] as {
+  const row = data as {
     msg_id: number;
     read_ct: number;
     enqueued_at: string;
@@ -65,9 +65,9 @@ export const archive = async (
   queue: QueueName,
   msgId: number,
 ): Promise<void> => {
-  const { error } = await supabase.rpc('pgmq.archive', {
-    queue_name: queue,
-    msg_id: msgId,
+  const { error } = await supabase.rpc('archive_message', {
+    p_queue_name: queue,
+    p_msg_id: msgId,
   });
-  if (error) throw new Error(`pgmq.archive failed for ${queue}: ${error.message}`);
+  if (error) throw new Error(`archive_message failed for ${queue}: ${error.message}`);
 };

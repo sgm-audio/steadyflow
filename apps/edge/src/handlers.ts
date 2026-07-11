@@ -72,17 +72,11 @@ export const AuditQuery = z.object({
 
 export const KeysSetInput = z.object({
   provider: z.enum(['firecrawl','hunter','tavily','deepseek','nvidia-nim','groq','openai-compatible']),
-  wrappedKey: z.string().min(1),
-  iv: z.string().min(1),
-  dekWrapped: z.string().min(1),
-  dekSalt: z.string().min(1),
-  kdfParams: z.object({
-    algo: z.enum(['argon2id', 'pbkdf2-sha256']),
-    mem: z.number().int().nonnegative(),
-    t: z.number().int().positive(),
-    p: z.number().int().positive(),
-  }),
+  rawKey: z.string().min(1),
 });
+
+/** Postgres bytea expects native \x<hex> text format, not base64. */
+const textToBytea = (s: string): string => '\\x' + Buffer.from(s, 'utf8').toString('hex');
 
 export const KeysTestInput = z.object({
   provider: z.enum(['firecrawl','hunter','tavily','deepseek','nvidia-nim','groq','openai-compatible']),
@@ -266,17 +260,18 @@ export const keysSet = async (ctx: HandlerCtx): Promise<Response> => {
   const input = parsed.data;
   const inputHash = hashInput({ provider: input.provider });
 
+  const { data: wrappedKey, error: wrapError } = await ctx.supabase.rpc('wrap_dek', {
+    p_dek: textToBytea(input.rawKey),
+  });
+  if (wrapError) return internal(`Failed to encrypt key: ${wrapError.message}`);
+
   const { data, error } = await ctx.supabase
     .from('keys_envelopes')
     .upsert({
       org_id: ctx.orgId,
       user_id: ctx.userId,
       provider: input.provider,
-      wrapped_key: input.wrappedKey,
-      iv: input.iv,
-      dek_wrapped: input.dekWrapped,
-      dek_salt: input.dekSalt,
-      kdf_params: input.kdfParams,
+      wrapped_key: wrappedKey,
       created_at: new Date().toISOString(),
     }, { onConflict: 'org_id, provider' })
     .select('provider, created_at')
