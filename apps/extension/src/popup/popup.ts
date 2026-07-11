@@ -129,7 +129,7 @@ const handleAnalyze = async () => {
     const token = await getToken();
     if (!token) throw new Error('Not authenticated');
 
-    const res = await fetch('http://127.0.0.1:54321/functions/v1/intel/analyze-shop', {
+    const res = await fetch('http://127.0.0.1:54321/functions/v1/intel-analyze-shop', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

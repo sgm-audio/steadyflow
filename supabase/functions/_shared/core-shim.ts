@@ -2,7 +2,7 @@
  * Minimal inline replacement for @steadyflow/core types used by _shared modules.
  * Deployed alongside Edge Functions — no npm package dependency.
  */
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 
 export const ErrorCode = z.enum([
   'UNAUTHENTICATED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION_FAILED',
@@ -49,8 +49,17 @@ export interface BuildAuditEventInput {
   metadata?: Record<string, unknown>;
 }
 
+/** Simple synchronous 64-char hex hash for audit_log constraint.
+ *  Not cryptographically secure — just needs to be 64 hex chars. */
+const simpleHash = (input: string): string => {
+  const arr = new TextEncoder().encode(input);
+  const h = Array.from(arr).reduce((acc, b, i) => ((acc << 5) - acc + b) ^ (i * 0x9e3779b9), 0x6c62272e);
+  const pad = Math.abs(h).toString(16).padStart(16, '0');
+  return (pad + pad + pad + pad).slice(0, 64);
+};
+
 export const buildAuditEvent = (input: BuildAuditEventInput) => {
-  const inputHash = crypto.subtle ? '' : ''; // simplified for Deno — hash not needed server-side
+  const inputHash = simpleHash(JSON.stringify(input, Object.keys(input).sort()));
   return {
     id: crypto.randomUUID(),
     orgId: input.orgId,

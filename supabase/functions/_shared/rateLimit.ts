@@ -1,7 +1,7 @@
 // Per-user token bucket rate limiter.
 // Backed by the rate_limits table; only service_role writes.
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 export interface RateLimitConfig {
   bucket: string;
@@ -48,12 +48,15 @@ export const checkRateLimit = async (
     p_bucket: cfg.bucket,
     p_capacity: cfg.capacity,
     p_refill_per_second: cfg.refillPerSecond,
-  });
+  }).single();
   if (error) {
     // Fail closed on infra errors.
     return { allowed: false, remaining: 0, retryAfterSeconds: 60 };
   }
-  const result = data as { allowed: boolean; remaining: number; retry_after_seconds: number };
+  const result = data as { allowed: boolean; remaining: number; retry_after_seconds: number } | null;
+  if (!result) {
+    return { allowed: false, remaining: 0, retryAfterSeconds: 60 };
+  }
   return {
     allowed: result.allowed,
     remaining: result.remaining,

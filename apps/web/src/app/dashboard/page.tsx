@@ -34,7 +34,7 @@ export default async function DashboardPage() {
         <QuickActionCard
           title="Analyze a Shop"
           description="Submit a Shopify store URL for AI-powered analysis."
-          href="/intents/new"
+          href="/intents"
         />
         <QuickActionCard
           title="Configure Provider Keys"

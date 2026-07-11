@@ -27,7 +27,7 @@ export const analyzeShop = async (params: AnalyzeShopParams): Promise<AnalyzeSho
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
 
-  const res = await fetch(`${API_URL}/intel/analyze-shop`, {
+  const res = await fetch(`${API_URL}/intel-analyze-shop`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -51,7 +51,7 @@ export const getLlmConfig = async () => {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
 
-  const res = await fetch(`${API_URL}/org/llm-config/get`, {
+  const res = await fetch(`${API_URL}/org-llm-config-get`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 

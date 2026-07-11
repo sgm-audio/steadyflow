@@ -13,7 +13,7 @@
  * The returned UUID goes into SUPABASE_KEK_ID env var.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const getEnv = (key: string, fallback: string): string => {
   try {
