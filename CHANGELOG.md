@@ -4,6 +4,28 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-07-11 — BYOK unwrap fix, keys delete action, logout crash, LLM prompt bug
+
+**Audited the web app for personal-use readiness.** Found the BYOK key flow was broken by architecture, not a small bug: keys could be saved via the UI but the background worker could never decrypt them, because the AES key was double-wrapped — once by a random DEK, and that DEK wrapped again by a passphrase-derived key that never left the browser. The unattended worker had no way to remove that second layer, so `tryUnwrapKey` always failed silently and every analysis fell back to the generic heuristic path regardless of what key was configured.
+
+- **`packages/crypto` deleted, passphrase layer dropped.** Since this is a single-user personal deployment rather than a zero-knowledge multi-tenant product, the server's own pgsodium KEK (already used for at-rest encryption via `wrap_dek`/`unwrap_dek`) is now the only encryption layer. `keys_envelopes` schema simplified (migration `20260710000001`): dropped `iv`/`dek_wrapped`/`dek_salt`/`kdf_params`, `wrapped_key` now holds `wrap_dek(raw_key)` directly. Existing rows cleared — keys need re-entering.
+- **`apps/edge/src/workers.ts`:** `tryUnwrapKey` simplified to one unwrap call, no second client-side AES-GCM decrypt.
+- **`apps/web`:** `/keys/[provider]` form and `/api/keys` route send/store the raw key directly; passphrase field removed from the UI.
+- Verified end-to-end against the real local Supabase stack, not just unit tests: entered a key via the actual `/keys` UI, confirmed `unwrap_dek()` recovers the exact original bytes via direct SQL, and drove a full submit → scrape → analyze → insights run to a `succeeded` intent via the real worker loop.
+
+**Follow-up fixes, dispatched to three parallel agents:**
+- **Keys page had no delete action** — only Add/Update. Added `DELETE /api/keys` + a `RemoveKeyButton` client component.
+- **Dead Tailwind classes in `layout.tsx`** — `bg-gray-950`/`text-gray-100`/etc. did nothing since no Tailwind was installed at the time. Dropped them (later superseded by a concurrent dashboard redesign that added real Tailwind v4 — see below).
+- **Analysis prompt never included the source URL.** `workerAnalyze` had `source.url` from the DB but never put it in the LLM prompt; the heuristic no-key fallback extracts the URL by regexing the prompt text, so every fallback insight title read "unknown — Custom Store" regardless of the real site. Fixed, and also fixed insights being mislabeled `provider: 'deepseek'` even when the heuristic (no real LLM) path actually ran — `proxyLlm` now returns `{ content, provider, model }` instead of a bare string.
+
+**Found while manually verifying, not part of the original ask:**
+- **`/logout` crashed with a 500 on every click.** It was a Server Component calling `supabase.auth.signOut()`, which tries to mutate cookies during render — Next.js only allows that in a Route Handler or Server Action. Converted to a GET route handler.
+
+**Other:**
+- Local dev password changed from `dev-password-not-for-production` to `admin` (seed migration, `scripts/dev.sh`, `DEPLOYMENT.md`, RLS test, and the live local DB).
+- Branch had diverged mid-session — a separate dashboard redesign (real Tailwind v4, dark glass aesthetic, Geist fonts) was merged into `main` and then into this branch. Merged it in, resolved the one real conflict (`layout.tsx` — took the redesign's version since the Tailwind classes are no longer dead), fixed a new lint error the redesign introduced, and re-verified the full gate plus a live screenshot to confirm both sets of changes coexist correctly.
+- `pnpm typecheck && pnpm lint && pnpm test` — 13/13 packages green throughout, against the real local Supabase stack.
+
 ### Session 2026-07-10 — Fix everything until it fucking works
 
 **Root cause of all edge function failures: 3 independent bugs in the same code path.**
