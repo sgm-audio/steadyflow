@@ -4,6 +4,13 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-07-11 — pg_cron wired to drain the job queue
+
+- **Root cause of "Intent: analyze_shop, no further output" reports:** confirmed the gap flagged (but not fixed) in the 2026-07-09 session — `worker-loop.ts` only runs in local dev, `apps/edge` isn't a deployed Cloudflare Worker (no `wrangler.toml`, `apps/edge/src/index.ts` is a `// Placeholder` stub), and `supabase/config.toml` had zero cron config. In any environment other than local dev with `pnpm worker:loop` running, queued intents never get dequeued — they sit at `queued`/`running` forever with no `error_message`, which is exactly the bare "Intent: analyze_shop / Status / Created / Updated / Input Hash" the intent detail page renders when it has nothing else to show.
+- **Fix:** new migration `20260111000007_queue_scheduler.sql` enables `pg_cron`/`pg_net` and schedules 10s jobs that HTTP-POST to `workers-scrape`/`workers-enrich`/`workers-analyze`. The base URL + service_role key are read from Vault at call time (`invoke_edge_function()` no-ops silently if unset) rather than hardcoded, since they differ per environment and the key can't be committed. One-time setup (local and hosted) documented in new `supabase/scripts/setup-cron-secrets.sql`, following the existing `setup-kek.sql` convention.
+- **Verified:** ran the migration inside a rolled-back transaction against the live local stack — extensions created, `invoke_edge_function()` created, all three `cron.schedule()` calls succeeded. Did not apply it for real against the shared local dev DB — its migration history already has a version from a concurrent session/worktree not present on this branch, so forcing a repair risked corrupting that session's in-progress state. `worker-loop.ts`'s header comment updated to reflect that pg_cron is now the always-on path, with worker-loop as the zero-setup local alternative.
+- **Not done:** did not run `setup-cron-secrets.sql` against any real project (local or hosted) — needs whoever deploys this to run it once with their actual project URL/service_role key.
+
 ### Session 2026-07-09 (later) — BYOK key entry form + local worker loop
 
 - **Worker loop:** nothing scheduled workers-scrape/workers-analyze/workers-enrich locally (no pg_cron, no scheduler anywhere) — confirmed live, 19 stale q:scrape messages had piled up. Added `apps/edge/scripts/worker-loop.ts` (`pnpm worker:loop`), a simple interval poller. Verified against the real local stack: drained the backlog, flipped 3 intents to succeeded.
