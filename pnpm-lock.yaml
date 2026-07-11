@@ -143,9 +143,6 @@ importers:
       '@steadyflow/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@steadyflow/crypto':
-        specifier: workspace:*
-        version: link:../../packages/crypto
       '@steadyflow/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -221,25 +218,6 @@ importers:
       vitest:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
-
-  packages/crypto:
-    dependencies:
-      '@noble/hashes':
-        specifier: ^1.4.0
-        version: 1.8.0
-      '@steadyflow/core':
-        specifier: workspace:*
-        version: link:../core
-      zod:
-        specifier: ^3.25.76
-        version: 3.25.76
-    devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^2.0.5
-        version: 2.1.9(@types/node@26.1.0)(lightningcss@1.32.0)
 
   packages/db:
     dependencies:
@@ -1139,10 +1117,6 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
-
-  '@noble/hashes@1.8.0':
-    resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
-    engines: {node: ^14.21.3 || >=16}
 
   '@rollup/rollup-android-arm-eabi@4.62.2':
     resolution: {integrity: sha512-6o7ZLZK+BeenkZCFNDXqpbjw9bD6nuWonvS/lwQJp7NoVVxm6p3qE7qQ5jGuBjiFsgvqjD8mZAU5oWxTmbOeOg==}
@@ -3141,8 +3115,6 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@15.5.20':
     optional: true
-
-  '@noble/hashes@1.8.0': {}
 
   '@rollup/rollup-android-arm-eabi@4.62.2':
     optional: true

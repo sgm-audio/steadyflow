@@ -91,26 +91,18 @@ describe('auditQuery', () => {
 });
 
 describe('keysSet', () => {
-  it('requires all envelope fields', () => {
+  it('accepts a provider and raw key', () => {
     const r = keysSet.input.safeParse({
       provider: 'firecrawl',
-      wrappedKey: 'abc',
-      iv: 'def',
-      dekWrapped: 'ghi',
-      dekSalt: 'jkl',
-      kdfParams: { algo: 'argon2id', mem: 19456, t: 2, p: 1 },
+      rawKey: 'sk-test-key',
     });
     expect(r.success).toBe(true);
   });
 
-  it('rejects unknown KDF algo', () => {
+  it('rejects an empty raw key', () => {
     const r = keysSet.input.safeParse({
       provider: 'firecrawl',
-      wrappedKey: 'abc',
-      iv: 'def',
-      dekWrapped: 'ghi',
-      dekSalt: 'jkl',
-      kdfParams: { algo: 'bcrypt', mem: 0, t: 1, p: 1 },
+      rawKey: '',
     });
     expect(r.success).toBe(false);
   });

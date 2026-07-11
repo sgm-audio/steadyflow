@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@steadyflow/core": "workspace:*",
-    "@steadyflow/crypto": "workspace:*",
     "@steadyflow/db": "workspace:*",
     "@steadyflow/sdk": "workspace:*",
     "@supabase/ssr": "^0.12.0",
