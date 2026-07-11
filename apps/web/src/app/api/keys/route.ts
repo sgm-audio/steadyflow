@@ -29,6 +29,10 @@ const KeysSetInput = z.object({
   rawKey: z.string().min(1),
 });
 
+const KeysDeleteInput = z.object({
+  provider: z.enum(PROVIDERS),
+});
+
 /** Postgres bytea expects native \x<hex> text format, not base64. */
 const textToBytea = (s: string): string => '\\x' + Buffer.from(s, 'utf8').toString('hex');
 
@@ -59,6 +63,30 @@ export async function POST(request: Request) {
       wrapped_key: wrappedKey,
       created_at: new Date().toISOString(),
     }, { onConflict: 'org_id, provider' });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: Request) {
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const parsed = KeysDeleteInput.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+  const input = parsed.data;
+
+  const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
+  const orgId = member?.org_id;
+  if (!orgId) return NextResponse.json({ error: 'No org' }, { status: 400 });
+
+  const { error } = await supabase
+    .from('keys_envelopes')
+    .delete()
+    .eq('org_id', orgId)
+    .eq('provider', input.provider);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
