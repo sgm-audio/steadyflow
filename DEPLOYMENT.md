@@ -92,7 +92,7 @@ pnpm build
 ### 4.2 Test credentials
 ```
 Email: dev@steadyflow.local
-Password: dev-password-not-for-production
+Password: admin
 Org: Dev Org
 ```
 
