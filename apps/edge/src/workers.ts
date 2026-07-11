@@ -237,12 +237,18 @@ const heuristicAnalysis = (content: string, url: string): string => {
   return JSON.stringify({ insights });
 };
 
+export interface LlmResult {
+  content: string;
+  provider: string;
+  model: string;
+}
+
 export const proxyLlm = async (
   supabase: SupabaseClient<Database>,
   orgId: string,
   prompt: string,
   model?: string,
-): Promise<string> => {
+): Promise<LlmResult> => {
   // Try LLM API first
   const { data: org, error: orgError } = await supabase
     .from('orgs')
@@ -271,7 +277,7 @@ export const proxyLlm = async (
         if (res.ok) {
           const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
           const result = data.choices?.[0]?.message?.content;
-          if (result) return result;
+          if (result) return { content: result, provider, model: defaultModel };
         }
       }
     }
@@ -282,7 +288,7 @@ export const proxyLlm = async (
   const url = urlMatch ? urlMatch[0] : 'unknown';
   const contentMatch = /Content: (.+)$/s.exec(prompt);
   const content = contentMatch?.[1] ?? prompt;
-  return heuristicAnalysis(content, url);
+  return { content: heuristicAnalysis(content, url), provider: 'heuristic', model: 'none' };
 };
 
 // ── Worker: Scrape ──────────────────────────────────────────────────────────
@@ -395,12 +401,12 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
 
     if (srcError) throw new Error('Source not found');
 
-    const prompt = `Analyze this Shopify store page content. Return JSON with insights array.\n\nContent: ${source.raw_markdown?.slice(0, 8000) ?? '(empty)'}`;
-    const llmResponse = await proxyLlm(ctx.supabase, ctx.orgId, prompt);
+    const prompt = `Analyze this Shopify store page content from ${source.url}\n\nReturn JSON with insights array.\n\nContent: ${source.raw_markdown?.slice(0, 8000) ?? '(empty)'}`;
+    const llmResult = await proxyLlm(ctx.supabase, ctx.orgId, prompt);
 
     let insights: unknown[] = [];
     try {
-      const parsedResponse: unknown = JSON.parse(llmResponse);
+      const parsedResponse: unknown = JSON.parse(llmResult.content);
       insights = LlmInsightsResponse.parse(parsedResponse).insights;
     } catch {
       // Parse failure — no insights
@@ -418,8 +424,8 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
         title: i.title.slice(0, 200),
         body: i.body.slice(0, 5000),
         citations: i.citations,
-        model: 'deepseek-chat',
-        provider: 'deepseek',
+        model: llmResult.model,
+        provider: llmResult.provider,
         generated_at: new Date().toISOString(),
       });
     }
@@ -432,7 +438,7 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
     await ctx.supabase.from('audit_log').insert({
       org_id: ctx.orgId, user_id: ctx.orgId,
       action: 'llm.chat', outcome: 'success',
-      input_hash: '0'.repeat(64), provider: 'deepseek',
+      input_hash: '0'.repeat(64), provider: llmResult.provider,
       duration_ms: 0, metadata: {},
     });
 
