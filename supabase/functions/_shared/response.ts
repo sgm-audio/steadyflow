@@ -80,15 +80,6 @@ export const parseInput = <T>(
   };
 };
 
-export const requireAuth = (
-  req: Request,
-): { userId: string; orgId: string } | Response => {
-  const userId = req.headers.get('x-sb-user-id');
-  const orgId = req.headers.get('x-sb-org-id');
-  if (!userId || !orgId) return unauthorized();
-  return { userId, orgId };
-};
-
 export const handleCors = (req: Request): Response | null => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
