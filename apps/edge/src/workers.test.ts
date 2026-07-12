@@ -97,5 +97,9 @@ describe('workerMonitorCompetitor', () => {
       .single();
 
     expect(snapshot?.source).toBe('scrape');
+
+    // Cleanup: cascades to competitor_snapshots via FK.
+    await supabase.from('competitors').delete().eq('id', competitor?.id ?? '');
+    await supabase.from('intents').delete().eq('id', intent?.id ?? '');
   });
 });
