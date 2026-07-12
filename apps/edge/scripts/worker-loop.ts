@@ -1,10 +1,11 @@
 /**
  * Local worker loop.
  *
- * Nothing schedules workers-scrape/workers-analyze/workers-enrich in local
- * dev (no pg_cron, no external scheduler) — queued intents just sit there
- * forever unless something calls the worker functions. This is that
- * something: poll all three queues on an interval until Ctrl+C.
+ * pg_cron now drains q:scrape/q:enrich/q:analyze in any environment where
+ * supabase/scripts/setup-cron-secrets.sql has been run (see migration
+ * 20260111000007_queue_scheduler.sql). This script is the zero-setup
+ * alternative for local dev: poll all three queues on an interval until
+ * Ctrl+C, no Vault secrets required.
  *
  * Usage: pnpm worker:loop   (from apps/edge)
  * Env:   WORKER_ORG_ID (default: seeded Dev Org), WORKER_POLL_MS (default: 2000)
