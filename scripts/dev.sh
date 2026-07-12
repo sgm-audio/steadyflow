@@ -34,11 +34,12 @@ echo "  Password: admin"
 echo "  Studio:   http://127.0.0.1:54323"
 echo ""
 echo "=== Commands ==="
-echo "  Web app:  pnpm --filter @steadyflow/web dev"
-echo "  Workers:  pnpm --filter @steadyflow/edge worker:loop"
-echo "  Tests:    pnpm test"
+echo "  Web app:   pnpm --filter @steadyflow/web dev"
+echo "  Workers:   pnpm --filter @steadyflow/edge worker:loop"
+echo "  Extension: pnpm --filter @steadyflow/extension dev"
+echo "  Tests:     pnpm test"
 echo ""
-echo "Press Ctrl+C to stop."
+echo "Press Ctrl+C to stop everything."
 echo ""
 
 # 3. Start worker loop in background (processes intents from pgmq)
@@ -46,7 +47,14 @@ echo "[starting] worker loop (background)..."
 pnpm --filter @steadyflow/edge worker:loop &
 WORKER_PID=$!
 echo "  worker PID: $WORKER_PID"
-trap "kill $WORKER_PID 2>/dev/null; exit" EXIT INT TERM
 
-# 4. Start the web app
+# 4. Start extension dev build in background (crxjs, watches + HMR)
+echo "[starting] extension dev build (background)..."
+pnpm --filter @steadyflow/extension dev &
+EXTENSION_PID=$!
+echo "  extension PID: $EXTENSION_PID"
+
+trap "kill $WORKER_PID $EXTENSION_PID 2>/dev/null; exit" EXIT INT TERM
+
+# 5. Start the web app (foreground -- Ctrl+C here stops everything above too)
 pnpm --filter @steadyflow/web dev
