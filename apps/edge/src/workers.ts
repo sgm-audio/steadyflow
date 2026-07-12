@@ -8,6 +8,8 @@
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@steadyflow/db';
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -94,11 +96,48 @@ const tryUnwrapKey = async (
 
 // ── Direct scrape fallback ─────────────────────────────────────────────────
 
+const isPrivateIpv4 = (ip: string): boolean =>
+  /^(0\.|10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
+
+const isPrivateIp = (ip: string): boolean => {
+  if (isIP(ip) === 4) return isPrivateIpv4(ip);
+  const lower = ip.toLowerCase();
+  if (lower === '::1' || lower === '::') return true;
+  if (lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) return true;
+  const v4Mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower)?.[1];
+  return v4Mapped ? isPrivateIpv4(v4Mapped) : false;
+};
+
+/**
+ * SSRF guard: reject non-http(s) schemes and hosts that resolve to a
+ * private/loopback/link-local address (cloud metadata endpoints, internal
+ * services) before a scrape is allowed to fetch a user-submitted URL.
+ * ponytail: checks resolve-time only, not connect-time, so a DNS-rebind
+ * (short-TTL record swapped between this check and fetch()) isn't covered.
+ * Upgrade path: pin fetch to the resolved+validated IP via a custom
+ * undici Agent if this endpoint becomes a real attacker-reachable target.
+ */
+const assertPublicHttpUrl = async (rawUrl: string): Promise<void> => {
+  const url = new URL(rawUrl);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`Refusing to scrape non-http(s) URL: ${url.protocol}`);
+  }
+  const addresses = await lookup(url.hostname, { all: true });
+  if (addresses.length === 0 || addresses.some((a) => isPrivateIp(a.address))) {
+    throw new Error(`Refusing to scrape URL resolving to a private address: ${url.hostname}`);
+  }
+};
+
 /** Fetch a URL directly and extract readable text content (no Firecrawl key needed). */
 const directScrape = async (url: string): Promise<{ markdown: string; metadata: Json }> => {
+  await assertPublicHttpUrl(url);
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
   });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Direct scrape failed ${res.status}: ${errBody.slice(0, 200)}`);
+  }
   const html = await res.text();
   // Strip HTML tags, extract text
   const text = html

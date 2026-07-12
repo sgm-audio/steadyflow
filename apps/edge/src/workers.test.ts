@@ -13,6 +13,23 @@ describe('proxyFirecrawl', () => {
     const result = await proxyFirecrawl(supabase, ORG_ID, 'https://example.com');
     expect(result.markdown).toContain('Example Domain');
   });
+
+  it('refuses to scrape a URL resolving to a private/loopback address (SSRF guard)', async () => {
+    const supabase = createClient<Database>(URL, KEY);
+    await expect(proxyFirecrawl(supabase, ORG_ID, 'http://127.0.0.1:54321/')).rejects.toThrow(
+      /private address/,
+    );
+    await expect(proxyFirecrawl(supabase, ORG_ID, 'http://169.254.169.254/latest/meta-data/')).rejects.toThrow(
+      /private address/,
+    );
+  });
+
+  it('refuses to scrape a non-http(s) URL', async () => {
+    const supabase = createClient<Database>(URL, KEY);
+    await expect(proxyFirecrawl(supabase, ORG_ID, 'file:///etc/passwd')).rejects.toThrow(
+      /non-http/,
+    );
+  });
 });
 
 describe('workerScrape', () => {

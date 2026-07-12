@@ -450,6 +450,10 @@ export type Database = {
         Args: { p_message: Json; p_queue_name: string }
         Returns: number
       }
+      invoke_edge_function: {
+        Args: { p_function_name: string }
+        Returns: undefined
+      }
       is_member_of: { Args: { _org_id: string }; Returns: boolean }
       rate_limit_take: {
         Args: {
