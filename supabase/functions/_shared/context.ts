@@ -12,7 +12,7 @@ export { createServiceRoleClient } from './supabase.ts';
 export { writeAudit } from './audit.ts';
 export { checkRateLimit } from './rateLimit.ts';
 export { enqueue, dequeue, archive } from './queue.ts';
-export { withProviderKey, zeroBuffer } from './envelope.ts';
+export { unwrapProviderKey, zeroBuffer } from './envelope.ts';
 export type { QueueName } from './queue.ts';
 
 export interface EdgeContext {
