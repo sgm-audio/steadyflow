@@ -6,6 +6,7 @@
 
 | Command | What |
 |---------|------|
+| `bash scripts/dev.sh` | Start everything: supabase + web app |
 | `pnpm typecheck` | TypeScript strict mode across all packages |
 | `pnpm lint` | ESLint strictTypeChecked + stylisticTypeChecked |
 | `pnpm test` | Vitest (all packages) |
@@ -13,6 +14,9 @@
 | `pnpm build` | Turbo build (all packages) |
 | `pnpm contract` | Verify contract definitions |
 | `pnpm typecheck && pnpm lint && pnpm test` | Pre-PR gate |
+| `pnpm --filter @steadyflow/edge worker:loop` | Start queue worker pipeline |
+
+**Turbo dependency chain:** lint, typecheck, and test all depend on `^build` (workspace dependencies must build first). Running `turbo run test` on a dirty tree will build deps before testing.
 
 ## TypeScript quirks
 

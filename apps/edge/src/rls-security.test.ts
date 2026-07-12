@@ -26,7 +26,7 @@ describe('RLS: Cross-org access prevention', () => {
 
   it('audit_log RLS prevents unauthorized updates (0 rows matched)', async () => {
     const userA = createClient(URL, 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH');
-    await userA.auth.signInWithPassword({ email: 'dev@steadyflow.local', password: 'dev-password-not-for-production' });
+    await userA.auth.signInWithPassword({ email: 'dev@steadyflow.local', password: 'admin' });
 
     // Try to update audit_log — RLS restricts to org's rows
     // A non-matching org_id means 0 rows affected, which is secure
@@ -43,7 +43,7 @@ describe('RLS: Cross-org access prevention', () => {
 
   it('RLS restricts intent updates to own org (0 rows affected)', async () => {
     const userA = createClient(URL, 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH');
-    await userA.auth.signInWithPassword({ email: 'dev@steadyflow.local', password: 'dev-password-not-for-production' });
+    await userA.auth.signInWithPassword({ email: 'dev@steadyflow.local', password: 'admin' });
 
     // Update a non-existent intent — RLS restricts to org's rows
     // 0 rows affected = secure (user can't touch what they can't see)

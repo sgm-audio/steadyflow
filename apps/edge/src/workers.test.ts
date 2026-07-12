@@ -8,11 +8,27 @@ const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const ORG_ID = process.env.TEST_ORG_ID ?? '22222222-2222-2222-2222-222222222222';
 
 describe('proxyFirecrawl', () => {
-  it('returns placeholder when no real key configured', async () => {
+  it('falls back to a direct scrape when no Firecrawl key is configured', async () => {
     const supabase = createClient<Database>(URL, KEY);
     const result = await proxyFirecrawl(supabase, ORG_ID, 'https://example.com');
-    expect(result.markdown).toBeDefined();
-    expect(result.metadata).toBeDefined();
+    expect(result.markdown).toContain('Example Domain');
+  });
+
+  it('refuses to scrape a URL resolving to a private/loopback address (SSRF guard)', async () => {
+    const supabase = createClient<Database>(URL, KEY);
+    await expect(proxyFirecrawl(supabase, ORG_ID, 'http://127.0.0.1:54321/')).rejects.toThrow(
+      /private address/,
+    );
+    await expect(proxyFirecrawl(supabase, ORG_ID, 'http://169.254.169.254/latest/meta-data/')).rejects.toThrow(
+      /private address/,
+    );
+  });
+
+  it('refuses to scrape a non-http(s) URL', async () => {
+    const supabase = createClient<Database>(URL, KEY);
+    await expect(proxyFirecrawl(supabase, ORG_ID, 'file:///etc/passwd')).rejects.toThrow(
+      /non-http/,
+    );
   });
 });
 

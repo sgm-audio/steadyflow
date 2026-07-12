@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { z } from 'zod';
-import { wrapProviderKey } from '@steadyflow/crypto';
 
 const PROVIDERS = ['firecrawl', 'hunter', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible'] as const;
 const Provider = z.enum(PROVIDERS);
@@ -15,7 +14,6 @@ export default function KeySetPage() {
   const params = useParams<{ provider: string }>();
   const providerResult = Provider.safeParse(params.provider);
 
-  const [passphrase, setPassphrase] = useState('');
   const [rawKey, setRawKey] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -35,11 +33,10 @@ export default function KeySetPage() {
     setError('');
     setBusy(true);
     try {
-      const envelope = await wrapProviderKey(passphrase, rawKey);
       const res = await fetch('/api/keys', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ provider, ...envelope }),
+        body: JSON.stringify({ provider, rawKey }),
       });
       if (!res.ok) {
         const body = KeysSetErrorResponse.safeParse(await res.json());
@@ -74,21 +71,8 @@ export default function KeySetPage() {
             autoComplete="off"
             style={{ width: '100%' }}
           />
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Passphrase</label>
-          <input
-            type="password"
-            value={passphrase}
-            onChange={(e) => { setPassphrase(e.target.value); }}
-            required
-            minLength={8}
-            autoComplete="off"
-            style={{ width: '100%' }}
-          />
           <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
-            Encrypts this key before it leaves your browser. Never sent to or stored by the
-            server — remember it, there is no recovery.
+            Encrypted at rest on the server (pgsodium). Never logged or displayed again.
           </p>
         </div>
         {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
@@ -106,7 +90,7 @@ export default function KeySetPage() {
             opacity: busy ? 0.7 : 1,
           }}
         >
-          {busy ? 'Encrypting…' : 'Save key'}
+          {busy ? 'Saving…' : 'Save key'}
         </button>
       </form>
     </div>

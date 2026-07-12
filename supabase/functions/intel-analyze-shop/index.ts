@@ -7,7 +7,7 @@
  * Idempotent: yes (idempotencyKey)
  */
 
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import {
   handleCors,
   createContext,

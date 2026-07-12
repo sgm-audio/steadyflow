@@ -4,7 +4,7 @@
  * Standardizes JSON responses, errors, and paginated lists.
  */
 
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import type { SteadyFlowError } from './core-shim.ts';
 import { error as sfError } from './core-shim.ts';
 
@@ -78,15 +78,6 @@ export const parseInput = <T>(
       issues: r.error.issues,
     }),
   };
-};
-
-export const requireAuth = (
-  req: Request,
-): { userId: string; orgId: string } | Response => {
-  const userId = req.headers.get('x-sb-user-id');
-  const orgId = req.headers.get('x-sb-org-id');
-  if (!userId || !orgId) return unauthorized();
-  return { userId, orgId };
 };
 
 export const handleCors = (req: Request): Response | null => {

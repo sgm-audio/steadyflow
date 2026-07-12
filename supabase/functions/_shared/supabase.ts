@@ -9,7 +9,7 @@
  * In local dev (supabase functions serve), these are auto-injected.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const getEnv = (key: string, fallback: string): string => {
   // Deno.env is available in Edge Functions runtime.

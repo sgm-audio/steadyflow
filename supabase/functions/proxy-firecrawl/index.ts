@@ -5,14 +5,14 @@
  * Auth: required
  * Rate limit: firecrawl bucket
  */
-import { z } from 'zod';
+import { z } from 'npm:zod@3';
 import {
   handleCors,
   createContext,
   parseInput,
   checkRateLimit,
   writeAudit,
-  withProviderKey,
+  unwrapProviderKey,
   ok,
   badRequest,
   internalError,
@@ -45,36 +45,23 @@ Deno.serve(async (req: Request) => {
   const rl = await checkRateLimit(ctx.supabase, ctx.userId, ctx.orgId, 'firecrawl');
   if (!rl.allowed) return rateLimited(rl.retryAfterSeconds);
 
-  // Look up key envelope
-  const { data: envelope, error: envError } = await ctx.supabase
-    .from('keys_envelopes')
-    .select('*')
-    .eq('org_id', ctx.orgId)
-    .eq('provider', 'firecrawl')
-    .single();
-
-  if (envError || !envelope) return internalError('Firecrawl key not configured');
-
-  const dekWrapped = new Uint8Array((envelope as { dek_wrapped: string }).dek_wrapped.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
-  const ciphertext = new Uint8Array((envelope as { wrapped_key: string }).wrapped_key.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
-  const iv = new Uint8Array((envelope as { iv: string }).iv.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
+  const apiKey = await unwrapProviderKey(ctx.supabase, ctx.orgId, 'firecrawl');
+  if (!apiKey) return internalError('Firecrawl key not configured');
 
   try {
-    const result = await withProviderKey(ctx.supabase, dekWrapped, ciphertext, iv, async (apiKey: string) => {
-      const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ url, formats: ['markdown'] }),
-      });
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '');
-        throw new Error(`Firecrawl API error (${res.status}): ${errBody.slice(0, 200)}`);
-      }
-      return res.json();
+    const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ url, formats: ['markdown'] }),
     });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Firecrawl API error (${res.status}): ${errBody.slice(0, 200)}`);
+    }
+    const result = await res.json();
 
     writeAudit(ctx.supabase, {
       orgId: ctx.orgId, userId: ctx.userId,
