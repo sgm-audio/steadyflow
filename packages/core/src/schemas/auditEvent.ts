@@ -3,8 +3,9 @@ import { z } from 'zod';
 export const AuditAction = z.enum([
   'scrape.firecrawl',
   'scrape.playwright',
-  'enrich.hunter',
   'enrich.tavily',
+  'analyze.shopify_catalog',
+  'monitor.competitor',
   'llm.chat',
   'keys.set',
   'keys.rotate',

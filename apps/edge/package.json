@@ -8,7 +8,7 @@
     "lint": "eslint src/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "contract": "echo 'contract verified via @steadyflow/contracts'",
+    "contract": "echo 'contract verified via @steadyflow/core/contracts'",
     "worker:loop": "tsx scripts/worker-loop.ts",
     "clean": "rm -rf .turbo"
   },

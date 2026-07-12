@@ -197,7 +197,7 @@ describe('AuditEvent', () => {
 
 describe('Provider', () => {
   it('accepts all known providers', () => {
-    for (const p of ['firecrawl', 'hunter', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible'] as const) {
+    for (const p of ['firecrawl', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible', 'shopify-admin', 'printify'] as const) {
       expect(Provider.parse(p)).toBe(p);
     }
   });

@@ -41,9 +41,6 @@ importers:
       '@steadyflow/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@steadyflow/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       '@tauri-apps/api':
         specifier: ^2.0.0
         version: 2.11.1
@@ -115,9 +112,6 @@ importers:
       '@steadyflow/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@steadyflow/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.110.1
@@ -152,9 +146,6 @@ importers:
       '@steadyflow/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@steadyflow/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       '@supabase/ssr':
         specifier: ^0.12.0
         version: 0.12.0(@supabase/supabase-js@2.110.1)
@@ -198,25 +189,6 @@ importers:
       vitest:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
-
-  packages/contracts:
-    dependencies:
-      '@steadyflow/core':
-        specifier: workspace:*
-        version: link:../core
-      zod:
-        specifier: ^3.25.76
-        version: 3.25.76
-    devDependencies:
-      '@asteasolutions/zod-to-openapi':
-        specifier: ^7.1.0
-        version: 7.3.4(zod@3.25.76)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^2.0.5
-        version: 2.1.9(@types/node@26.1.0)(lightningcss@1.32.0)
 
   packages/core:
     dependencies:
@@ -275,25 +247,6 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@26.1.0)(lightningcss@1.32.0)
 
-  packages/sdk:
-    dependencies:
-      '@steadyflow/core':
-        specifier: workspace:*
-        version: link:../core
-      '@supabase/supabase-js':
-        specifier: ^2.45.0
-        version: 2.110.1
-      zod:
-        specifier: ^3.25.76
-        version: 3.25.76
-    devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^2.0.5
-        version: 2.1.9(@types/node@26.1.0)(lightningcss@1.32.0)
-
   packages/shopify-admin:
     dependencies:
       zod:
@@ -312,11 +265,6 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
-
-  '@asteasolutions/zod-to-openapi@7.3.4':
-    resolution: {integrity: sha512-/2rThQ5zPi9OzVwes6U7lK1+Yvug0iXu25olp7S0XsYmOqnyMfxH7gdSQjn/+DSOHRg7wnotwGJSyL+fBKdnEA==}
-    peerDependencies:
-      zod: ^3.20.2
 
   '@crxjs/vite-plugin@2.7.1':
     resolution: {integrity: sha512-mn77Lc1ilIvbO7ZqijjNy+AnRgc8srkfHOtV6HrGrYZgRe8YI3aIcSjHJCU5Kq75SejEZGrdAoHdn3gBGeKpEA==}
@@ -2410,9 +2358,6 @@ packages:
     resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
     engines: {node: '>=18'}
 
-  openapi3-ts@4.6.0:
-    resolution: {integrity: sha512-a4sfn6L2sIShhtzJqmjGrARvxAW/3F2BJDdyRVvNF9VhAsZSh5hSyI3a9TNvmzBxXmq66nY5LNT5bQcBxYAZZg==}
-
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -2795,11 +2740,6 @@ packages:
 snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
-
-  '@asteasolutions/zod-to-openapi@7.3.4(zod@3.25.76)':
-    dependencies:
-      openapi3-ts: 4.6.0
-      zod: 3.25.76
 
   '@crxjs/vite-plugin@2.7.1(vite@5.4.21(@types/node@26.1.0)(lightningcss@1.32.0))':
     dependencies:
@@ -4472,10 +4412,6 @@ snapshots:
   onetime@7.0.0:
     dependencies:
       mimic-function: 5.0.1
-
-  openapi3-ts@4.6.0:
-    dependencies:
-      yaml: 2.9.0
 
   optionator@0.9.4:
     dependencies:

@@ -1,9 +1,8 @@
 /**
  * workers/enrich — pgmq consumer for q:enrich.
  *
- * Dequeues enrich jobs, calls Hunter + Tavily proxies, and archives
- * the message. Post-MVP: store enrichment results in sources or a
- * dedicated context table.
+ * Dequeues enrich jobs, calls the Tavily proxy, and archives the message.
+ * Post-MVP: store enrichment results in sources or a dedicated context table.
  *
  * Auth: none (called internally via pgmq, uses service_role)
  */
@@ -21,16 +20,9 @@ Deno.serve(async (_req: Request) => {
   if (typeof msg !== 'object' || !msg) return new Response('ok', { status: 200 });
 
   const payload = (msg as { message?: Record<string, unknown> }).message ?? {};
-  const orgId = String(payload.orgId ?? '');
-  const domain = String(payload.domain ?? '');
   const query = String(payload.query ?? '');
-  const _startMs = Date.now();
 
   try {
-    if (domain) {
-      await supabase.functions.invoke('proxy-hunter', { body: { domain } });
-    }
-
     if (query) {
       await supabase.functions.invoke('proxy-tavily', { body: { query } });
     }

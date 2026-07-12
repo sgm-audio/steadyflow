@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@steadyflow/core": "workspace:*",
-    "@steadyflow/sdk": "workspace:*",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-os": "^2.0.0",
     "@tauri-apps/plugin-stronghold": "^2.0.0",

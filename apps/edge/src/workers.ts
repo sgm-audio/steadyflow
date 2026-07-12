@@ -191,23 +191,6 @@ export const proxyFirecrawl = async (
   return directScrape(url);
 };
 
-// ── Proxy: Hunter.io ────────────────────────────────────────────────────────
-
-export const proxyHunter = async (
-  supabase: SupabaseClient<Database>,
-  orgId: string,
-  domain: string,
-): Promise<Record<string, unknown>> => {
-  const apiKey = await tryUnwrapKey(supabase, 'hunter', orgId);
-  if (!apiKey) return { skipped: true, reason: 'Hunter key not configured' };
-  const res = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${apiKey}`);
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    throw new Error(`Hunter API error ${res.status}: ${errBody.slice(0, 200)}`);
-  }
-  return (await res.json()) as Record<string, unknown>;
-};
-
 // ── Proxy: Tavily ───────────────────────────────────────────────────────────
 
 export const proxyTavily = async (

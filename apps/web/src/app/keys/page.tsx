@@ -14,7 +14,7 @@ export default async function KeysPage() {
     ? await supabase.from('keys_envelopes').select('provider, created_at, rotated_at').eq('org_id', orgId)
     : { data: [] };
 
-  const allProviders = ['firecrawl', 'hunter', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible'];
+  const allProviders = ['firecrawl', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible', 'shopify-admin', 'printify'];
   const configured = new Set((keys ?? []).map((k) => k.provider));
 
   return (
