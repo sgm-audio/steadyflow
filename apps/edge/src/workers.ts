@@ -51,6 +51,11 @@ const AnalyzeMessage = z.object({
   sourceId: z.string(),
 });
 
+const MonitorMessage = z.object({
+  intentId: z.string(),
+  competitorId: z.string(),
+});
+
 const LlmInsightsResponse = z.object({
   insights: z.array(z.unknown()).default([]),
 });
@@ -623,6 +628,137 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
     await ctx.supabase.from('intents').update({
       status: 'failed',
       error_code: 'ANALYZE_FAILED',
+      error_message: String(err),
+      updated_at: new Date().toISOString(),
+    }).eq('id', intentId);
+  }
+};
+
+// ── Worker: Monitor Competitor ───────────────────────────────────────────────
+
+const PRICE_REGEX = /\$\d{1,4}(?:\.\d{2})?/g;
+
+const extractPrices = (text: string): number[] =>
+  (text.match(PRICE_REGEX) ?? [])
+    .map((p) => Number(p.replace('$', '')))
+    .filter((n) => n > 0 && n < 10000);
+
+const asNumberArray = (value: unknown): number[] =>
+  Array.isArray(value) ? value.filter((n): n is number => typeof n === 'number') : [];
+
+/**
+ * Diffs a competitor's tracked price points against Madi's own store,
+ * implementing the previously-defined-but-unimplemented
+ * intents.kind = 'monitor_competitor'. Prefers Tavily search (already
+ * BYOK-integrated) for price discovery over maintaining brittle
+ * per-competitor scrapers; falls back to the existing SSRF-guarded
+ * directScrape of the competitor's own URL when Tavily finds nothing.
+ */
+export const workerMonitorCompetitor = async (ctx: WorkerCtx): Promise<void> => {
+  const { data: msg, error: deqError } = await ctx.supabase.rpc('dequeue_message', {
+    p_queue_name: 'q:monitor',
+  });
+  if (deqError || !msg) return;
+
+  const envelope = QueueEnvelope.safeParse(msg);
+  if (!envelope.success) return;
+  const payload = MonitorMessage.safeParse(envelope.data.message);
+  if (!payload.success) return;
+
+  const { intentId, competitorId } = payload.data;
+
+  await ctx.supabase.from('intents').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', intentId);
+
+  try {
+    const { data: competitor, error: compError } = await ctx.supabase
+      .from('competitors')
+      .select('id, name, url, niche_notes')
+      .eq('id', competitorId)
+      .single();
+    if (compError) throw new Error('Competitor not found');
+
+    // Previous snapshot, fetched before we write a new one, for the diff below.
+    const { data: previous } = await ctx.supabase
+      .from('competitor_snapshots')
+      .select('price_points, captured_at')
+      .eq('competitor_id', competitorId)
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let prices: number[] = [];
+    let source: 'tavily' | 'scrape' = 'tavily';
+
+    const searchQuery = competitor.niche_notes
+      ? `${competitor.name} ${competitor.niche_notes} price`
+      : `${competitor.name} price`;
+    const tavilyResult = await proxyTavily(ctx.supabase, ctx.orgId, searchQuery);
+    if (!('skipped' in tavilyResult) && Array.isArray(tavilyResult.results)) {
+      for (const r of tavilyResult.results as unknown[]) {
+        const content = (r as { content?: unknown }).content;
+        if (typeof content === 'string') prices.push(...extractPrices(content));
+      }
+    }
+
+    if (prices.length === 0) {
+      // Fall back to directly scraping the competitor's own storefront.
+      source = 'scrape';
+      const scraped = await directScrape(competitor.url);
+      prices = extractPrices(scraped.markdown);
+    }
+
+    const { data: snapshot } = await ctx.supabase.from('competitor_snapshots').insert({
+      org_id: ctx.orgId,
+      competitor_id: competitorId,
+      product_count: prices.length || null,
+      price_points: prices,
+      source,
+    }).select('id').single();
+
+    // Diff against the previous snapshot, if one exists and both have data.
+    const prevPrices = asNumberArray(previous?.price_points);
+    if (previous && prevPrices.length > 0 && prices.length > 0) {
+      const prevAvg = prevPrices.reduce((a, b) => a + b, 0) / prevPrices.length;
+      const currAvg = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const deltaPct = prevAvg > 0 ? ((currAvg - prevAvg) / prevAvg) * 100 : 0;
+
+      if (Math.abs(deltaPct) >= 5) {
+        await ctx.supabase.from('insights').insert({
+          org_id: ctx.orgId,
+          intent_id: intentId,
+          category: 'pricing',
+          severity: Math.abs(deltaPct) >= 15 ? 'high' : 'medium',
+          title: `${competitor.name} price ${deltaPct > 0 ? 'increased' : 'decreased'} ${Math.abs(deltaPct).toFixed(0)}%`,
+          body: `Average tracked price moved from $${prevAvg.toFixed(2)} to $${currAvg.toFixed(2)} since the last check on ${new Date(previous.captured_at).toLocaleDateString()}.`,
+          citations: [],
+          model: 'competitor-monitor-v1',
+          provider: source,
+          generated_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    await ctx.supabase.from('intents').update({
+      status: 'succeeded',
+      updated_at: new Date().toISOString(),
+    }).eq('id', intentId);
+
+    await ctx.supabase.from('audit_log').insert({
+      org_id: ctx.orgId, user_id: ctx.orgId,
+      action: 'monitor.competitor', outcome: 'success',
+      input_hash: await sha256(competitor.url), provider: source,
+      duration_ms: 0,
+      metadata: { competitorId, priceCount: prices.length, snapshotId: snapshot?.id ?? null },
+    });
+
+    await ctx.supabase.rpc('archive_message', {
+      p_queue_name: 'q:monitor',
+      p_msg_id: envelope.data.msg_id,
+    });
+  } catch (err) {
+    await ctx.supabase.from('intents').update({
+      status: 'failed',
+      error_code: 'MONITOR_FAILED',
       error_message: String(err),
       updated_at: new Date().toISOString(),
     }).eq('id', intentId);
