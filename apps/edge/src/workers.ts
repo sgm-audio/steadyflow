@@ -350,6 +350,60 @@ const FLAG_SEVERITY: Record<'red' | 'yellow', 'high' | 'medium'> = {
   yellow: 'medium',
 };
 
+interface PageSeoSignals {
+  hasMetaDescription: boolean;
+  metaDescriptionLength: number;
+  hasStructuredData: boolean;
+  hasSitemap: boolean;
+  hasRobotsTxt: boolean;
+}
+
+/**
+ * Real page-fetch SEO signals the Shopify Admin API doesn't expose (meta
+ * description/structured data are theme/SEO-app concerns, not product
+ * fields) -- reuses the same SSRF-guarded fetch as directScrape. Best
+ * effort: any single check failing (network error, 404) just reads as
+ * "missing" rather than aborting the whole analysis.
+ */
+const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> => {
+  const base = storeUrl.replace(/\/+$/, '');
+
+  let hasMetaDescription = false;
+  let metaDescriptionLength = 0;
+  let hasStructuredData = false;
+  try {
+    await assertPublicHttpUrl(base);
+    const res = await fetch(base, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+    if (res.ok) {
+      const html = await res.text();
+      const descMatch = /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i.exec(html);
+      metaDescriptionLength = descMatch?.[1]?.trim().length ?? 0;
+      hasMetaDescription = metaDescriptionLength > 0;
+      hasStructuredData = /<script[^>]+type=["']application\/ld\+json["']/i.test(html);
+    }
+  } catch {
+    // Homepage unreachable -- signals stay at their "missing" defaults.
+  }
+
+  const checkExists = async (path: string): Promise<boolean> => {
+    try {
+      const url = `${base}${path}`;
+      await assertPublicHttpUrl(url);
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const [hasSitemap, hasRobotsTxt] = await Promise.all([
+    checkExists('/sitemap.xml'),
+    checkExists('/robots.txt'),
+  ]);
+
+  return { hasMetaDescription, metaDescriptionLength, hasStructuredData, hasSitemap, hasRobotsTxt };
+};
+
 /**
  * Real per-product analysis from Shopify Admin + Printify data (margin math,
  * content-quality flags) -- ported from the shopify-printify-audit CLI. No
@@ -366,6 +420,7 @@ const analyzeShopifyCatalog = async (
   const printifyToken = (await tryUnwrapKey(ctx.supabase, 'printify', ctx.orgId)) ?? undefined;
 
   const audit = await runCatalogAudit({ storeUrl, adminToken, printifyToken });
+  const seoSignals = await checkPageSeoSignals(storeUrl);
 
   // Aggregate by flag code across the whole catalog -- one insight per
   // affected flag, not one row per product per flag.
@@ -389,6 +444,54 @@ const analyzeShopifyCatalog = async (
       severity: FLAG_SEVERITY[severity],
       title: FLAG_TITLE[code],
       body: body.slice(0, 5000),
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // Page-fetch SEO signals the Admin API doesn't expose.
+  if (!seoSignals.hasMetaDescription || seoSignals.metaDescriptionLength < 50) {
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
+      severity: seoSignals.hasMetaDescription ? 'medium' : 'high',
+      title: seoSignals.hasMetaDescription ? 'Meta description is too short' : 'Homepage missing a meta description',
+      body: seoSignals.hasMetaDescription
+        ? `Homepage meta description is ${seoSignals.metaDescriptionLength} characters; aim for 120-160.`
+        : 'The homepage has no <meta name="description"> tag, which search engines use for the result snippet.',
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+  if (!seoSignals.hasStructuredData) {
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
+      severity: 'medium',
+      title: 'No structured data found on the homepage',
+      body: 'No schema.org JSON-LD found. Structured data (Product, Organization, BreadcrumbList) helps search engines show rich results.',
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+  if (!seoSignals.hasSitemap || !seoSignals.hasRobotsTxt) {
+    const missing = [!seoSignals.hasSitemap && 'sitemap.xml', !seoSignals.hasRobotsTxt && 'robots.txt']
+      .filter((v): v is string => Boolean(v));
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
+      severity: 'high',
+      title: `${missing.join(' and ')} not found`,
+      body: `${missing.join(' and ')} returned a non-OK response at the store's root. Both should be reachable for search engines to crawl and index the store correctly.`,
       citations: [],
       model: 'shopify-admin-audit-v1',
       provider: 'shopify-admin',
