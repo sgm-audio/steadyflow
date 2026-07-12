@@ -90,6 +90,9 @@ importers:
       '@steadyflow/llm':
         specifier: workspace:*
         version: link:../../packages/llm
+      '@steadyflow/shopify-admin':
+        specifier: workspace:*
+        version: link:../../packages/shopify-admin
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.110.1
@@ -280,6 +283,19 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.110.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@26.1.0)(lightningcss@1.32.0)
+
+  packages/shopify-admin:
+    dependencies:
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -1146,10 +1162,6 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
-
-  '@noble/hashes@1.8.0':
-    resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
-    engines: {node: ^14.21.3 || >=16}
 
   '@phosphor-icons/react@2.1.10':
     resolution: {integrity: sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA==}
@@ -3311,8 +3323,6 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@15.5.20':
     optional: true
-
-  '@noble/hashes@1.8.0': {}
 
   '@phosphor-icons/react@2.1.10(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:

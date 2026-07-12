@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@steadyflow/db';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { runCatalogAudit, type FlagCode } from '@steadyflow/shopify-admin';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -330,6 +331,115 @@ export const proxyLlm = async (
   return { content: heuristicAnalysis(content, url), provider: 'heuristic', model: 'none' };
 };
 
+// ── Real Shopify Admin + Printify catalog analysis ─────────────────────────
+
+const FLAG_CATEGORY: Record<FlagCode, string> = {
+  low_margin: 'pricing',
+  price_spread: 'pricing',
+  unlinked_cost: 'pricing',
+  missing_alt_text: 'seo',
+  short_description: 'seo',
+  missing_type_or_tags: 'seo',
+  missing_weight: 'inventory',
+  orphaned: 'product_mix',
+  fx_fallback: 'trend',
+};
+
+const FLAG_TITLE: Record<FlagCode, string> = {
+  low_margin: 'Products with thin margins',
+  missing_alt_text: 'Product images missing alt text',
+  short_description: 'Product descriptions are too short',
+  missing_type_or_tags: 'Products missing type or tags',
+  missing_weight: 'Variants missing weight (blocks international shipping)',
+  orphaned: 'Products not in any collection',
+  unlinked_cost: 'Products with no matched Printify cost',
+  price_spread: 'Wide price spread across variants',
+  fx_fallback: 'FX rate fetch failed during this audit',
+};
+
+const FLAG_SEVERITY: Record<'red' | 'yellow', 'high' | 'medium'> = {
+  red: 'high',
+  yellow: 'medium',
+};
+
+/**
+ * Real per-product analysis from Shopify Admin + Printify data (margin math,
+ * content-quality flags) -- ported from the shopify-printify-audit CLI. No
+ * LLM required: this replaces the $NN-regex/h1-exists heuristic entirely for
+ * any org with a 'shopify-admin' key configured.
+ */
+const analyzeShopifyCatalog = async (
+  ctx: WorkerCtx,
+  intentId: string,
+  storeUrl: string,
+): Promise<void> => {
+  const adminToken = await tryUnwrapKey(ctx.supabase, 'shopify-admin', ctx.orgId);
+  if (!adminToken) throw new Error('No shopify-admin key configured');
+  const printifyToken = (await tryUnwrapKey(ctx.supabase, 'printify', ctx.orgId)) ?? undefined;
+
+  const audit = await runCatalogAudit({ storeUrl, adminToken, printifyToken });
+
+  // Aggregate by flag code across the whole catalog -- one insight per
+  // affected flag, not one row per product per flag.
+  const byFlag = new Map<FlagCode, { severity: 'red' | 'yellow'; products: string[] }>();
+  for (const row of audit.rows) {
+    for (const flag of row.flags) {
+      const entry = byFlag.get(flag.code) ?? { severity: flag.severity, products: [] };
+      entry.products.push(row.product.title);
+      byFlag.set(flag.code, entry);
+    }
+  }
+
+  for (const [code, { severity, products }] of byFlag) {
+    const shown = products.slice(0, 10);
+    const remainder = products.length - shown.length;
+    const body = `${products.length} product${products.length === 1 ? '' : 's'} affected: ${shown.join(', ')}${remainder > 0 ? `, and ${remainder} more` : ''}.`;
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: FLAG_CATEGORY[code],
+      severity: FLAG_SEVERITY[severity],
+      title: FLAG_TITLE[code],
+      body: body.slice(0, 5000),
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // One catalog-wide pricing summary, if margin data exists for anything.
+  const withMargin = audit.rows.filter((r) => r.margin.marginPct !== null);
+  if (withMargin.length > 0) {
+    const avgMarginPct = withMargin.reduce((sum, r) => sum + (r.margin.marginPct ?? 0), 0) / withMargin.length;
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'pricing',
+      severity: avgMarginPct < 35 ? 'high' : 'low',
+      title: 'Catalog margin summary',
+      body: `Average gross margin across ${withMargin.length} priced product(s): ${avgMarginPct.toFixed(1)}% (${audit.shopCurrency}${audit.fxSource === 'fallback' ? ', FX fallback rate used' : ''}).`,
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  await ctx.supabase.from('intents').update({
+    status: 'succeeded',
+    updated_at: new Date().toISOString(),
+  }).eq('id', intentId);
+
+  await ctx.supabase.from('audit_log').insert({
+    org_id: ctx.orgId, user_id: ctx.orgId,
+    action: 'analyze.shopify_catalog', outcome: 'success',
+    input_hash: await sha256(storeUrl), provider: 'shopify-admin',
+    duration_ms: 0,
+    metadata: { totalProducts: audit.totalProducts, totalCollections: audit.totalCollections },
+  });
+};
+
 // ── Worker: Scrape ──────────────────────────────────────────────────────────
 
 export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
@@ -349,6 +459,30 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
   await ctx.supabase.from('intents').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', intentId);
 
   const startMs = Date.now();
+
+  // Real Shopify Admin + Printify data supersedes generic scraping entirely
+  // when the org has connected a shopify-admin key -- no scrape, no LLM
+  // needed for real per-product margin/SEO signals.
+  if (platform === 'shopify') {
+    const hasShopifyAdmin = await tryUnwrapKey(ctx.supabase, 'shopify-admin', ctx.orgId);
+    if (hasShopifyAdmin) {
+      try {
+        await analyzeShopifyCatalog(ctx, intentId, url);
+        await ctx.supabase.rpc('archive_message', {
+          p_queue_name: 'q:scrape',
+          p_msg_id: envelope.data.msg_id,
+        });
+      } catch (err) {
+        await ctx.supabase.from('intents').update({
+          status: 'failed',
+          error_code: 'SHOPIFY_CATALOG_ANALYZE_FAILED',
+          error_message: String(err),
+          updated_at: new Date().toISOString(),
+        }).eq('id', intentId);
+      }
+      return;
+    }
+  }
 
   try {
     const result = await proxyFirecrawl(ctx.supabase, ctx.orgId, url);
