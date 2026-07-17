@@ -10,6 +10,7 @@ import {
   KeyIcon,
   ClockCounterClockwiseIcon,
   ArrowUpRightIcon,
+  UsersThreeIcon,
 } from '@phosphor-icons/react/ssr';
 import type { ReactNode } from 'react';
 
@@ -59,6 +60,36 @@ export default async function DashboardPage() {
         .eq('org_id', orgId)
         .order('generated_at', { ascending: false })
         .limit(3)
+    : { data: null };
+
+  const { data: categoryRows } = orgId
+    ? await supabase
+        .from('insights')
+        .select('category')
+        .eq('org_id', orgId)
+        .order('generated_at', { ascending: false })
+        .limit(200)
+    : { data: null };
+  const categoryCounts = (categoryRows ?? []).reduce<Record<string, number>>((acc, row) => {
+    acc[row.category] = (acc[row.category] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const { count: competitorsCount } = orgId
+    ? await supabase
+        .from('competitors')
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id', orgId)
+    : { count: null };
+
+  const { data: latestSnapshot } = orgId
+    ? await supabase
+        .from('competitor_snapshots')
+        .select('captured_at, source')
+        .eq('org_id', orgId)
+        .order('captured_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
     : { data: null };
 
   const hour = new Date().getHours();
@@ -164,6 +195,18 @@ export default async function DashboardPage() {
               stat={orgId ? `${insightsCount ?? 0} generated` : undefined}
               href="/insights"
             >
+              {Object.keys(categoryCounts).length > 0 && (
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {Object.entries(categoryCounts).map(([category, count]) => (
+                    <span
+                      key={category}
+                      className="rounded-full bg-white/[0.04] px-3 py-1 text-xs text-ink-muted"
+                    >
+                      {category.replace('_', ' ')} <span className="font-mono text-ink">{count}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
               {recentInsights && recentInsights.length > 0 && (
                 <ul className="mt-6 flex-1 divide-y divide-white/[0.04] border-y border-white/[0.04]">
                   {recentInsights.map((insight, i) => (
@@ -188,9 +231,20 @@ export default async function DashboardPage() {
             </DashboardCard>
             <div className="grid gap-6 md:col-span-5">
               <DashboardCard
+                icon={<UsersThreeIcon size={20} weight="light" />}
+                title="Competitors"
+                description={
+                  competitorsCount
+                    ? `Last checked ${latestSnapshot ? new Date(latestSnapshot.captured_at).toLocaleDateString() : 'never'} via ${latestSnapshot?.source ?? 'Tavily'}.`
+                    : 'Track competitor pricing to spot real market moves.'
+                }
+                stat={competitorsCount ? `${competitorsCount} tracked` : undefined}
+                href="/insights"
+              />
+              <DashboardCard
                 icon={<KeyIcon size={20} weight="light" />}
                 title="Provider keys"
-                description="Configure Firecrawl, Hunter, Tavily, and your LLM."
+                description="Configure Shopify, Printify, Tavily, and your LLM."
                 href="/keys"
               />
               <DashboardCard

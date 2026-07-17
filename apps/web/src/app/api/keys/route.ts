@@ -22,7 +22,7 @@ import { createClient } from '../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-const PROVIDERS = ['firecrawl', 'hunter', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible'] as const;
+const PROVIDERS = ['firecrawl', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible', 'shopify-admin', 'printify'] as const;
 
 const KeysSetInput = z.object({
   provider: z.enum(PROVIDERS),

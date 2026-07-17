@@ -8,7 +8,7 @@
     "lint": "eslint src/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "contract": "echo 'contract verified via @steadyflow/contracts'",
+    "contract": "echo 'contract verified via @steadyflow/core/contracts'",
     "worker:loop": "tsx scripts/worker-loop.ts",
     "clean": "rm -rf .turbo"
   },
@@ -16,6 +16,7 @@
     "@steadyflow/core": "workspace:*",
     "@steadyflow/db": "workspace:*",
     "@steadyflow/llm": "workspace:*",
+    "@steadyflow/shopify-admin": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
     "zod": "^3.25.76"
   },

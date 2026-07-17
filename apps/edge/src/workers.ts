@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@steadyflow/db';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { runCatalogAudit, type FlagCode } from '@steadyflow/shopify-admin';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,11 @@ const ScrapeMessage = z.object({
 const AnalyzeMessage = z.object({
   intentId: z.string(),
   sourceId: z.string(),
+});
+
+const MonitorMessage = z.object({
+  intentId: z.string(),
+  competitorId: z.string(),
 });
 
 const LlmInsightsResponse = z.object({
@@ -185,23 +191,6 @@ export const proxyFirecrawl = async (
   return directScrape(url);
 };
 
-// ── Proxy: Hunter.io ────────────────────────────────────────────────────────
-
-export const proxyHunter = async (
-  supabase: SupabaseClient<Database>,
-  orgId: string,
-  domain: string,
-): Promise<Record<string, unknown>> => {
-  const apiKey = await tryUnwrapKey(supabase, 'hunter', orgId);
-  if (!apiKey) return { skipped: true, reason: 'Hunter key not configured' };
-  const res = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${apiKey}`);
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    throw new Error(`Hunter API error ${res.status}: ${errBody.slice(0, 200)}`);
-  }
-  return (await res.json()) as Record<string, unknown>;
-};
-
 // ── Proxy: Tavily ───────────────────────────────────────────────────────────
 
 export const proxyTavily = async (
@@ -330,6 +319,218 @@ export const proxyLlm = async (
   return { content: heuristicAnalysis(content, url), provider: 'heuristic', model: 'none' };
 };
 
+// ── Real Shopify Admin + Printify catalog analysis ─────────────────────────
+
+const FLAG_CATEGORY: Record<FlagCode, string> = {
+  low_margin: 'pricing',
+  price_spread: 'pricing',
+  unlinked_cost: 'pricing',
+  missing_alt_text: 'seo',
+  short_description: 'seo',
+  missing_type_or_tags: 'seo',
+  missing_weight: 'inventory',
+  orphaned: 'product_mix',
+  fx_fallback: 'trend',
+};
+
+const FLAG_TITLE: Record<FlagCode, string> = {
+  low_margin: 'Products with thin margins',
+  missing_alt_text: 'Product images missing alt text',
+  short_description: 'Product descriptions are too short',
+  missing_type_or_tags: 'Products missing type or tags',
+  missing_weight: 'Variants missing weight (blocks international shipping)',
+  orphaned: 'Products not in any collection',
+  unlinked_cost: 'Products with no matched Printify cost',
+  price_spread: 'Wide price spread across variants',
+  fx_fallback: 'FX rate fetch failed during this audit',
+};
+
+const FLAG_SEVERITY: Record<'red' | 'yellow', 'high' | 'medium'> = {
+  red: 'high',
+  yellow: 'medium',
+};
+
+interface PageSeoSignals {
+  hasMetaDescription: boolean;
+  metaDescriptionLength: number;
+  hasStructuredData: boolean;
+  hasSitemap: boolean;
+  hasRobotsTxt: boolean;
+}
+
+/**
+ * Real page-fetch SEO signals the Shopify Admin API doesn't expose (meta
+ * description/structured data are theme/SEO-app concerns, not product
+ * fields) -- reuses the same SSRF-guarded fetch as directScrape. Best
+ * effort: any single check failing (network error, 404) just reads as
+ * "missing" rather than aborting the whole analysis.
+ */
+const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> => {
+  const base = storeUrl.replace(/\/+$/, '');
+
+  let hasMetaDescription = false;
+  let metaDescriptionLength = 0;
+  let hasStructuredData = false;
+  try {
+    await assertPublicHttpUrl(base);
+    const res = await fetch(base, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+    if (res.ok) {
+      const html = await res.text();
+      const descMatch = /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i.exec(html);
+      metaDescriptionLength = descMatch?.[1]?.trim().length ?? 0;
+      hasMetaDescription = metaDescriptionLength > 0;
+      hasStructuredData = /<script[^>]+type=["']application\/ld\+json["']/i.test(html);
+    }
+  } catch {
+    // Homepage unreachable -- signals stay at their "missing" defaults.
+  }
+
+  const checkExists = async (path: string): Promise<boolean> => {
+    try {
+      const url = `${base}${path}`;
+      await assertPublicHttpUrl(url);
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const [hasSitemap, hasRobotsTxt] = await Promise.all([
+    checkExists('/sitemap.xml'),
+    checkExists('/robots.txt'),
+  ]);
+
+  return { hasMetaDescription, metaDescriptionLength, hasStructuredData, hasSitemap, hasRobotsTxt };
+};
+
+/**
+ * Real per-product analysis from Shopify Admin + Printify data (margin math,
+ * content-quality flags) -- ported from the shopify-printify-audit CLI. No
+ * LLM required: this replaces the $NN-regex/h1-exists heuristic entirely for
+ * any org with a 'shopify-admin' key configured.
+ */
+const analyzeShopifyCatalog = async (
+  ctx: WorkerCtx,
+  intentId: string,
+  storeUrl: string,
+): Promise<void> => {
+  const adminToken = await tryUnwrapKey(ctx.supabase, 'shopify-admin', ctx.orgId);
+  if (!adminToken) throw new Error('No shopify-admin key configured');
+  const printifyToken = (await tryUnwrapKey(ctx.supabase, 'printify', ctx.orgId)) ?? undefined;
+
+  const audit = await runCatalogAudit({ storeUrl, adminToken, printifyToken });
+  const seoSignals = await checkPageSeoSignals(storeUrl);
+
+  // Aggregate by flag code across the whole catalog -- one insight per
+  // affected flag, not one row per product per flag.
+  const byFlag = new Map<FlagCode, { severity: 'red' | 'yellow'; products: string[] }>();
+  for (const row of audit.rows) {
+    for (const flag of row.flags) {
+      const entry = byFlag.get(flag.code) ?? { severity: flag.severity, products: [] };
+      entry.products.push(row.product.title);
+      byFlag.set(flag.code, entry);
+    }
+  }
+
+  for (const [code, { severity, products }] of byFlag) {
+    const shown = products.slice(0, 10);
+    const remainder = products.length - shown.length;
+    const body = `${products.length} product${products.length === 1 ? '' : 's'} affected: ${shown.join(', ')}${remainder > 0 ? `, and ${remainder} more` : ''}.`;
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: FLAG_CATEGORY[code],
+      severity: FLAG_SEVERITY[severity],
+      title: FLAG_TITLE[code],
+      body: body.slice(0, 5000),
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // Page-fetch SEO signals the Admin API doesn't expose.
+  if (!seoSignals.hasMetaDescription || seoSignals.metaDescriptionLength < 50) {
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
+      severity: seoSignals.hasMetaDescription ? 'medium' : 'high',
+      title: seoSignals.hasMetaDescription ? 'Meta description is too short' : 'Homepage missing a meta description',
+      body: seoSignals.hasMetaDescription
+        ? `Homepage meta description is ${seoSignals.metaDescriptionLength} characters; aim for 120-160.`
+        : 'The homepage has no <meta name="description"> tag, which search engines use for the result snippet.',
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+  if (!seoSignals.hasStructuredData) {
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
+      severity: 'medium',
+      title: 'No structured data found on the homepage',
+      body: 'No schema.org JSON-LD found. Structured data (Product, Organization, BreadcrumbList) helps search engines show rich results.',
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+  if (!seoSignals.hasSitemap || !seoSignals.hasRobotsTxt) {
+    const missing = [!seoSignals.hasSitemap && 'sitemap.xml', !seoSignals.hasRobotsTxt && 'robots.txt']
+      .filter((v): v is string => Boolean(v));
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
+      severity: 'high',
+      title: `${missing.join(' and ')} not found`,
+      body: `${missing.join(' and ')} returned a non-OK response at the store's root. Both should be reachable for search engines to crawl and index the store correctly.`,
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // One catalog-wide pricing summary, if margin data exists for anything.
+  const withMargin = audit.rows.filter((r) => r.margin.marginPct !== null);
+  if (withMargin.length > 0) {
+    const avgMarginPct = withMargin.reduce((sum, r) => sum + (r.margin.marginPct ?? 0), 0) / withMargin.length;
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'pricing',
+      severity: avgMarginPct < 35 ? 'high' : 'low',
+      title: 'Catalog margin summary',
+      body: `Average gross margin across ${withMargin.length} priced product(s): ${avgMarginPct.toFixed(1)}% (${audit.shopCurrency}${audit.fxSource === 'fallback' ? ', FX fallback rate used' : ''}).`,
+      citations: [],
+      model: 'shopify-admin-audit-v1',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  await ctx.supabase.from('intents').update({
+    status: 'succeeded',
+    updated_at: new Date().toISOString(),
+  }).eq('id', intentId);
+
+  await ctx.supabase.from('audit_log').insert({
+    org_id: ctx.orgId, user_id: ctx.orgId,
+    action: 'analyze.shopify_catalog', outcome: 'success',
+    input_hash: await sha256(storeUrl), provider: 'shopify-admin',
+    duration_ms: 0,
+    metadata: { totalProducts: audit.totalProducts, totalCollections: audit.totalCollections },
+  });
+};
+
 // ── Worker: Scrape ──────────────────────────────────────────────────────────
 
 export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
@@ -349,6 +550,30 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
   await ctx.supabase.from('intents').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', intentId);
 
   const startMs = Date.now();
+
+  // Real Shopify Admin + Printify data supersedes generic scraping entirely
+  // when the org has connected a shopify-admin key -- no scrape, no LLM
+  // needed for real per-product margin/SEO signals.
+  if (platform === 'shopify') {
+    const hasShopifyAdmin = await tryUnwrapKey(ctx.supabase, 'shopify-admin', ctx.orgId);
+    if (hasShopifyAdmin) {
+      try {
+        await analyzeShopifyCatalog(ctx, intentId, url);
+        await ctx.supabase.rpc('archive_message', {
+          p_queue_name: 'q:scrape',
+          p_msg_id: envelope.data.msg_id,
+        });
+      } catch (err) {
+        await ctx.supabase.from('intents').update({
+          status: 'failed',
+          error_code: 'SHOPIFY_CATALOG_ANALYZE_FAILED',
+          error_message: String(err),
+          updated_at: new Date().toISOString(),
+        }).eq('id', intentId);
+      }
+      return;
+    }
+  }
 
   try {
     const result = await proxyFirecrawl(ctx.supabase, ctx.orgId, url);
@@ -489,6 +714,137 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
     await ctx.supabase.from('intents').update({
       status: 'failed',
       error_code: 'ANALYZE_FAILED',
+      error_message: String(err),
+      updated_at: new Date().toISOString(),
+    }).eq('id', intentId);
+  }
+};
+
+// ── Worker: Monitor Competitor ───────────────────────────────────────────────
+
+const PRICE_REGEX = /\$\d{1,4}(?:\.\d{2})?/g;
+
+const extractPrices = (text: string): number[] =>
+  (text.match(PRICE_REGEX) ?? [])
+    .map((p) => Number(p.replace('$', '')))
+    .filter((n) => n > 0 && n < 10000);
+
+const asNumberArray = (value: unknown): number[] =>
+  Array.isArray(value) ? value.filter((n): n is number => typeof n === 'number') : [];
+
+/**
+ * Diffs a competitor's tracked price points against Madi's own store,
+ * implementing the previously-defined-but-unimplemented
+ * intents.kind = 'monitor_competitor'. Prefers Tavily search (already
+ * BYOK-integrated) for price discovery over maintaining brittle
+ * per-competitor scrapers; falls back to the existing SSRF-guarded
+ * directScrape of the competitor's own URL when Tavily finds nothing.
+ */
+export const workerMonitorCompetitor = async (ctx: WorkerCtx): Promise<void> => {
+  const { data: msg, error: deqError } = await ctx.supabase.rpc('dequeue_message', {
+    p_queue_name: 'q:monitor',
+  });
+  if (deqError || !msg) return;
+
+  const envelope = QueueEnvelope.safeParse(msg);
+  if (!envelope.success) return;
+  const payload = MonitorMessage.safeParse(envelope.data.message);
+  if (!payload.success) return;
+
+  const { intentId, competitorId } = payload.data;
+
+  await ctx.supabase.from('intents').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', intentId);
+
+  try {
+    const { data: competitor, error: compError } = await ctx.supabase
+      .from('competitors')
+      .select('id, name, url, niche_notes')
+      .eq('id', competitorId)
+      .single();
+    if (compError) throw new Error('Competitor not found');
+
+    // Previous snapshot, fetched before we write a new one, for the diff below.
+    const { data: previous } = await ctx.supabase
+      .from('competitor_snapshots')
+      .select('price_points, captured_at')
+      .eq('competitor_id', competitorId)
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let prices: number[] = [];
+    let source: 'tavily' | 'scrape' = 'tavily';
+
+    const searchQuery = competitor.niche_notes
+      ? `${competitor.name} ${competitor.niche_notes} price`
+      : `${competitor.name} price`;
+    const tavilyResult = await proxyTavily(ctx.supabase, ctx.orgId, searchQuery);
+    if (!('skipped' in tavilyResult) && Array.isArray(tavilyResult.results)) {
+      for (const r of tavilyResult.results as unknown[]) {
+        const content = (r as { content?: unknown }).content;
+        if (typeof content === 'string') prices.push(...extractPrices(content));
+      }
+    }
+
+    if (prices.length === 0) {
+      // Fall back to directly scraping the competitor's own storefront.
+      source = 'scrape';
+      const scraped = await directScrape(competitor.url);
+      prices = extractPrices(scraped.markdown);
+    }
+
+    const { data: snapshot } = await ctx.supabase.from('competitor_snapshots').insert({
+      org_id: ctx.orgId,
+      competitor_id: competitorId,
+      product_count: prices.length || null,
+      price_points: prices,
+      source,
+    }).select('id').single();
+
+    // Diff against the previous snapshot, if one exists and both have data.
+    const prevPrices = asNumberArray(previous?.price_points);
+    if (previous && prevPrices.length > 0 && prices.length > 0) {
+      const prevAvg = prevPrices.reduce((a, b) => a + b, 0) / prevPrices.length;
+      const currAvg = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const deltaPct = prevAvg > 0 ? ((currAvg - prevAvg) / prevAvg) * 100 : 0;
+
+      if (Math.abs(deltaPct) >= 5) {
+        await ctx.supabase.from('insights').insert({
+          org_id: ctx.orgId,
+          intent_id: intentId,
+          category: 'pricing',
+          severity: Math.abs(deltaPct) >= 15 ? 'high' : 'medium',
+          title: `${competitor.name} price ${deltaPct > 0 ? 'increased' : 'decreased'} ${Math.abs(deltaPct).toFixed(0)}%`,
+          body: `Average tracked price moved from $${prevAvg.toFixed(2)} to $${currAvg.toFixed(2)} since the last check on ${new Date(previous.captured_at).toLocaleDateString()}.`,
+          citations: [],
+          model: 'competitor-monitor-v1',
+          provider: source,
+          generated_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    await ctx.supabase.from('intents').update({
+      status: 'succeeded',
+      updated_at: new Date().toISOString(),
+    }).eq('id', intentId);
+
+    await ctx.supabase.from('audit_log').insert({
+      org_id: ctx.orgId, user_id: ctx.orgId,
+      action: 'monitor.competitor', outcome: 'success',
+      input_hash: await sha256(competitor.url), provider: source,
+      duration_ms: 0,
+      metadata: { competitorId, priceCount: prices.length, snapshotId: snapshot?.id ?? null },
+    });
+
+    await ctx.supabase.rpc('archive_message', {
+      p_queue_name: 'q:monitor',
+      p_msg_id: envelope.data.msg_id,
+    });
+  } catch (err) {
+    await ctx.supabase.from('intents').update({
+      status: 'failed',
+      error_code: 'MONITOR_FAILED',
       error_message: String(err),
       updated_at: new Date().toISOString(),
     }).eq('id', intentId);

@@ -71,7 +71,7 @@ export const AuditQuery = z.object({
 });
 
 export const KeysSetInput = z.object({
-  provider: z.enum(['firecrawl','hunter','tavily','deepseek','nvidia-nim','groq','openai-compatible']),
+  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify']),
   rawKey: z.string().min(1),
 });
 
@@ -79,7 +79,7 @@ export const KeysSetInput = z.object({
 const textToBytea = (s: string): string => '\\x' + Buffer.from(s, 'utf8').toString('hex');
 
 export const KeysTestInput = z.object({
-  provider: z.enum(['firecrawl','hunter','tavily','deepseek','nvidia-nim','groq','openai-compatible']),
+  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify']),
 });
 
 export const LlmConfigInput = z.object({

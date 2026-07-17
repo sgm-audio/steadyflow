@@ -92,6 +92,86 @@ export type Database = {
           },
         ]
       }
+      competitor_snapshots: {
+        Row: {
+          captured_at: string
+          competitor_id: string
+          id: string
+          org_id: string
+          price_points: Json
+          product_count: number | null
+          source: string
+        }
+        Insert: {
+          captured_at?: string
+          competitor_id: string
+          id?: string
+          org_id: string
+          price_points?: Json
+          product_count?: number | null
+          source: string
+        }
+        Update: {
+          captured_at?: string
+          competitor_id?: string
+          id?: string
+          org_id?: string
+          price_points?: Json
+          product_count?: number | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_snapshots_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_snapshots_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitors: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          niche_notes: string | null
+          org_id: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          niche_notes?: string | null
+          org_id: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          niche_notes?: string | null
+          org_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitors_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       devices: {
         Row: {
           created_at: string
@@ -320,6 +400,7 @@ export type Database = {
           kdf_params: Json
           llm_daily_budget_cents: number
           name: string
+          shopify_store_url: string | null
           updated_at: string
         }
         Insert: {
@@ -331,6 +412,7 @@ export type Database = {
           kdf_params?: Json
           llm_daily_budget_cents?: number
           name: string
+          shopify_store_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -342,6 +424,7 @@ export type Database = {
           kdf_params?: Json
           llm_daily_budget_cents?: number
           name?: string
+          shopify_store_url?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -450,6 +533,7 @@ export type Database = {
         Args: { p_message: Json; p_queue_name: string }
         Returns: number
       }
+      enqueue_weekly_audit: { Args: never; Returns: undefined }
       invoke_edge_function: {
         Args: { p_function_name: string }
         Returns: undefined

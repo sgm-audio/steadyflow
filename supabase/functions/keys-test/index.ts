@@ -18,7 +18,7 @@ import {
 } from '../_shared/context.ts';
 
 const KeysTestInput = z.object({
-  provider: z.enum(['firecrawl','hunter','tavily','deepseek','nvidia-nim','groq','openai-compatible']),
+  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify']),
 });
 
 Deno.serve(async (req: Request) => {

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { z } from 'zod';
 
-const PROVIDERS = ['firecrawl', 'hunter', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible'] as const;
+const PROVIDERS = ['firecrawl', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible', 'shopify-admin', 'printify'] as const;
 const Provider = z.enum(PROVIDERS);
 
 const KeysSetErrorResponse = z.object({ error: z.string() });

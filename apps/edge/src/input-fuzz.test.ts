@@ -18,7 +18,7 @@ const PlatformUrl = z.object({
 });
 
 const KeysSetInput = z.object({
-  provider: z.enum(['firecrawl','hunter','tavily','deepseek','nvidia-nim','groq','openai-compatible']),
+  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify']),
   rawKey: z.string().min(1),
 });
 

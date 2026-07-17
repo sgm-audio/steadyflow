@@ -13,7 +13,6 @@ export interface RateLimitConfig {
 
 const DEFAULTS: Record<string, RateLimitConfig> = {
   firecrawl: { bucket: 'firecrawl', capacity: 60, refillPerSecond: 1 },
-  hunter: { bucket: 'hunter', capacity: 30, refillPerSecond: 0.5 },
   tavily: { bucket: 'tavily', capacity: 30, refillPerSecond: 0.5 },
   'llm.deepseek': { bucket: 'llm.deepseek', capacity: 120, refillPerSecond: 2 },
   'llm.nvidia-nim': { bucket: 'llm.nvidia-nim', capacity: 60, refillPerSecond: 1 },

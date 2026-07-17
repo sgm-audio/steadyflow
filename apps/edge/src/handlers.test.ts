@@ -168,7 +168,7 @@ describe('keys', () => {
   });
 
   it('returns 404 for non-existent provider', async () => {
-    const res = await keysTest(ctx({ provider: 'hunter' }));
+    const res = await keysTest(ctx({ provider: 'printify' }));
     expect(res.status).toBe(404);
   });
 });

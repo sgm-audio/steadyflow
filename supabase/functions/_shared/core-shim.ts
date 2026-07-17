@@ -27,7 +27,8 @@ export const error = (code: string, message: string, details?: Record<string, un
 };
 
 export const AuditAction = z.enum([
-  'scrape.firecrawl', 'scrape.playwright', 'enrich.hunter', 'enrich.tavily',
+  'scrape.firecrawl', 'scrape.playwright', 'enrich.tavily',
+  'analyze.shopify_catalog', 'monitor.competitor',
   'llm.chat', 'keys.set', 'keys.rotate', 'keys.delete', 'keys.test',
   'intent.create', 'intent.cancel', 'auth.login', 'auth.logout',
 ]);

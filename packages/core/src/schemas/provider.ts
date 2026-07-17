@@ -9,12 +9,13 @@ import { z } from 'zod';
  */
 export const Provider = z.enum([
   'firecrawl',
-  'hunter',
   'tavily',
   'deepseek',
   'nvidia-nim',
   'groq',
   'openai-compatible',
+  'shopify-admin',
+  'printify',
 ]);
 export type Provider = z.infer<typeof Provider>;
 
