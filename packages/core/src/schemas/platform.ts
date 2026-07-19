@@ -1,10 +1,11 @@
 import { z } from 'zod';
 
 /**
- * Supported e-commerce platforms.
- * Amazon SP-API is roadmap — included in enum so contracts are stable.
+ * Supported selling-surface platforms for shop analysis intents.
+ * WooCommerce covered via WordPress DX + `@steadyflow/commerce` adapters.
+ * Amazon SP-API is roadmap-ready in `@steadyflow/commerce` (stub).
  */
-export const Platform = z.enum(['shopify', 'etsy', 'amazon']);
+export const Platform = z.enum(['shopify', 'etsy', 'amazon', 'woocommerce']);
 export type Platform = z.infer<typeof Platform>;
 
 export const PlatformUrl = z.object({

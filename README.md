@@ -2,8 +2,17 @@
 
 Production-grade, auditable e-commerce growth system.
 
-**Primary platforms:** Shopify + Etsy
-**Roadmap:** Amazon SP-API, Tauri v2 desktop app
+**Primary platforms:** Shopify + Printify (fulfillment), Etsy
+**Roadmap:** Amazon SP-API, Alibaba sourcing, WooCommerce, Tauri v2 desktop app
+
+Multi-platform adapters live in `packages/commerce`. Scaffold storefronts/themes with:
+
+```bash
+pnpm scaffold:shopify-theme ./themes/my-theme
+pnpm scaffold:shopify-app ./apps/my-shopify-app
+pnpm scaffold:wp-plugin ./wp/plugins/sf-bridge
+pnpm scaffold:wp-theme ./wp/themes/sf-store
+```
 
 ## Non-negotiable constraints
 

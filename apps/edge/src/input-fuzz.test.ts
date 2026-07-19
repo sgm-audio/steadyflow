@@ -11,14 +11,14 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 
 const PlatformUrl = z.object({
-  platform: z.enum(['shopify', 'etsy', 'amazon']),
+  platform: z.enum(['shopify', 'etsy', 'amazon', 'woocommerce']),
   url: z.string().url().max(2048),
   idempotencyKey: z.string().min(1).max(255),
   requiresAuth: z.boolean().default(false),
 });
 
 const KeysSetInput = z.object({
-  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify']),
+  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify','amazon-sp-api','alibaba']),
   rawKey: z.string().min(1),
 });
 

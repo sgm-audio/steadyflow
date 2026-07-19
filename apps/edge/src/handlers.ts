@@ -48,7 +48,7 @@ const auditInsert = (
 // ── Zod schemas (mirrored from @steadyflow/core) ───────────────────────────
 
 export const AnalyzeShopInput = z.object({
-  platform: z.enum(['shopify', 'etsy', 'amazon']),
+  platform: z.enum(['shopify', 'etsy', 'amazon', 'woocommerce']),
   url: z.string().url().max(2048),
   idempotencyKey: z.string().min(1).max(255),
   requiresAuth: z.boolean().default(false),
@@ -71,7 +71,10 @@ export const AuditQuery = z.object({
 });
 
 export const KeysSetInput = z.object({
-  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify']),
+  provider: z.enum([
+    'firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible',
+    'shopify-admin','printify','amazon-sp-api','alibaba',
+  ]),
   rawKey: z.string().min(1),
 });
 
@@ -79,7 +82,10 @@ export const KeysSetInput = z.object({
 const textToBytea = (s: string): string => '\\x' + Buffer.from(s, 'utf8').toString('hex');
 
 export const KeysTestInput = z.object({
-  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify']),
+  provider: z.enum([
+    'firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible',
+    'shopify-admin','printify','amazon-sp-api','alibaba',
+  ]),
 });
 
 export const LlmConfigInput = z.object({

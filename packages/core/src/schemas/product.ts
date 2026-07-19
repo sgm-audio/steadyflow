@@ -11,7 +11,7 @@ const Money = z.object({
 export const Product = z
   .object({
     id: ProductId,
-    platform: z.enum(['shopify', 'etsy', 'amazon']),
+    platform: z.enum(['shopify', 'etsy', 'amazon', 'woocommerce']),
     externalId: z.string().min(1).max(255),
     title: z.string().min(1).max(500),
     description: z.string().max(10000).optional(),

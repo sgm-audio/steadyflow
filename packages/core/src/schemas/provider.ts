@@ -16,6 +16,10 @@ export const Provider = z.enum([
   'openai-compatible',
   'shopify-admin',
   'printify',
+  /** Amazon Selling Partner API LWA refresh token (or app credentials bundle). */
+  'amazon-sp-api',
+  /** Alibaba Open Platform / 1688 distributor credentials. */
+  'alibaba',
 ]);
 export type Provider = z.infer<typeof Provider>;
 

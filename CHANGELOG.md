@@ -4,6 +4,13 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-07-17 — Multi-platform commerce foundation + Shopify/WordPress DX
+
+- **New `@steadyflow/commerce`:** unified catalog/order/inventory/distributor schemas, adapter interfaces, live Shopify selling + Printify fulfillment adapters (wrapping `@steadyflow/shopify-admin`), Amazon SP-API / FBA / FBM + Alibaba + WooCommerce readiness stubs, `createCommerceRegistry()` + config Zod schema.
+- **New `@steadyflow/devkit`:** `steadyflow-dev scaffold` for Shopify theme/app and WordPress plugin/theme starters (`pnpm scaffold:*`).
+- **BYOK:** `amazon-sp-api` + `alibaba` providers (core enums, edge/web keys UI, Deno keys-set/test, migration `20260717000001_keys_envelopes_add_amazon_alibaba.sql`).
+- **Wiring:** Shopify catalog audit worker now emits normalized commerce catalog metadata via `mapShopifyAuditToCatalog`.
+
 ### Session 2026-07-12 — Madi-first pivot: real Shopify/Printify data, security fixes, dashboard rework
 
 - **Root cause of "the dashboard is useless" complaint:** confirmed the product's actual analysis output was fake. `heuristicAnalysis()` in `apps/edge/src/workers.ts` generated "pricing" insights by regex-matching every `$NN` string on a scraped page, and "SEO" insights by checking whether an `<h1>` tag exists. There was no real Shopify API integration anywhere in the codebase — every analysis was generic HTML scraping. User confirmed the pivot: build for the one real customer (Madi's `makingmadi.com` print-on-demand art store) first, simplify the multi-tenant scaffolding that serves zero other real customers, generalize later.

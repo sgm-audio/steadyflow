@@ -11,6 +11,7 @@ import type { Database, Json } from '@steadyflow/db';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { runCatalogAudit, type FlagCode } from '@steadyflow/shopify-admin';
+import { mapShopifyAuditToCatalog } from '@steadyflow/commerce';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -420,6 +421,8 @@ const analyzeShopifyCatalog = async (
   const printifyToken = (await tryUnwrapKey(ctx.supabase, 'printify', ctx.orgId)) ?? undefined;
 
   const audit = await runCatalogAudit({ storeUrl, adminToken, printifyToken });
+  // Normalize into the multi-platform commerce catalog shape (Amazon/Alibaba-ready).
+  const commerceCatalog = mapShopifyAuditToCatalog(audit);
   const seoSignals = await checkPageSeoSignals(storeUrl);
 
   // Aggregate by flag code across the whole catalog -- one insight per
@@ -527,7 +530,12 @@ const analyzeShopifyCatalog = async (
     action: 'analyze.shopify_catalog', outcome: 'success',
     input_hash: await sha256(storeUrl), provider: 'shopify-admin',
     duration_ms: 0,
-    metadata: { totalProducts: audit.totalProducts, totalCollections: audit.totalCollections },
+    metadata: {
+      totalProducts: audit.totalProducts,
+      totalCollections: audit.totalCollections,
+      commercePlatform: commerceCatalog.platform,
+      commerceProductCount: commerceCatalog.totalProducts,
+    },
   });
 };
 

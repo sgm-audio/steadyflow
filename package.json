@@ -23,7 +23,12 @@
     "db:push": "supabase db push",
     "functions:serve": "supabase functions serve",
     "functions:deploy": "supabase functions deploy",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "scaffold": "pnpm --filter @steadyflow/devkit scaffold",
+    "scaffold:shopify-theme": "pnpm --filter @steadyflow/devkit scaffold shopify-theme",
+    "scaffold:shopify-app": "pnpm --filter @steadyflow/devkit scaffold shopify-app",
+    "scaffold:wp-plugin": "pnpm --filter @steadyflow/devkit scaffold wordpress-plugin",
+    "scaffold:wp-theme": "pnpm --filter @steadyflow/devkit scaffold wordpress-theme"
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",

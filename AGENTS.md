@@ -1,6 +1,6 @@
 # SteadyFlow — Agent Guide
 
-**E-commerce growth system.** Shopify + Etsy primary, Amazon roadmap. Supabase single source of truth.
+**E-commerce growth system.** Shopify + Printify primary; Amazon / Alibaba / WooCommerce via `@steadyflow/commerce` adapters. Supabase single source of truth.
 
 ## Commands (run from root)
 
@@ -15,6 +15,10 @@
 | `pnpm contract` | Verify contract definitions |
 | `pnpm typecheck && pnpm lint && pnpm test` | Pre-PR gate |
 | `pnpm --filter @steadyflow/edge worker:loop` | Start queue worker pipeline |
+| `pnpm scaffold:shopify-theme ./path` | Scaffold Online Store 2.0 theme |
+| `pnpm scaffold:shopify-app ./path` | Scaffold Shopify app skeleton |
+| `pnpm scaffold:wp-plugin ./path` | Scaffold WordPress plugin |
+| `pnpm scaffold:wp-theme ./path` | Scaffold WordPress block theme |
 
 **Turbo dependency chain:** lint, typecheck, and test all depend on `^build` (workspace dependencies must build first). Running `turbo run test` on a dirty tree will build deps before testing.
 
@@ -47,8 +51,10 @@ packages/core     → Zod schemas, audit, crypto, contract definitions ← START
 packages/db       → Drizzle ORM (stub)
 packages/contracts→ OpenAPI / tRPC generation (stub)
 packages/sdk      → Typed BFF client, generated from contracts (stub)
-packages/llm      → LLM adapter pattern, Deepseek default (stub)
-packages/crypto   → Argon2id DEK derivation (stub)
+packages/llm           → LLM adapter pattern, Deepseek default (stub)
+packages/shopify-admin → Shopify Admin GraphQL + Printify cost audit
+packages/commerce      → Multi-platform adapters (Shopify/Printify live; Amazon/Alibaba/Woo stubs)
+tooling/devkit         → Shopify + WordPress scaffolding CLI
 ```
 
 ## Contracts (the API surface)
