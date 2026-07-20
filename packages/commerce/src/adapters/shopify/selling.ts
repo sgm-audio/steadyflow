@@ -57,9 +57,9 @@ export class ShopifySellingAdapter implements SellingPlatformAdapter {
     return mapShopifyProduct(row.product, audit.shopCurrency, new Date().toISOString());
   }
 
-  async listOrders(_opts?: { since?: string; limit?: number }): Promise<CommerceOrder[]> {
+  listOrders(_opts?: { since?: string; limit?: number }): Promise<CommerceOrder[]> {
     // Orders GraphQL not yet ported from Admin API — intentional readiness gap.
-    throw new AdapterNotImplementedError('shopify', 'list_orders');
+    return Promise.reject(new AdapterNotImplementedError('shopify', 'list_orders'));
   }
 
   async listInventory(): Promise<CommerceInventoryLevel[]> {
@@ -82,8 +82,8 @@ export class ShopifySellingAdapter implements SellingPlatformAdapter {
     return levels;
   }
 
-  async pushInventory(_levels: CommerceInventoryLevel[]): Promise<{ updated: number }> {
-    throw new AdapterNotImplementedError('shopify', 'push_inventory');
+  pushInventory(_levels: CommerceInventoryLevel[]): Promise<{ updated: number }> {
+    return Promise.reject(new AdapterNotImplementedError('shopify', 'push_inventory'));
   }
 }
 

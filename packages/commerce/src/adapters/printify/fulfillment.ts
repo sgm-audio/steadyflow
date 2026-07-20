@@ -63,9 +63,9 @@ export class PrintifyFulfillmentAdapter implements FulfillmentAdapter {
     };
   }
 
-  async listInventory(): Promise<CommerceInventoryLevel[]> {
+  listInventory(): Promise<CommerceInventoryLevel[]> {
     // Printify POD inventory is effectively unlimited blanks — not stock levels.
-    throw new AdapterNotImplementedError('printify', 'list_inventory');
+    return Promise.reject(new AdapterNotImplementedError('printify', 'list_inventory'));
   }
 }
 

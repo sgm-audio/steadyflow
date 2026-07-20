@@ -14,12 +14,12 @@ export class AmazonFbaFulfillmentAdapter implements FulfillmentAdapter {
     capabilities: ['submit_fulfillment', 'list_inventory'] as const,
   };
 
-  async submitFulfillment(_order: CommerceOrder): Promise<{ accepted: boolean; message?: string }> {
-    throw new AdapterNotImplementedError('amazon-fba', 'submit_fulfillment');
+  submitFulfillment(_order: CommerceOrder): Promise<{ accepted: boolean; message?: string }> {
+    return Promise.reject(new AdapterNotImplementedError('amazon-fba', 'submit_fulfillment'));
   }
 
-  async listInventory(): Promise<CommerceInventoryLevel[]> {
-    throw new AdapterNotImplementedError('amazon-fba', 'list_inventory');
+  listInventory(): Promise<CommerceInventoryLevel[]> {
+    return Promise.reject(new AdapterNotImplementedError('amazon-fba', 'list_inventory'));
   }
 }
 
@@ -34,7 +34,7 @@ export class AmazonFbmFulfillmentAdapter implements FulfillmentAdapter {
     capabilities: ['submit_fulfillment'] as const,
   };
 
-  async submitFulfillment(_order: CommerceOrder): Promise<{ accepted: boolean; message?: string }> {
-    throw new AdapterNotImplementedError('amazon-fbm', 'submit_fulfillment');
+  submitFulfillment(_order: CommerceOrder): Promise<{ accepted: boolean; message?: string }> {
+    return Promise.reject(new AdapterNotImplementedError('amazon-fbm', 'submit_fulfillment'));
   }
 }

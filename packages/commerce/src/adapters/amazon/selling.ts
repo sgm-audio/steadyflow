@@ -34,24 +34,24 @@ export class AmazonSellingAdapter implements SellingPlatformAdapter {
     this.options = opts;
   }
 
-  async listCatalog(): Promise<CommerceCatalog> {
-    throw new AdapterNotImplementedError('amazon', 'list_catalog');
+  listCatalog(): Promise<CommerceCatalog> {
+    return Promise.reject(new AdapterNotImplementedError('amazon', 'list_catalog'));
   }
 
-  async getProduct(_externalId: string): Promise<CommerceProduct | null> {
-    throw new AdapterNotImplementedError('amazon', 'get_product');
+  getProduct(_externalId: string): Promise<CommerceProduct | null> {
+    return Promise.reject(new AdapterNotImplementedError('amazon', 'get_product'));
   }
 
-  async listOrders(_opts?: { since?: string; limit?: number }): Promise<CommerceOrder[]> {
-    throw new AdapterNotImplementedError('amazon', 'list_orders');
+  listOrders(_opts?: { since?: string; limit?: number }): Promise<CommerceOrder[]> {
+    return Promise.reject(new AdapterNotImplementedError('amazon', 'list_orders'));
   }
 
-  async listInventory(): Promise<CommerceInventoryLevel[]> {
-    throw new AdapterNotImplementedError('amazon', 'list_inventory');
+  listInventory(): Promise<CommerceInventoryLevel[]> {
+    return Promise.reject(new AdapterNotImplementedError('amazon', 'list_inventory'));
   }
 
-  async pushInventory(_levels: CommerceInventoryLevel[]): Promise<{ updated: number }> {
-    throw new AdapterNotImplementedError('amazon', 'push_inventory');
+  pushInventory(_levels: CommerceInventoryLevel[]): Promise<{ updated: number }> {
+    return Promise.reject(new AdapterNotImplementedError('amazon', 'push_inventory'));
   }
 }
 
