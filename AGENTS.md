@@ -6,14 +6,17 @@
 
 | Command | What |
 |---------|------|
-| `bash scripts/dev.sh` | Start everything: supabase + web app |
+| `pnpm setup` | Bootstrap deps + `.env.local` + doctor |
+| `pnpm doctor` | Verify Node / pnpm / Docker / Supabase CLI |
+| `pnpm dev` | Daily launcher: supabase + workers + web |
+| `pnpm stop` | Stop local Supabase |
+| `pnpm check` | Pre-PR gate: typecheck + lint + test |
 | `pnpm typecheck` | TypeScript strict mode across all packages |
 | `pnpm lint` | ESLint strictTypeChecked + stylisticTypeChecked |
 | `pnpm test` | Vitest (all packages) |
 | `pnpm format` | Prettier + organize imports |
 | `pnpm build` | Turbo build (all packages) |
 | `pnpm contract` | Verify contract definitions |
-| `pnpm typecheck && pnpm lint && pnpm test` | Pre-PR gate |
 | `pnpm --filter @steadyflow/edge worker:loop` | Start queue worker pipeline |
 | `pnpm scaffold:shopify-theme ./path` | Scaffold Online Store 2.0 theme |
 | `pnpm scaffold:shopify-app ./path` | Scaffold Shopify app skeleton |
@@ -96,9 +99,9 @@ Every external action **must** call `buildAuditEvent()` and write to `audit_log`
 ## Setup
 
 ```bash
-pnpm install
-cp .env.local.example .env.local
-# Fill in server-only secrets locally
+pnpm setup
+# Requires Node 20+, pnpm 9, Docker Desktop, Supabase CLI
+# Daily: pnpm dev  →  work  →  pnpm stop
 ```
 
 ## Commit convention

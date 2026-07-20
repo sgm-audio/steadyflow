@@ -1,8 +1,14 @@
 #!/bin/bash
 # SteadyFlow dev launcher — starts everything needed for local development.
+# Prefer the cross-platform entrypoint: pnpm dev
 # Usage: bash scripts/dev.sh
 
 set -euo pipefail
+
+# Prefer Node launcher when available (same behavior on Windows via pnpm dev).
+if command -v node &>/dev/null && [[ -f "$(dirname "$0")/dev.mjs" ]]; then
+  exec node "$(dirname "$0")/dev.mjs"
+fi
 
 echo "=== SteadyFlow Dev Launcher ==="
 

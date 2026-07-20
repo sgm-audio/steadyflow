@@ -1,14 +1,24 @@
 # Contributing
 
-## Setup
+## Setup (once)
 
 ```bash
-pnpm install
-cp .env.local.example .env.local
-# Fill in SUPABASE_SECRET_KEY, SUPABASE_DB_PASSWORD, SUPABASE_ACCESS_TOKEN
+pnpm setup
+# Requires: Node 20+, pnpm 9, Docker Desktop, Supabase CLI
+```
+
+## Daily
+
+```bash
+pnpm dev      # start local stack
+pnpm stop     # end of day
+pnpm check    # before opening a PR
 ```
 
 ## Required local secrets (never commit)
+
+Local web + Studio work with defaults from `.env.local.example`.
+Fill these only when deploying or pushing to a remote Supabase project:
 
 | Var | Used by |
 |---|---|
@@ -20,7 +30,7 @@ cp .env.local.example .env.local
 
 1. Branch from `main`: `git checkout -b feat/<scope>`
 2. Make changes
-3. `pnpm typecheck && pnpm lint && pnpm test`
+3. `pnpm check`
 4. Open PR — CI runs the same checks plus contract tests
 5. Merge after approval
 

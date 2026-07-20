@@ -78,27 +78,43 @@ steadyflow/
 └── turbo.json
 ```
 
-## Quick start
+## Daily workflow
+
+Works the same on **Windows (PowerShell)**, macOS, and Linux.
+
+### Once (machine setup)
+
+1. Install [Node 20+](https://nodejs.org), [pnpm 9](https://pnpm.io/installation) (`corepack enable`), [Docker Desktop](https://www.docker.com/products/docker-desktop/), and the [Supabase CLI](https://supabase.com/docs/guides/cli) (`npm install -g supabase` on Windows).
+2. Clone and bootstrap:
 
 ```bash
-# Install
-pnpm install
-
-# Copy env template and fill in server-only secrets locally
-cp .env.local.example .env.local
-# Edit .env.local — DO NOT commit
-
-# Start local Supabase (Postgres + Auth + Edge Functions + Studio)
-supabase start
-# Applies migrations + dev seed automatically. Prints local API URL/keys —
-# apps/edge tests default to the local dev keys already, no copying needed.
-
-# Verify bootstrap
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build   # desktop is excluded (roadmap, see apps/desktop/package.json)
+git clone https://github.com/scottmills306/steadyflow.git
+cd steadyflow
+pnpm setup
 ```
+
+`pnpm setup` installs deps, creates `.env.local` from the example, and runs `pnpm doctor`.
+
+### Every day
+
+```bash
+pnpm doctor   # optional sanity check
+pnpm dev      # Supabase + workers + web (http://127.0.0.1:3000)
+# …work…
+# Ctrl+C stops web + workers
+pnpm stop     # stop local Supabase when you are done
+```
+
+| Command | What it does |
+|---------|----------------|
+| `pnpm setup` | First-time (or repair) bootstrap |
+| `pnpm doctor` | Check Node, pnpm, Docker, Supabase CLI, `.env.local` |
+| `pnpm dev` | Start local stack for the day |
+| `pnpm stop` | Stop local Supabase |
+| `pnpm check` | `typecheck` + `lint` + `test` before a PR |
+
+**Login (local seed):** `dev@steadyflow.local` / `admin`  
+**Studio:** http://127.0.0.1:54323
 
 Local Supabase is its own project (`supabase/config.toml` → `project_id =
 "steadyflow"`), independent of any other Supabase project on this machine.
