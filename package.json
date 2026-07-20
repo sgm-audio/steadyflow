@@ -10,6 +10,11 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "dev": "node scripts/dev.mjs",
+    "stop": "node scripts/stop.mjs",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
