@@ -21,24 +21,24 @@ export class WooCommerceSellingAdapter implements SellingPlatformAdapter {
     this.options = opts;
   }
 
-  async listCatalog(): Promise<CommerceCatalog> {
-    throw new AdapterNotImplementedError('woocommerce', 'list_catalog');
+  listCatalog(): Promise<CommerceCatalog> {
+    return Promise.reject(new AdapterNotImplementedError('woocommerce', 'list_catalog'));
   }
 
-  async getProduct(_externalId: string): Promise<CommerceProduct | null> {
-    throw new AdapterNotImplementedError('woocommerce', 'get_product');
+  getProduct(_externalId: string): Promise<CommerceProduct | null> {
+    return Promise.reject(new AdapterNotImplementedError('woocommerce', 'get_product'));
   }
 
-  async listOrders(_opts?: { since?: string; limit?: number }): Promise<CommerceOrder[]> {
-    throw new AdapterNotImplementedError('woocommerce', 'list_orders');
+  listOrders(_opts?: { since?: string; limit?: number }): Promise<CommerceOrder[]> {
+    return Promise.reject(new AdapterNotImplementedError('woocommerce', 'list_orders'));
   }
 
-  async listInventory(): Promise<CommerceInventoryLevel[]> {
-    throw new AdapterNotImplementedError('woocommerce', 'list_inventory');
+  listInventory(): Promise<CommerceInventoryLevel[]> {
+    return Promise.reject(new AdapterNotImplementedError('woocommerce', 'list_inventory'));
   }
 
-  async pushInventory(_levels: CommerceInventoryLevel[]): Promise<{ updated: number }> {
-    throw new AdapterNotImplementedError('woocommerce', 'push_inventory');
+  pushInventory(_levels: CommerceInventoryLevel[]): Promise<{ updated: number }> {
+    return Promise.reject(new AdapterNotImplementedError('woocommerce', 'push_inventory'));
   }
 }
 
