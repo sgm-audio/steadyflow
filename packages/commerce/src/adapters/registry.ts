@@ -15,12 +15,12 @@ import {
 import { createAlibabaDistributorAdapter } from './alibaba/distributor.js';
 import { createWooCommerceSellingAdapter } from './woocommerce/selling.js';
 
-export type CommerceCredentials = {
+export interface CommerceCredentials {
   'shopify-admin'?: string | undefined;
   printify?: string | undefined;
   'amazon-sp-api'?: string | undefined;
   alibaba?: string | undefined;
-};
+}
 
 export interface CommerceRegistry {
   config: CommerceConfig;

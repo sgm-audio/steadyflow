@@ -33,14 +33,14 @@ export class AlibabaDistributorAdapter implements DistributorAdapter {
     this.options = opts;
   }
 
-  async listOffers(query?: { q?: string; limit?: number }): Promise<DistributorOffer[]> {
+  listOffers(query?: { q?: string; limit?: number }): Promise<DistributorOffer[]> {
     void query;
     void this.options;
-    throw new AdapterNotImplementedError('alibaba', 'list_offers');
+    return Promise.reject(new AdapterNotImplementedError('alibaba', 'list_offers'));
   }
 
-  async handoffOrder(_req: DistributorOrderHandoff): Promise<DistributorHandoffResult> {
-    throw new AdapterNotImplementedError('alibaba', 'handoff_order');
+  handoffOrder(_req: DistributorOrderHandoff): Promise<DistributorHandoffResult> {
+    return Promise.reject(new AdapterNotImplementedError('alibaba', 'handoff_order'));
   }
 }
 
