@@ -88,7 +88,7 @@ Works the same on **Windows (PowerShell)**, macOS, and Linux.
 2. Clone and bootstrap:
 
 ```bash
-git clone https://github.com/scottmills306/steadyflow.git
+git clone https://github.com/SGM-Studios/steadyflow.git
 cd steadyflow
 pnpm setup
 ```
