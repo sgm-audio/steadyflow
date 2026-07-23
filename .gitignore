@@ -67,3 +67,5 @@ pnpm-debug.log*
 
 # Public mirror sanitization
 infra/supabase/secrets/
+
+.codegraph/

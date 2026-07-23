@@ -1,10 +1,19 @@
 import { defineConfig } from 'vitest/config';
 
+// Integration suites need a live `supabase start` on :54321. CI does not
+// boot local Postgres, so skip those files there; unit/fuzz tests still run.
+const integrationTests = [
+  'src/handlers.test.ts',
+  'src/workers.test.ts',
+  'src/rls-security.test.ts',
+];
+
 export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
-    globalSetup: ['./vitest.global-setup.ts'],
+    exclude: process.env.CI ? integrationTests : [],
+    globalSetup: process.env.CI ? undefined : ['./vitest.global-setup.ts'],
     // Integration tests hit one shared live Postgres instance — running
     // files concurrently causes cross-file state races (leaked rows,
     // dequeue races on pgmq queues). Force sequential file execution.
