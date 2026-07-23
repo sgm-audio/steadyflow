@@ -1,3 +1,5 @@
+import { captureRequestError } from "@sentry/nextjs";
+
 export async function register() {
   if (!process.env.SENTRY_DSN) return;
 
@@ -19,3 +21,6 @@ export async function register() {
     });
   }
 }
+
+/** Next.js 15+ request-lifecycle errors (App Router / route handlers). */
+export const onRequestError = captureRequestError;
