@@ -20,7 +20,7 @@ export default defineConfig({
     fileParallelism: false,
     env: {
       SUPABASE_URL: 'http://127.0.0.1:54321',
-      SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz',
+      // SUPABASE_SERVICE_ROLE_KEY: required via process env / .env.local — no hardcoded default
       TEST_USER_ID: '11111111-1111-1111-1111-111111111111',
       TEST_ORG_ID: '22222222-2222-2222-2222-222222222222',
     },
