@@ -13,7 +13,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@steadyflow/db';
+import { loadRootEnvLocal } from '../load-root-env.js';
 import { workerScrape, workerEnrich, workerAnalyze, type WorkerCtx } from '../src/workers.js';
+
+loadRootEnvLocal();
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,7 +25,7 @@ const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 2000);
 
 if (!KEY) {
   throw new Error(
-    'SUPABASE_SERVICE_ROLE_KEY is required (set via env / .env.local; fail closed — no hardcoded default)',
+    'SUPABASE_SERVICE_ROLE_KEY is required (set via env / repo-root .env.local; fail closed - no hardcoded default)',
   );
 }
 
