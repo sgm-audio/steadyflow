@@ -45,5 +45,9 @@
     "turbo": "^2.1.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.0.0"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.62.1",
+    "playwright": "^1.62.1"
   }
 }
