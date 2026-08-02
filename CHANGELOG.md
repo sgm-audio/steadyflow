@@ -21,7 +21,7 @@ All notable changes to SteadyFlow will be documented in this file.
 - **Security fixes surfaced by an ultrareview, both now closed:**
   - **IDOR:** `supabase/functions/_shared/context.ts` resolved `orgId` from a client-controlled `x-sb-org-id` header with zero membership check, then used it with a service-role client — any authenticated user could read/write another org's data. Now always resolved server-side from `memberships`; the header is no longer read anywhere.
   - **SSRF:** `directScrape`'s fallback fetched arbitrary user-submitted URLs with zero validation, exploitable against cloud metadata endpoints. Added `assertPublicHttpUrl` (non-http(s) scheme rejection + DNS-resolved private/loopback/link-local IP blocking).
-  - Ran `deno check` against every `supabase/functions/*/index.ts` for the first time (not covered by the pnpm/turbo pipeline at all) — caught 4 deployed proxy functions (`proxy-firecrawl`/`tavily`/`hunter`/`llm`) still referencing DB columns an earlier migration had already dropped, which would throw on any real call. Migrated all 4 to a shared `unwrapProviderKey()` helper.
+  - Ran `deno check` against every `supabase/functions/*/index.ts` for the first time (not covered by the pnpm/turbo pipeline at all) — caught 4 deployed proxy functions (`proxy-firecrawl`/`tavily`/`llm`) still referencing DB columns an earlier migration had already dropped, which would throw on any real call. Migrated all 4 to a shared `unwrapProviderKey()` helper.
 - **Cut unused scope:** removed the `hunter` BYOK provider entirely (contact-finder tool, no use case for a solo art store) across ~15 files; deleted `packages/sdk`/`packages/contracts` (unimplemented placeholders 3 apps depended on but never imported — real contracts already live in `packages/core/src/contracts/`).
 - **Dashboard:** visual redesign (Tailwind v4, dark glass aesthetic, real `insights` count/list) plus a follow-up pass adding a real category-breakdown row and a Competitors card — verified live against seeded local data at both changes.
 - **`scripts/dev.sh`:** now also starts the browser extension's Vite/CRXJS dev build alongside the worker loop — one command runs Supabase + worker loop + extension + web app together.
@@ -80,7 +80,7 @@ All notable changes to SteadyFlow will be documented in this file.
 
 **Known gaps (not fixed this session):**
 - Dev key in DB was overwritten with random bytes during testing — user must re-enter API keys via Keys page
-- No `deepseek`/`hunter`/`tavily` keys in DB — only `firecrawl` row exists (and it's garbage)
+- No `deepseek`/`tavily` keys in DB — only `firecrawl` row exists (and it's garbage) (Hunter.io removed)
 - `proxyLlm` prompt doesn't include source URL — `heuristicAnalysis` defaults to generic store name
 - Dashboard UI uses inline styles (no Tailwind config) — functional but ugly
 - `rate_limit_take` RPC exists but no handler calls it — rate limiting not wired up
@@ -120,7 +120,7 @@ All notable changes to SteadyFlow will be documented in this file.
 ### Session 2026-07-08 — Edge Function restructure + lint fixes + extension v0.2.0
 
 - **Restructure:** Move Edge Function `_shared` modules from `apps/edge/` to `supabase/` root
-- **Edge Functions:** Add 7 new handlers — keys-list, keys-set, keys-test, proxy-firecrawl, proxy-hunter, proxy-llm, proxy-tavily (BYOK key management + provider proxies)
+- **Edge Functions:** Add 7 new handlers — keys-list, keys-set, keys-test, proxy-firecrawl, proxy-llm, proxy-tavily (BYOK key management + provider proxies) (proxy-hunter later removed)
 - **Config:** Enable `[db.vault]` in supabase/config.toml, add KEK setup script (supabase/scripts/setup-kek.sql)
 - **Extension:** Bump to v0.2.0, add `build:zip` script, store listing draft, icon assets
 - **Chore:** Update doc comments in core (dek.ts, provider.ts), add Vercel config, env template vars
@@ -173,8 +173,8 @@ All notable changes to SteadyFlow will be documented in this file.
 ### Dependencies
 - Supabase Managed (Postgres + RLS + pgmq + Edge Functions)
 - Next.js 15, React 18
-- Zod, Drizzle ORM (schema only)
-- Deepseek LLM (OpenAI-compatible) with Nvidia NIM planned
+- Zod, Supabase generated types only (Drizzle ORM not implemented)
+- OpenAI-compatible LLM providers (Deepseek, Groq, NVIDIA NIM adapters available)
 
 ### Outstanding
 - Local Edge Runtime blocked by SELinux (functions tested via vitest + DB integration)
