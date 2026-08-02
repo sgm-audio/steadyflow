@@ -1,6 +1,58 @@
-# SteadyFlow → Public Release: Prompt Chain
+# SteadyFlow Public Release Prompt Chain — ARCHIVED
 
-Run these prompts **in order**, one phase at a time. Each prompt assumes prior phases are merged to `main`. Paste the **Context block** plus the **Prompt** into an agent session. Gate every phase with `pnpm check` and the phase-specific verification commands.
+**Status:** ARCHIVED — Do not execute
+
+This prompt chain was designed for a future public open-source release program. It has been superseded by the **SteadyFlow v1 Scope Decision** which defines a private pilot approach focused on Shopify revenue audits.
+
+## Why Archived
+
+The original public-release plan conflicted with the approved three-pillar v0.x scope:
+
+| Conflict | Original Plan | Approved v0.x Scope |
+|----------|--------------|---------------------|
+| License | Apache-2.0, OSS governance | UNLICENSED, proprietary |
+| Surfaces | Complete all adapters (Amazon, WooCommerce, etc.) | Shopify + Printify only; others experimental |
+| Packages | Public npm SDK, public contracts package | Internal client only; no public packages |
+| Coverage | 90/85% repo-wide gate | Enforced only on core audit path |
+| Community | CODEOWNERS, CoC, Discussions | No community governance until commercial validation |
+| Release target | Public v1.0.0 | Private v0.x pilot (Making Madi validation) |
+
+## Current Roadmap
+
+Follow the **SteadyFlow v1 Scope Decision** implementation sequence:
+
+- **PR 0:** Refresh Truth (SURFACE_MATRIX.md regenerated) ✅ Complete
+- **PR 1:** Remove False Claims ✅ Complete
+- **PR 2:** Production Shopify Worker Parity (Node/Deno alignment)
+- **PR 3:** End-to-End Audit Lifecycle integration test
+- **PR 4:** Operator Dashboard Completion
+- **PR 5:** Client Report Generation
+- **PR 6:** Making Madi Validation → Flagship case study
+
+## Commercial Gates Before Reconsidering OSS
+
+Do not begin any public OSS or npm publishing program until SteadyFlow has achieved:
+
+- [ ] Three paid Shopify audits delivered
+- [ ] At least one paid implementation sprint completed
+- [ ] At least one recurring monitoring customer
+- [ ] Audit delivery requiring less than one hour of operator work
+- [ ] Delivery gross margin above 70%
+- [ ] Audit-to-sprint conversion target of at least 30%
+- [ ] Documented list of features customers repeatedly request
+
+## Versioning Path
+
+| Version | Target | Criteria |
+|---------|--------|----------|
+| v0.1.0 | Making Madi internal validation | Scope document approved |
+| v0.2.0 | First paid customer | PR 1-5 complete |
+| v0.5.0 | Repeatable private beta | Three paid audits delivered |
+| v1.0.0 | Public release decision point | All commercial + reliability gates met |
+
+---
+
+**Original document preserved below for historical reference only.** Any future public release program should be re-evaluated against actual customer requirements and commercial traction.
 
 ---
 
@@ -47,8 +99,8 @@ Must include:
 - BYOK key providers in packages/core schemas
 - Cron/queue path (pg_cron → edge workers vs local worker:loop)
 
-Cross-check README claims vs reality. Flag contradictions (e.g. "production-grade" vs stub).
-Output a recommended v1.0.0 scope: MAX 3 "ship" pillars + everything else labeled experimental.
+Cross-check README claims vs reality. Flag contradictions (e.g. \"private pilot\" vs stub).
+Output a recommended v1.0.0 scope: MAX 3 \"ship\" pillars + everything else labeled experimental.
 Do not implement — document only.
 ```
 
