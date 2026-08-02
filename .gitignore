@@ -13,6 +13,8 @@ node_modules/
 dist/
 build/
 target/
+.turbo/
+*.tsbuildinfo
 
 # Public mirror sanitization
 infra/supabase/secrets/

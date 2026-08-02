@@ -53,16 +53,42 @@ const tryUnwrapKey = async (
   }
 };
 
+const isPrivateIpv4 = (ip: string): boolean =>
+  /^(0\.|10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
+
+const isPrivateIp = (ip: string): boolean => {
+  const lower = ip.toLowerCase();
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(lower)) return isPrivateIpv4(lower);
+  if (lower === '::1' || lower === '::') return true;
+  if (lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) return true;
+  const v4Mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower)?.[1];
+  return v4Mapped ? isPrivateIpv4(v4Mapped) : false;
+};
+
 /**
  * SSRF guard: reject non-http(s) schemes and hosts that resolve to a
- * private/loopback/link-local address before allowing fetch.
+ * private/loopback/link-local address (cloud metadata endpoints, internal
+ * services) before a scrape is allowed to fetch a user-submitted URL.
+ * Mirrors the Node worker's guard (apps/edge/src/workers.ts); checks
+ * resolve-time only, not connect-time, so a DNS-rebind (short-TTL record
+ * swapped between this check and fetch()) isn't covered.
  */
 const assertPublicHttpUrl = async (rawUrl: string): Promise<void> => {
   const url = new URL(rawUrl);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error(`Refusing to scrape non-http(s) URL: ${url.protocol}`);
   }
-  // Note: DNS resolution check omitted in Deno for simplicity; production should add it.
+  if (url.hostname === 'localhost') {
+    throw new Error(`Refusing to scrape a private/loopback URL: ${url.hostname}`);
+  }
+  const records = await Promise.all([
+    Deno.resolveDns(url.hostname, 'A').catch(() => [] as string[]),
+    Deno.resolveDns(url.hostname, 'AAAA').catch(() => [] as string[]),
+  ]);
+  const addresses = records.flat();
+  if (addresses.length === 0 || addresses.some((ip) => isPrivateIp(ip))) {
+    throw new Error(`Refusing to scrape URL resolving to a private address: ${url.hostname}`);
+  }
 };
 
 /** Fetch a URL directly and extract readable text content (no Firecrawl key needed). */
@@ -213,7 +239,7 @@ Deno.serve(async (_req: Request) => {
         const missingAltProducts: string[] = [];
         for (const edge of products) {
           const node = edge.node;
-          const images = (node.images as { edges: Array<{ node: { altText: string | null }> }>)?.edges ?? [];
+          const images = (node.images as { edges: Array<{ node: { altText: string | null } }> } | undefined)?.edges ?? [];
           for (const imgEdge of images) {
             if (!imgEdge.node.altText) {
               missingAltProducts.push(String(node.title ?? 'Unknown'));
@@ -273,7 +299,7 @@ Deno.serve(async (_req: Request) => {
         const orphanedProducts: string[] = [];
         for (const edge of products) {
           const node = edge.node;
-          const collections = (node.collections as { edges: Array<{ node: { title: string }> }>)?.edges ?? [];
+          const collections = (node.collections as { edges: Array<{ node: { title: string } }> } | undefined)?.edges ?? [];
           if (collections.length === 0) {
             orphanedProducts.push(String(node.title ?? 'Unknown'));
           }
@@ -301,7 +327,7 @@ Deno.serve(async (_req: Request) => {
         const missingWeight: string[] = [];
         for (const edge of products) {
           const node = edge.node;
-          const variants = (node.variants as { edges: Array<{ node: { weight: number | null }> }>)?.edges ?? [];
+          const variants = (node.variants as { edges: Array<{ node: { title: string; weight: number | null } }> } | undefined)?.edges ?? [];
           for (const varEdge of variants) {
             if (!varEdge.node.weight || varEdge.node.weight <= 0) {
               missingWeight.push(`${String(node.title ?? 'Unknown')} - ${String(varEdge.node.title ?? 'Default')}`);
