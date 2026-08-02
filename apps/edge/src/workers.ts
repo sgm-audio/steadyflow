@@ -642,7 +642,7 @@ export const workerEnrich = async (ctx: WorkerCtx): Promise<void> => {
   const envelope = QueueEnvelope.safeParse(msg);
   if (!envelope.success) return;
 
-  // Post-MVP: call proxyHunter + proxyTavily
+  // Enrich worker: archived (Hunter.io removed, Tavily handled separately)
   await ctx.supabase.rpc('archive_message', {
     p_queue_name: 'q:enrich',
     p_msg_id: envelope.data.msg_id,

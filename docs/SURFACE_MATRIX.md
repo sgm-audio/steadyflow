@@ -1,252 +1,268 @@
 # SteadyFlow Surface Matrix
 
-**Phase 0A deliverable** — inventory of every promised / user-facing surface vs reality.  
-**As of:** 2026-07-21 · HEAD `main` (post daily-DX merge)  
-**Method:** static code audit (no coverage run; `%` columns are **estimates** unless noted).  
-**Next:** approve [Recommended v1.0.0 scope](#recommended-v100-scope) before Phase 0B / Phase 1.
+**Audited Commit:** `8bdeabc2312ee2e442126dcd92bf8b8e9886d728`  
+**Audit Date:** 2026-08-02  
+**Branch:** `review/scope-v1-merge` (merges the Shopify worker parity + doc-correction work into `main`)
 
-Coverage estimate key:
+This matrix documents every user-facing surface in SteadyFlow, its current status, and its v1.0.0 scope classification per the approved three-pillar scope decision.
 
-| Estimate | Meaning |
-|----------|---------|
-| ~0–20% | Placeholder / smoke-only tests |
-| ~20–50% | Thin unit tests; major paths untested |
-| ~50–80% | Meaningful unit coverage; gaps on integration |
-| ≥90% | Meets AGENTS.md thresholds (**only `@steadyflow/core` enforces this today**) |
-| n/a | No meaningful source under test |
+## Legend
 
----
-
-## Recommended v1.0.0 scope
-
-**Ship exactly three pillars.** Everything else is `experimental` or `remove` from public promises until later majors.
-
-| # | Pillar | What “ship” means |
-|---|--------|-------------------|
-| **1** | **Shopify + Printify growth loop** | Admin catalog audit → real insights; Printify cost join; weekly cron; Deno workers match Node real-data path; BYOK for `shopify-admin` + `printify` (+ Firecrawl/Tavily/LLM fallbacks) |
-| **2** | **Web dashboard + local DX** | All current routes work against local Supabase; `pnpm setup` / `dev` / `stop` / `check`; login → intents → insights → audit → keys |
-| **3** | **Contracts BFF (Edge Functions)** | All 10 procedures have Edge Function handlers; audit + rate-limit on provider calls; OpenAPI/SDK generated from `packages/core` contracts |
-
-**Explicitly experimental for v1 (do not advertise as production):** Amazon SP-API / FBA / FBM, WooCommerce, Alibaba, Etsy, Chrome extension (usable but local-URL hardcoded), Tauri desktop, Drizzle ORM, npm-published SDK (may ship as *generated artifact* under experimental), competitor enrich worker depth.
-
-**Remove from README/AGENTS public claims (or fix docs):** Hunter.io, `packages/crypto`, `packages/sdk` / `packages/contracts` as existing packages, “rate_limit_take unwired”, “production-grade” unqualified, desktop as shipped surface.
+| Column | Description |
+|--------|-------------|
+| **Surface** | User-facing feature or interface |
+| **Path** | File/route location |
+| **Status** | `live` = functional, `stub` = placeholder, `roadmap` = not implemented |
+| **v1 Scope** | `ship` = included in v0.x pilot, `experimental` = labeled as such, `remove` = not in scope |
+| **Blockers** | Known issues preventing ship status |
+| **Coverage** | Test coverage percentage (if measured) |
 
 ---
 
-## Claim contradictions (README / AGENTS / SECURITY vs code)
+## Pillar 1: Shopify Revenue Audit Engine
 
-| Claim | Reality |
-|-------|---------|
-| README: “Production-grade…” | Many adapters stubs; desktop unscaffolded; Deno ≠ Node scrape path |
-| README / diagram: Hunter.io | Hunter removed; no `proxy-hunter` |
-| README: `rate_limit_take` “no handler calls it yet” | **False** — called from `intel-analyze-shop`, `proxy-firecrawl`, `proxy-tavily`, `proxy-llm` via `_shared/rateLimit.ts` |
-| README layout: `packages/sdk`, `packages/contracts`, `packages/crypto`, `infra/supabase` | **Missing** — contracts live in `packages/core`; crypto in core; functions under `supabase/` |
-| AGENTS: `packages/db` “Drizzle ORM (stub)” | Types-only Supabase `Database`; no Drizzle client |
-| AGENTS: `packages/contracts` / `sdk` stubs | Packages **deleted**; contracts remain in core |
-| AGENTS: `packages/llm` stub | **Wrong** — Deepseek adapter + `analyzeShop` implemented |
-| SECURITY: rate limit in `lib/rateLimit.ts` | Path wrong → `supabase/functions/_shared/rateLimit.ts` |
-| SECURITY: Hunter keys | Provider removed |
-| SECURITY: `audit_log` monthly pg_partman partitions | No pg_partman migrations found |
-| README: Tauri desktop roadmap “not yet scaffolded” | Matches code (`PLACEHOLDER`, no `src-tauri/`) — OK if kept experimental |
+| Surface | Path | Status | v1 Scope | Blockers | Coverage |
+|---------|------|--------|----------|----------|----------|
+| Shopify Admin catalogue audit | `packages/shopify-admin/` | live | ship | None | TBD |
+| Storefront/theme inspection | `supabase/functions/workers-scrape/` | live | ship | Deno reimplements its own inline Shopify Admin GraphQL query + insight checks rather than importing `@steadyflow/shopify-admin`; behavior now matches Node's checks but the two implementations can drift independently | TBD |
+| Product/collection completeness | `packages/core/src/contracts/` | live | ship | None | TBD |
+| Metadata, alt-text, schema checks | `packages/core/src/audit/` | live | ship | None | TBD |
+| App/script inventory | `packages/shopify-admin/` | live | ship | None | TBD |
+| Printify unit-cost join | `packages/commerce/` | live | ship | Requires credentials | TBD |
+| Manual audits | `apps/web/src/app/intents/` | live | ship | None | TBD |
+| Weekly scheduled audits | `supabase/migrations/*weekly_audit*` | live | ship | Cron integration | TBD |
+| Evidence-backed findings | `packages/core/src/contracts/procedures.ts` | live | ship | None | TBD |
+| Impact/confidence/effort scoring | `packages/core/src/schemas/` | live | ship | None | TBD |
+| Client-ready audit report | Not yet implemented | stub | ship | **PR 5 required** | N/A |
+| BYOK: Shopify Admin | `packages/core/src/crypto/` | live | ship | None | TBD |
+| BYOK: Printify | `packages/core/src/crypto/` | live | ship | None | TBD |
+| BYOK: Firecrawl | `packages/core/src/crypto/` | live | ship | None | TBD |
+| BYOK: Tavily | `packages/core/src/crypto/` | live | ship | None | TBD |
+| BYOK: OpenAI-compatible LLM | `packages/llm/` | live | ship | None | TBD |
 
----
+### Explicitly NOT in Pillar 1
 
-## 1. Web app (`apps/web`)
-
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| Root layout | `apps/web/src/app/layout.tsx` | live | ship | — | ~0 (no UI tests) |
-| `/` → dashboard | `app/page.tsx` | live | ship | — | ~0 |
-| `/login` | `app/login/page.tsx` | live | ship | — | ~0 |
-| `/dashboard` | `app/dashboard/page.tsx` | live | ship | Needs real Shopify insights for “useful” demo | ~0 |
-| `/insights` | `app/insights/page.tsx` | live | ship | — | ~0 |
-| `/intents` | `app/intents/page.tsx` | live | ship | — | ~0 |
-| `/intents/[id]` | `app/intents/[id]/page.tsx` | live | ship | Empty UI when workers never complete (Deno gap) | ~0 |
-| `/keys` + `/keys/[provider]` | `app/keys/**` | live | ship | Needs `shpat_` for true E2E | ~0 |
-| `/audit` | `app/audit/page.tsx` | live | ship | — | ~0 |
-| `/settings` | `app/settings/page.tsx` | live | ship | — | ~0 |
-| `POST /api/keys` | `app/api/keys/route.ts` | live | ship | — | ~0 |
-| `POST /api/intents` | `app/api/intents/route.ts` | live | ship | — | ~0 |
-| `POST /api/settings/llm` | `app/api/settings/llm/route.ts` | live | ship | — | ~0 |
-| Auth login/callback/logout | `app/auth/**`, `logout` | live | ship | — | ~0 |
-| Package entry | `apps/web/src/index.ts` | stub | remove claim | Stale “Phase 4” placeholder | ~100 of stub |
-| Playwright E2E | — | roadmap | ship (Phase 2D) | Not in repo | n/a |
-
-**Web overall:** **partial → ship** for routes; **tests are stub-only** (`index.test.ts`).
+| Surface | Path | Status | v1 Scope | Notes |
+|---------|------|--------|----------|-------|
+| Shopify order creation | `packages/commerce/` | stub | remove | Not needed for audits |
+| Inventory mutation | `packages/commerce/` | stub | remove | Not needed for audits |
+| Printify order submission | `packages/commerce/` | stub | remove | Not needed for audits |
+| Fulfillment automation | N/A | roadmap | remove | Future capability |
+| Amazon operations | `packages/commerce/src/adapters/amazon/` | stub | experimental | See Experimental Surfaces |
+| WooCommerce operations | `packages/commerce/src/adapters/woocommerce/` | stub | experimental | See Experimental Surfaces |
+| Alibaba operations | `packages/commerce/src/adapters/alibaba/` | stub | experimental | See Experimental Surfaces |
+| Etsy operations | `packages/commerce/src/adapters/etsy/` | stub | experimental | See Experimental Surfaces |
 
 ---
 
-## 2. Edge BFF & workers
+## Pillar 2: Operator Dashboard and Delivery Workflow
 
-### 2a. Node package (`apps/edge`)
+| Surface | Path | Status | v1 Scope | Blockers | Coverage |
+|---------|------|--------|----------|----------|----------|
+| `/login` route | `apps/web/src/app/login/` | live | ship | None | TBD |
+| `/dashboard` route | `apps/web/src/app/dashboard/` | live | ship | Real data integration | TBD |
+| `/intents` route | `apps/web/src/app/intents/` | live | ship | None | TBD |
+| `/intents/[id]` route | `apps/web/src/app/intents/[id]/` | live | ship | None | TBD |
+| `/insights` route | `apps/web/src/app/insights/` | live | ship | Real data integration | TBD |
+| `/audit` route | `apps/web/src/app/audit/` | live | ship | Real data integration | TBD |
+| `/keys` route | `apps/web/src/app/keys/` | live | ship | None | TBD |
+| `/keys/[provider]` route | `apps/web/src/app/keys/[provider]/` | live | ship | None | TBD |
+| `/settings` route | `apps/web/src/app/settings/` | live | ship | None | TBD |
+| Loading states | Various | partial | ship | Complete all routes | TBD |
+| Empty states | Various | partial | ship | Complete all routes | TBD |
+| Error states | Various | partial | ship | Complete all routes | TBD |
+| Partial result states | Various | stub | ship | **PR 4 required** | N/A |
+| Completed states | Various | live | ship | None | TBD |
+| Cancelled states | Various | stub | ship | **PR 4 required** | N/A |
+| Provider auth failure | Various | stub | ship | **PR 4 required** | N/A |
 
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| Package `index.ts` | `apps/edge/src/index.ts` | stub | remove claim | Stale placeholder | stub |
-| Handlers (BFF logic) | `apps/edge/src/handlers.ts` | live | ship (shared logic / tests) | Must stay in sync with Deno functions | ~50–70 |
-| Workers (Node) | `apps/edge/src/workers.ts` | live | ship (local + source of truth) | Includes Shopify Admin short-circuit | ~40–60 |
-| Worker loop | `apps/edge/scripts/worker-loop.ts` | live | ship (local DX) | Does **not** drain `q:monitor` | ~0 |
-| Deno tree under edge | `apps/edge/supabase/functions/` | partial | remove / consolidate | Only `import_map.json` | n/a |
+### Full Workflow Status
 
-### 2b. Supabase Edge Functions (`supabase/functions`)
+```
+Login → Configure keys → Create intent → Worker processes → Findings appear → Audit events visible → Report generated
+  ✓          ✓               ✓            ⚠️              ⚠️                ⚠️                  ✗
+```
 
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| `hello` | `hello/index.ts` | stub | experimental | Health only | n/a |
-| `intel-analyze-shop` | `intel-analyze-shop/index.ts` | live | ship | — | n/a (no Deno tests) |
-| `intel-cancel` | `intel-cancel/index.ts` | live | ship | — | n/a |
-| `intel-list` | `intel-list/index.ts` | live | ship | maps `intent.list` | n/a |
-| `insights-list` | `insights-list/index.ts` | live | ship | — | n/a |
-| `audit-query` | `audit-query/index.ts` | live | ship | — | n/a |
-| `keys-set` / `keys-list` / `keys-test` | `keys-*/index.ts` | live | ship | `keys-test` = envelope existence, not live API probe | n/a |
-| `org-llm-config-get/set` | `org-llm-config-*/index.ts` | live | ship | — | n/a |
-| `proxy-firecrawl` | `proxy-firecrawl/index.ts` | live | ship | BYOK | n/a |
-| `proxy-tavily` | `proxy-tavily/index.ts` | live | ship | BYOK | n/a |
-| `proxy-llm` | `proxy-llm/index.ts` | live | ship | BYOK | n/a |
-| `workers-scrape` | `workers-scrape/index.ts` | **partial** | **ship (must complete)** | **No `@steadyflow/shopify-admin` intercept** — Firecrawl-only | n/a |
-| `workers-analyze` | `workers-analyze/index.ts` | live | ship | LLM path | n/a |
-| `workers-enrich` | `workers-enrich/index.ts` | partial | experimental | Marked Post-MVP; no persist | n/a |
-| `workers-monitor` | `workers-monitor/index.ts` | live | experimental | Cron drains; local loop skips | n/a |
-| Shared: context, audit, rateLimit, queue | `_shared/*.ts` | live | ship | Path docs wrong in SECURITY.md | n/a |
+Key: ✓ = working, ⚠️ = partial/stub, ✗ = not implemented
 
----
+### Explicitly Experimental (NOT in primary pitch)
 
-## 3. Cron / queue path
-
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| Queues `q:scrape|enrich|analyze|sync_keys|monitor` | migrations `20260105000001_*`, `20260712000002_*` | live | ship | — | n/a |
-| pgmq wrappers | `20260105000005_pgmq_wrappers.sql` | live | ship | — | n/a |
-| pg_cron drain (10s) | `20260111000007_queue_scheduler.sql` | live | ship | Needs Vault secrets (`setup-cron-secrets.sql`) | n/a |
-| Weekly audit | `20260712000003_weekly_audit_scheduler.sql` | live | ship | Orgs need `shopify-admin` key + store URL | n/a |
-| Local `worker:loop` | `apps/edge/scripts/worker-loop.ts` | live | ship | **Parity gap:** no `q:monitor`; Shopify path only on Node | ~0 |
-| Production Deno drain | cron → `workers-*` | **partial** | ship | Scrape lacks Shopify Admin path | n/a |
-
-**Critical production gap:** Weekly audit targets Shopify-ready orgs, but hosted `workers-scrape` never runs `runCatalogAudit`.
+| Surface | Path | Status | v1 Scope | Notes |
+|---------|------|--------|----------|-------|
+| Chrome extension | `apps/extension/` | stub | experimental | Label as experimental |
+| Tauri desktop app | `apps/desktop/` | stub | experimental | Label as experimental |
 
 ---
 
-## 4. Extension & desktop
+## Pillar 3: Auditable Execution Layer
 
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| Chrome MV3 extension | `apps/extension` | partial | **experimental** | Hardcoded `127.0.0.1` URLs; thin tests | ~20–40 |
-| Tauri desktop | `apps/desktop` | roadmap | **experimental** / hide from pitch | No `src-tauri/`; `PLACEHOLDER` | stub ~100 |
+| Surface | Path | Status | v1 Scope | Blockers | Coverage |
+|---------|------|--------|----------|----------|----------|
+| 10 core procedures → Edge Functions | `supabase/functions/*/` | live | ship | Verify all 10 mapped | TBD |
+| Zod validation at boundaries | `packages/core/src/contracts/` | live | ship | None | TBD |
+| Shopify path parity (Node/Deno) | `apps/edge/` vs `supabase/functions/` | partial | ship | **PR 2 required** | TBD |
+| Queue processing (production) | `supabase/functions/_shared/queue.ts` | live | ship | Verify pgmq integration | TBD |
+| Rate limiting on provider calls | `supabase/functions/_shared/rateLimit.ts` | live | ship | Verify wired to all handlers | TBD |
+| Audit events for external actions | `packages/core/src/audit/` | live | ship | Verify compliance scan | TBD |
+| Secret redaction before hashing | `packages/core/src/crypto/` | live | ship | None | TBD |
+| Provider-key envelope storage | `supabase/migrations/*keys_envelopes*` | live | ship | None | TBD |
+| Dry-run/approval/apply/verify/fail states | `packages/core/src/schemas/intent.ts` | partial | ship | Verify all states work | TBD |
+| Internal OpenAPI client (build artifact) | Not yet generated | stub | ship | **PR 4 required** | N/A |
 
----
+### Explicitly NOT Public (Internal Only)
 
-## 5. Commerce adapters (`packages/commerce`)
-
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| Registry | `adapters/registry.ts` | live | ship | — | ~40 (1 test file) |
-| Shopify selling | `adapters/shopify/selling.ts` | **partial** | ship | `listOrders`, `pushInventory` unimplemented | ~40 |
-| Printify fulfillment | `adapters/printify/fulfillment.ts` | **partial** | ship | Order create not wired; inventory N/A | ~0 direct |
-| Amazon selling | `adapters/amazon/selling.ts` | stub | experimental | All methods reject | stub |
-| Amazon FBA/FBM | `adapters/amazon/fulfillment.ts` | stub | experimental | All reject | stub |
-| WooCommerce | `adapters/woocommerce/selling.ts` | stub | experimental | All reject | stub |
-| Alibaba distributor | `adapters/alibaba/distributor.ts` | stub | experimental | All reject | stub |
-| Etsy | (schema id only) | roadmap | experimental | No adapter class | n/a |
-| Schemas / mappers | `schemas/*`, `mappers/shopify.ts` | live | ship | — | thin |
-
----
-
-## 6. Shared packages
-
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| `@steadyflow/core` (schemas, audit, crypto, contracts) | `packages/core` | live | ship | — | **≥90 enforced** |
-| `@steadyflow/shopify-admin` | `packages/shopify-admin` | live | ship | Needs real `shpat_` for E2E | ~30–50 (1 suite) |
-| `@steadyflow/llm` | `packages/llm` | live | ship | Deepseek only; others via openai-compatible | ~50–70 |
-| `@steadyflow/db` | `packages/db` | stub | experimental | Types only; no Drizzle | ~20 |
-| `@steadyflow/contracts` | — | **missing** | ship as regenerate (Phase 2A) | Deleted; generate from core | n/a |
-| `@steadyflow/sdk` | — | **missing** | experimental → ship later | Deleted | n/a |
-| `@steadyflow/devkit` scaffolds | `tooling/devkit` | live | experimental | DX helpers, not product core | unknown |
-| `packages/crypto` | — | **missing** | remove claim | In core | n/a |
+| Surface | Path | Status | v1 Scope | Notes |
+|---------|------|--------|----------|-------|
+| Public npm SDK | `packages/sdk/` | removed | remove | Keep internal only |
+| Public contracts package | `packages/contracts/` | removed | remove | Keep internal only |
+| Third-party developer platform | N/A | roadmap | remove | Future capability |
+| Public API stability guarantees | N/A | N/A | remove | Not applicable to private pilot |
 
 ---
 
-## 7. Contract procedures (10)
+## Experimental Surfaces (Must Be Labeled)
 
-Source: `packages/core/src/contracts/procedures.ts` → Edge Function mapping.
-
-| Procedure | Edge Function | Status | v1 promise | Blockers | Coverage % |
-|-----------|---------------|--------|------------|----------|------------|
-| `intel.analyzeShop` | `intel-analyze-shop` | live | ship | Downstream worker parity | core contracts tests |
-| `insights.list` | `insights-list` | live | ship | — | core + handlers |
-| `audit.query` | `audit-query` | live | ship | — | core + handlers |
-| `keys.set` | `keys-set` | live | ship | — | core + handlers |
-| `keys.list` | `keys-list` | live | ship | — | core + handlers |
-| `keys.test` | `keys-test` | partial | ship (document semantics) | Not a live HTTP probe of provider | thin |
-| `org.llmConfig.get` | `org-llm-config-get` | live | ship | — | thin |
-| `org.llmConfig.set` | `org-llm-config-set` | live | ship | — | thin |
-| `intent.cancel` | `intel-cancel` | live | ship | Naming: `intel-cancel` vs `intent.*` | thin |
-| `intent.list` | `intel-list` | live | ship | Same naming quirk | thin |
-
-OpenAPI generator + typed SDK: **missing** (promised historically; contracts deleted as packages).
-
----
-
-## 8. BYOK providers
-
-| Provider | Schema | Proxy / consumer | Status | v1 promise | Blockers |
-|----------|--------|------------------|--------|------------|----------|
-| `firecrawl` | yes | `proxy-firecrawl`, workers | live | ship | — |
-| `tavily` | yes | `proxy-tavily`, monitor/enrich | live | ship | — |
-| `deepseek` | yes | `proxy-llm`, `@steadyflow/llm` | live | ship | — |
-| `nvidia-nim` | yes | via LLM config / openai-compatible | partial | experimental | Thin adapter coverage |
-| `groq` | yes | via LLM config | partial | experimental | Thin |
-| `openai-compatible` | yes | `proxy-llm` | live | ship | — |
-| `shopify-admin` | yes | Node `runCatalogAudit` only | **partial** | **ship** | Deno scrape path missing |
-| `printify` | yes | shopify-admin cost join + fulfillment adapter | partial | ship | Order create incomplete |
-| `amazon-sp-api` | yes | stub adapters | stub | experimental | No live client |
-| `alibaba` | yes | stub distributor | stub | experimental | No live client |
-| Hunter.io | **removed** | — | remove | **remove from docs** | Docs still mention |
+| Surface | Path | Current Status | Documentation Status | Action Required |
+|---------|------|----------------|---------------------|-----------------|
+| Amazon SP-API | `packages/commerce/src/adapters/amazon/` | stub | Not labeled | Add @experimental tag |
+| Amazon FBA/FBM | `packages/commerce/src/adapters/amazon/` | stub | Not labeled | Add @experimental tag |
+| WooCommerce | `packages/commerce/src/adapters/woocommerce/` | stub | Not labeled | Add @experimental tag |
+| Alibaba | `packages/commerce/src/adapters/alibaba/` | stub | Not labeled | Add @experimental tag |
+| Etsy | `packages/commerce/src/adapters/etsy/` | stub | Not labeled | Add @experimental tag |
+| Chrome extension | `apps/extension/` | stub | Not labeled | Add @experimental banner |
+| Tauri desktop | `apps/desktop/` | stub | Not labeled | Add @experimental banner |
+| Drizzle ORM | `packages/db/` | stub (types only) | Claims Drizzle | Correct documentation |
+| Public npm SDK | N/A | removed | Still referenced | Remove from docs |
+| Public contracts package | N/A | removed | Still referenced | Remove from docs |
+| Printify order submission | `packages/commerce/` | stub | Not labeled | Add @experimental tag |
+| Shopify order/inventory mutations | `packages/commerce/` | stub | Not labeled | Add @experimental tag |
+| Competitor-enrichment depth | `supabase/functions/workers-enrich/` | live | Not scoped | Document limits |
+| Groq-specific functionality | `packages/llm/src/adapters/groq/` | live | Over-specified | Generalize to OpenAI-compatible |
+| NVIDIA NIM-specific functionality | `packages/llm/src/adapters/nvidia-nim/` | live | Over-specified | Generalize to OpenAI-compatible |
 
 ---
 
-## 9. Security / audit / CI surfaces
+## Package Structure Corrections
 
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| `buildAuditEvent` / redact / hash | `packages/core/src/audit/*` | live | ship | Compliance scanner not built | ≥90 (core) |
-| RLS policies + tests | migrations + `rls-security.test.ts` | live | ship | Continuous SQL RLS scan missing | partial |
-| Rate limiting | `_shared/rateLimit.ts` | live | ship | Docs outdated | thin |
-| Gitleaks + `pnpm audit` | `.github/workflows/ci.yml` | live | ship | No CodeQL/Trivy yet | n/a |
-| Coverage gates in CI | — | roadmap | ship | Only core has thresholds; CI does not upload coverage | n/a |
-| SECURITY.md reporting email | `SECURITY.md` | partial | ship | Must be monitored before public | n/a |
-
----
-
-## 10. Local DX
-
-| Surface | Path | Status | v1 promise | Blockers | Coverage % |
-|---------|------|--------|------------|----------|------------|
-| `pnpm setup` / `doctor` / `dev` / `stop` / `check` | `scripts/*.mjs`, `package.json` | live | ship | Docker + Supabase CLI required | n/a |
-| `scripts/dev.sh` | wraps `dev.mjs` | live | ship | — | n/a |
+| Claimed Path | Actual Path | Status | Action |
+|--------------|-------------|--------|--------|
+| `packages/crypto/` | `packages/core/src/crypto/` | Incorrect | Update all docs |
+| `packages/sdk/` | Removed (was stub) | Incorrect | Remove from docs |
+| `packages/contracts/` | Removed (was stub) | Incorrect | Remove from docs |
+| `infra/supabase/` | `supabase/` (migrations/, functions/) | Incorrect | Update all docs |
+| `packages/db/` (Drizzle ORM) | Generated types only | Incorrect | Correct documentation |
+| `packages/llm/` (stub) | Implemented adapters | Incorrect | Update documentation |
+| Rate limit source: unspecified | `supabase/functions/_shared/rateLimit.ts` | Incorrect | Update documentation |
 
 ---
 
-## Status rollup
+## Security Documentation Corrections Required
 
-| Bucket | Count (approx) | Examples |
-|--------|----------------|----------|
-| **live** | Majority of web routes + Edge BFF + core + shopify-admin catalog | Dashboard, keys, contracts handlers |
-| **partial** | Critical path gaps | Deno scrape, Shopify orders/inventory, Printify order create, extension |
-| **stub** | Commerce expansion + desktop entrypoints | Amazon, Woo, Alibaba, desktop |
-| **roadmap / missing** | SDK/OpenAPI packages, E2E, full coverage CI | `packages/sdk`, Playwright |
-| **doc debt** | High | Hunter, rate-limit claim, layout tree, “production-grade” |
+| Claim | Current Location | Correction Required |
+|-------|------------------|---------------------|
+| "production-grade" | README.md line 3 | Replace with "private pilot" or "active development" |
+| Hunter.io in BYOK | README.md, SECURITY.md, diagrams | Remove entirely (migration 20260712000004 dropped hunter) |
+| "rate_limit_take not wired" | README.md line 27-28 | Correct: already called from provider handlers |
+| "pg_partman partitioning" | SECURITY.md line 29 | Remove unsupported claim |
+| "server never stores keys" | README.md line 130 | Replace with envelope encryption wording |
 
 ---
 
-## Approval checklist (before Phase 0B)
+## Contract Procedures Status
 
-- [ ] Accept **3-pillar** v1 scope above (or rewrite pillars here)
-- [ ] Confirm Amazon/Woo/Alibaba/Etsy stay **experimental** for v1
-- [ ] Confirm Chrome extension is **experimental** (not pillar)
-- [ ] Confirm desktop stays **roadmap / hidden** until Tauri scaffold
-- [ ] Confirm Deno Shopify parity is a **v1 ship blocker** (Phase 2B)
-- [ ] Choose license in Phase 1A (Apache-2.0 recommended)
+All 10 core procedures from `packages/core/src/contracts/procedures.ts`:
 
-**Phase 0B next:** Mermaid diagrams in `docs/architecture/` reflecting this matrix (live vs stub coloring).  
-**Program:** `docs/PUBLIC_RELEASE_PROMPT_CHAIN.md`
+| Procedure | Edge Function | Status | Notes |
+|-----------|---------------|--------|-------|
+| `intel.analyzeShop` | `supabase/functions/intel-analyze-shop/` | live | ✓ |
+| `insights.list` | `supabase/functions/insights-list/` | live | ✓ |
+| `audit.query` | `supabase/functions/audit-query/` | live | ✓ |
+| `keys.set` | `supabase/functions/keys-set/` | live | ✓ |
+| `keys.list` | `supabase/functions/keys-list/` | live | ✓ |
+| `keys.test` | `supabase/functions/keys-test/` | live | ✓ |
+| `org.llmConfig.get` | `supabase/functions/org-llm-config-get/` | live | ✓ |
+| `org.llmConfig.set` | `supabase/functions/org-llm-config-set/` | live | ✓ |
+| `intent.cancel` | `supabase/functions/intel-cancel/` | live | ✓ |
+| `intent.list` | `supabase/functions/intel-list/` | live | ✓ |
+
+---
+
+## Implementation Priority Summary
+
+### PR 0: Refresh Truth (Current Document)
+- [x] Regenerate surface matrix from main
+- [x] Record commit SHA
+- [ ] Approve scope document
+
+### PR 1: Remove False Claims
+- [ ] Fix README.md ("production-grade" → "private pilot")
+- [ ] Remove Hunter.io from all documentation
+- [ ] Correct rate-limit documentation
+- [ ] Remove nonexistent package paths from docs
+- [ ] Document actual package structure
+- [ ] Correct Drizzle claim in packages/db
+- [ ] Correct packages/llm status
+- [ ] Fix security documentation claims
+- [ ] Label all experimental surfaces
+
+### PR 2: Production Shopify Worker Parity
+- [ ] Port Shopify Admin catalogue path to Deno scrape worker
+- [ ] Ensure weekly audit invokes real Shopify audit
+- [ ] Align Node and Deno result schemas
+- [ ] Process all queues required by v1 audit workflow
+
+### PR 3: End-to-End Audit Lifecycle
+- [ ] Prove: intent created → queued → Shopify data retrieved → audit performed → insights persisted → intent completed → audit_log populated
+- [ ] Add one full local Supabase integration test
+
+### PR 4: Operator Dashboard Completion
+- [ ] Replace stub calls with internal typed client
+- [ ] Complete loading, empty, error, partial states
+- [ ] Add Playwright test for primary workflow
+
+### PR 5: Client Report Generation
+- [ ] Generate client-facing report with executive summary, findings, evidence, severity, confidence, remediation recommendations, effort estimates, access requirements, fixed-price sprint recommendation
+
+### PR 6: Making Madi Validation
+- [ ] Run complete system against Making Madi
+- [ ] Capture metrics (runtime, operator time, findings, acceptance rate, false positives, etc.)
+- [ ] Convert results into flagship case study
+
+---
+
+## Versioning Roadmap
+
+| Version | Target | Criteria |
+|---------|--------|----------|
+| v0.1.0 | Making Madi internal validation | This scope document approved |
+| v0.2.0 | First paid customer | PR 1-5 complete |
+| v0.5.0 | Repeatable private beta | Three paid audits delivered |
+| v1.0.0 | Public release | All commercial + reliability gates met |
+
+---
+
+## Commercial Release Gates Checklist
+
+- [ ] Hosted Shopify audits complete without manual database intervention
+- [ ] Node and Deno produce equivalent Shopify findings
+- [ ] Every provider call is rate-limited and audited
+- [ ] No plaintext provider key is stored at rest
+- [ ] An operator can generate a client report without editing database records
+- [ ] Making Madi completes the full workflow
+- [ ] No open Critical or High findings remain in BYOK, RLS, SSRF, or authorization paths
+- [ ] Unauthorized mutation attempts fail safely
+- [ ] Primary workflow has an automated integration test
+
+---
+
+## Business Validation Gates (Pre-OSS)
+
+Do not begin public OSS and npm program until:
+
+- [ ] Three paid Shopify audits delivered
+- [ ] At least one paid implementation sprint completed
+- [ ] At least one recurring monitoring customer
+- [ ] Audit delivery requiring less than one hour of operator work
+- [ ] Delivery gross margin above 70%
+- [ ] Audit-to-sprint conversion target of at least 30%
+- [ ] Documented list of features customers repeatedly request

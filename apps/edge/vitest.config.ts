@@ -11,6 +11,7 @@ const integrationTests = [
   'src/handlers.test.ts',
   'src/workers.test.ts',
   'src/rls-security.test.ts',
+  'src/e2e-audit-lifecycle.test.ts',
 ];
 
 const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
