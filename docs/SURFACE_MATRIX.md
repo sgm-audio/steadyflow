@@ -1,8 +1,8 @@
 # SteadyFlow Surface Matrix
 
-**Audited Commit:** `ae6e2435bef4da45ffda221bef2095cc8ab2d027`  
-**Audit Date:** 2026-07-22  
-**Branch:** `main` (cursor/daily-dev-dx-d6d7)
+**Audited Commit:** `8bdeabc2312ee2e442126dcd92bf8b8e9886d728`  
+**Audit Date:** 2026-08-02  
+**Branch:** `review/scope-v1-merge` (merges the Shopify worker parity + doc-correction work into `main`)
 
 This matrix documents every user-facing surface in SteadyFlow, its current status, and its v1.0.0 scope classification per the approved three-pillar scope decision.
 
@@ -24,7 +24,7 @@ This matrix documents every user-facing surface in SteadyFlow, its current statu
 | Surface | Path | Status | v1 Scope | Blockers | Coverage |
 |---------|------|--------|----------|----------|----------|
 | Shopify Admin catalogue audit | `packages/shopify-admin/` | live | ship | None | TBD |
-| Storefront/theme inspection | `supabase/functions/workers-scrape/` | live | ship | Deno/Node parity gap | TBD |
+| Storefront/theme inspection | `supabase/functions/workers-scrape/` | live | ship | Deno reimplements its own inline Shopify Admin GraphQL query + insight checks rather than importing `@steadyflow/shopify-admin`; behavior now matches Node's checks but the two implementations can drift independently | TBD |
 | Product/collection completeness | `packages/core/src/contracts/` | live | ship | None | TBD |
 | Metadata, alt-text, schema checks | `packages/core/src/audit/` | live | ship | None | TBD |
 | App/script inventory | `packages/shopify-admin/` | live | ship | None | TBD |
