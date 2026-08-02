@@ -99,8 +99,8 @@ Must include:
 - BYOK key providers in packages/core schemas
 - Cron/queue path (pg_cron → edge workers vs local worker:loop)
 
-Cross-check README claims vs reality. Flag contradictions (e.g. "production-grade" vs stub).
-Output a recommended v1.0.0 scope: MAX 3 "ship" pillars + everything else labeled experimental.
+Cross-check README claims vs reality. Flag contradictions (e.g. \"private pilot\" vs stub).
+Output a recommended v1.0.0 scope: MAX 3 \"ship\" pillars + everything else labeled experimental.
 Do not implement — document only.
 ```
 
