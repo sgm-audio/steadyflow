@@ -2,28 +2,18 @@
  * Intents list and submission page.
  */
 
-import { createClient } from '../../lib/supabase-server';
-import { redirect } from 'next/navigation';
+import { requireOrgSession } from '../../lib/session';
+import { classifyError } from '../../lib/api-client';
+import { StateBanner } from '../../components/StateBanner';
+import CancelIntentButton from './CancelIntentButton';
+
+const CANCELLABLE = new Set(['queued', 'running']);
 
 export default async function IntentsPage() {
-  const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect('/login');
+  const { orgId, api } = await requireOrgSession();
 
-  // Get org ID
-  const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
-  const orgId = member?.org_id;
-
-  // Get recent intents
-  const { data: intentsData } = orgId
-    ? await supabase
-        .from('intents')
-        .select('id, kind, status, input_hash, created_at')
-        .eq('org_id', orgId)
-        .order('created_at', { ascending: false })
-        .limit(20)
-    : { data: [] };
-  const intents = intentsData ?? [];
+  const result = orgId ? await api.intentList({ limit: 20 }) : null;
+  const intents = result?.ok ? result.data.items : [];
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -38,7 +28,11 @@ export default async function IntentsPage() {
       {/* Intent List */}
       <div style={{ marginTop: '2rem' }}>
         <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>Recent Intents</h2>
-        {intents.length === 0 ? (
+        {!orgId ? (
+          <StateBanner state="not-found" message="No organization found for this account." />
+        ) : result && !result.ok ? (
+          <StateBanner state={classifyError(result.error)} message={result.error.message} />
+        ) : intents.length === 0 ? (
           <p style={{ color: '#a1a1aa' }}>No intents yet. Submit your first shop URL above.</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -58,10 +52,11 @@ export default async function IntentsPage() {
                     <StatusBadge status={intent.status} />
                   </td>
                   <td style={{ padding: '0.5rem', fontSize: '0.875rem', color: '#a1a1aa' }}>
-                    {new Date(intent.created_at).toLocaleString()}
+                    {new Date(intent.createdAt).toLocaleString()}
                   </td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td style={{ padding: '0.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                     <a href={`/intents/${intent.id}`}>View</a>
+                    {CANCELLABLE.has(intent.status) && <CancelIntentButton intentId={intent.id} />}
                   </td>
                 </tr>
               ))}

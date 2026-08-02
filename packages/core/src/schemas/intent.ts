@@ -40,8 +40,8 @@ export const Intent = z
         message: z.string().min(1).max(2000),
       })
       .optional(),
-    createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
+    createdAt: z.string().datetime({ offset: true }),
+    updatedAt: z.string().datetime({ offset: true }),
   })
   .strict();
 export type Intent = z.infer<typeof Intent>;

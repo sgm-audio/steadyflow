@@ -21,7 +21,7 @@ export const ShopifyShop = z
     description: z.string().max(5000).optional(),
     productCount: z.number().int().nonnegative().optional(),
     currency: z.string().length(3).optional(),
-    capturedAt: z.string().datetime(),
+    capturedAt: z.string().datetime({ offset: true }),
   })
   .strict();
 export type ShopifyShop = z.infer<typeof ShopifyShop>;
@@ -35,7 +35,7 @@ export const EtsyShop = z
     description: z.string().max(5000).optional(),
     listingCount: z.number().int().nonnegative().optional(),
     location: z.string().max(255).optional(),
-    capturedAt: z.string().datetime(),
+    capturedAt: z.string().datetime({ offset: true }),
   })
   .strict();
 export type EtsyShop = z.infer<typeof EtsyShop>;

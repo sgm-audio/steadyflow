@@ -39,7 +39,7 @@ export const Insight = z
     model: z.string().min(1).max(100),
     /** Provider that served the model. */
     provider: z.string().min(1).max(50),
-    generatedAt: z.string().datetime(),
+    generatedAt: z.string().datetime({ offset: true }),
   })
   .strict();
 export type Insight = z.infer<typeof Insight>;

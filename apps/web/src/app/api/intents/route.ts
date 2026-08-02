@@ -1,11 +1,17 @@
 /**
  * POST /api/intents — Create a new analyze intent.
  * GET /api/intents — Redirect to intents page.
+ *
+ * Proxies to the intel.analyzeShop Edge Function procedure, which adds rate
+ * limiting and audit logging that the previous hand-rolled insert+enqueue
+ * here didn't have.
  */
 
 import { createClient } from '../../../lib/supabase-server';
+import { createApiClient } from '../../../lib/api-client';
 import { NextResponse } from 'next/server';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 
 export function GET() {
   redirect('/intents');
@@ -15,58 +21,30 @@ export function GET() {
 const formString = (value: FormDataEntryValue | null, fallback: string): string =>
   typeof value === 'string' ? value : fallback;
 
+// Matches the intel-analyze-shop Edge Function's accepted platforms (a subset
+// of the full @steadyflow/core Platform enum — woocommerce is experimental).
+const SupportedPlatform = z.enum(['shopify', 'etsy', 'amazon']);
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const form = await request.formData();
-  const platform = formString(form.get('platform'), 'shopify');
+  const platformParsed = SupportedPlatform.safeParse(formString(form.get('platform'), 'shopify'));
   const url = formString(form.get('url'), '');
   const idempotencyKey = formString(form.get('idempotencyKey'), `web-${Date.now()}`);
 
+  if (!platformParsed.success) return NextResponse.json({ error: 'Unsupported platform' }, { status: 400 });
   if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 });
 
-  // Get org ID
-  const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
-  const orgId = member?.org_id;
-  if (!orgId) return NextResponse.json({ error: 'No org' }, { status: 400 });
+  const api = createApiClient(session.access_token);
+  const result = await api.analyzeShop({ platform: platformParsed.data, url, idempotencyKey, requiresAuth: false });
 
-  // Hash input
-  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify({ platform, url })));
-  const inputHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-  // Create intent
-  const { data: intent, error } = await supabase
-    .from('intents')
-    .insert({
-      org_id: orgId,
-      user_id: session.user.id,
-      kind: 'analyze_shop',
-      status: 'queued',
-      input_hash: inputHash,
-      idempotency_key: idempotencyKey,
-    })
-    .select('id')
-    .single();
-
-  if (error) {
-    if (error.code === '23505') {
-      // Duplicate — redirect to existing
-      const { data: existing } = await supabase.from('intents').select('id').eq('org_id', orgId).eq('idempotency_key', idempotencyKey).single();
-      if (existing) return NextResponse.redirect(new URL(`/intents/${existing.id}`, request.url));
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!result.ok) {
+    const status = result.error.code === 'RATE_LIMITED' ? 429 : result.error.code === 'VALIDATION_FAILED' ? 400 : 500;
+    return NextResponse.json({ error: result.error.message }, { status });
   }
 
-  // Enqueue scrape
-  await supabase.rpc('enqueue_message', {
-    p_queue_name: 'q:scrape',
-    p_message: {
-      intentId: intent.id,
-      orgId, platform, url, requiresAuth: false,
-    },
-  });
-
-  return NextResponse.redirect(new URL(`/intents/${intent.id}`, request.url));
+  return NextResponse.redirect(new URL(`/intents/${result.data.intentId}`, request.url));
 }

@@ -9,8 +9,11 @@
 import { z } from 'npm:zod@3';
 import {
   handleCors, createContext, parseInput,
-  writeAudit, ok, badRequest, notFound, internalError,
+  writeAudit, ok, badRequest, notFound, internalError, jsonError,
 } from '../_shared/context.ts';
+import { error as sfError } from '../_shared/core-shim.ts';
+
+const CANCELLABLE_STATUSES = ['queued', 'running'];
 
 const CancelInput = z.object({
   intentId: z.string().uuid(),
@@ -39,11 +42,29 @@ Deno.serve(async (req: Request) => {
     .update({ status: 'cancelled' })
     .eq('id', intentId)
     .eq('org_id', ctx.orgId)
+    .in('status', CANCELLABLE_STATUSES)
     .select('id, status')
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') return notFound('Intent');
+    if (error.code === 'PGRST116') {
+      // Either the intent doesn't exist, or it exists but is no longer in a
+      // cancellable state (already succeeded/failed/cancelled) — distinguish
+      // the two so a terminal-state intent isn't misreported as "not found".
+      const { data: existing } = await ctx.supabase
+        .from('intents')
+        .select('status')
+        .eq('id', intentId)
+        .eq('org_id', ctx.orgId)
+        .maybeSingle();
+      if (existing) {
+        return jsonError(
+          sfError('VALIDATION_FAILED', `Intent is already ${existing.status} and can no longer be cancelled`),
+          409,
+        );
+      }
+      return notFound('Intent');
+    }
     return internalError(`Failed to cancel intent: ${error.message}`);
   }
 

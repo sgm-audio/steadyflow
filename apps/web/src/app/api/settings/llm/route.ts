@@ -1,4 +1,5 @@
 import { createClient } from '../../../../lib/supabase-server';
+import { createApiClient } from '../../../../lib/api-client';
 import { NextResponse } from 'next/server';
 
 const LLM_PROVIDERS = new Set(['deepseek', 'nvidia-nim', 'groq', 'openai-compatible']);
@@ -19,20 +20,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid model name' }, { status: 400 });
   }
 
-  const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
-  const orgId = (member as Record<string, unknown> | null)?.org_id as string | undefined;
-  if (!orgId) return NextResponse.json({ error: 'No org' }, { status: 400 });
+  const api = createApiClient(session.access_token);
+  const result = await api.orgLlmConfigSet({
+    provider: provider as 'deepseek' | 'nvidia-nim' | 'groq' | 'openai-compatible',
+    defaultModel,
+  });
 
-  const { error } = await supabase
-    .from('orgs')
-    .update({
-      default_llm_provider: provider,
-      default_llm_model: defaultModel,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', orgId);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!result.ok) return NextResponse.json({ error: result.error.message }, { status: 500 });
 
   return NextResponse.redirect(new URL('/settings', request.url));
 }

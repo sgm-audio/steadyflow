@@ -15,6 +15,7 @@ build/
 target/
 .turbo/
 *.tsbuildinfo
+.next/
 
 # Public mirror sanitization
 infra/supabase/secrets/

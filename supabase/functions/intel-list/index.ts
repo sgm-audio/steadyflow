@@ -49,10 +49,20 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: { code: 'INTERNAL', message: error.message } }), { status: 500, headers: { 'content-type': 'application/json' } });
   }
 
-  const items = data ?? [];
-  const hasMore = items.length > limit;
-  const result = hasMore ? items.slice(0, limit) : items;
-  const nextCursor = hasMore ? result[result.length - 1]?.created_at : undefined;
+  const rows = data ?? [];
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? page[page.length - 1]?.created_at : undefined;
 
-  return ok({ items: result, nextCursor });
+  // Map DB rows (snake_case) to the camelCase intent.list contract shape.
+  const items = page.map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    status: row.status,
+    inputHash: row.input_hash,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  return ok({ items, nextCursor });
 });

@@ -164,16 +164,27 @@ Deno.serve(async (_req: Request) => {
   
   const { intentId, orgId, url, platform } = parsed.data;
 
-  await supabase.from('intents').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', intentId);
+  // audit_log.user_id has a foreign key to auth.users; orgId is not a valid
+  // user_id, so writing it there always silently violated the FK and
+  // dropped the audit row. Fetch the intent's real creator instead.
+  const { data: runningRow } = await supabase
+    .from('intents')
+    .update({ status: 'running', updated_at: new Date().toISOString() })
+    .eq('id', intentId)
+    .select('user_id')
+    .single();
+  const userId = (runningRow as { user_id: string } | null)?.user_id ?? orgId;
 
   const startMs = Date.now();
+  let attemptedProvider: 'shopify-admin' | 'firecrawl' = 'firecrawl';
 
   try {
     // Check if Shopify Admin key is configured for real catalog audit
     if (platform === 'shopify') {
       const adminToken = await tryUnwrapKey(supabase, 'shopify-admin', orgId);
-      
+
       if (adminToken) {
+        attemptedProvider = 'shopify-admin';
         // Use Shopify Admin API for real catalog audit instead of scraping
         const printifyToken = await tryUnwrapKey(supabase, 'printify', orgId) ?? undefined;
         
@@ -446,7 +457,7 @@ Deno.serve(async (_req: Request) => {
         
         // Audit
         await supabase.from('audit_log').insert({
-          org_id: orgId, user_id: orgId,
+          org_id: orgId, user_id: userId,
           action: 'analyze.shopify_catalog', outcome: 'success',
           input_hash: await sha256Hex(url), provider: 'shopify-admin',
           duration_ms: Date.now() - startMs,
@@ -497,7 +508,7 @@ Deno.serve(async (_req: Request) => {
 
     // Audit
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: orgId,
+      org_id: orgId, user_id: userId,
       action: 'scrape.firecrawl', outcome: 'success',
       input_hash: urlHash, provider: 'firecrawl',
       duration_ms: Date.now() - startMs, metadata: {},
@@ -511,10 +522,17 @@ Deno.serve(async (_req: Request) => {
   } catch (err) {
     await supabase.from('intents').update({
       status: 'failed',
-      error_code: 'SCRAPE_FAILED',
+      error_code: attemptedProvider === 'shopify-admin' ? 'SHOPIFY_CATALOG_ANALYZE_FAILED' : 'SCRAPE_FAILED',
       error_message: String(err),
       updated_at: new Date().toISOString(),
     }).eq('id', intentId);
+    await supabase.from('audit_log').insert({
+      org_id: orgId, user_id: userId,
+      action: attemptedProvider === 'shopify-admin' ? 'analyze.shopify_catalog' : 'scrape.firecrawl',
+      outcome: 'error',
+      input_hash: await sha256Hex(url), provider: attemptedProvider,
+      duration_ms: Date.now() - startMs, metadata: {},
+    });
   }
 
   return new Response('ok', { status: 200 });

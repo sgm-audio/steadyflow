@@ -28,6 +28,12 @@ Deno.serve(async (_req: Request) => {
 
   if (!intentId || !sourceId) return new Response('ok', { status: 200 });
 
+  // audit_log.user_id has a foreign key to auth.users; orgId is not a valid
+  // user_id, so writing it there always silently violated the FK and
+  // dropped the audit row. Fetch the intent's real creator instead.
+  const { data: intentRow } = await supabase.from('intents').select('user_id').eq('id', intentId).single();
+  const userId = (intentRow as { user_id: string } | null)?.user_id ?? orgId;
+
   const startMs = Date.now();
 
   try {
@@ -99,7 +105,7 @@ ${content}`;
 
     // Audit
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: orgId,
+      org_id: orgId, user_id: userId,
       action: 'llm.chat', outcome: 'success',
       input_hash: '0'.repeat(64), provider: 'deepseek',
       duration_ms: Date.now() - startMs, metadata: {},
@@ -116,6 +122,12 @@ ${content}`;
       error_code: 'ANALYZE_FAILED',
       error_message: String(err),
     }).eq('id', intentId);
+    await supabase.from('audit_log').insert({
+      org_id: orgId, user_id: userId,
+      action: 'llm.chat', outcome: 'error',
+      input_hash: '0'.repeat(64), provider: 'deepseek',
+      duration_ms: Date.now() - startMs, metadata: {},
+    });
   }
 
   return new Response('ok', { status: 200 });

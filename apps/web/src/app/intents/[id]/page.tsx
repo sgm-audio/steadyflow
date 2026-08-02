@@ -1,15 +1,25 @@
 /**
  * Intent detail page.
+ *
+ * There is no intent.get contract procedure yet (only intent.list/cancel),
+ * so this reads Postgres directly like before — but the previous version
+ * mapped ANY Supabase error to a 404, including transient/permission
+ * failures that aren't "not found". Fixed below.
  */
 
-import { createClient } from '../../../lib/supabase-server';
-import { redirect, notFound } from 'next/navigation';
+import { requireOrgSession } from '../../../lib/session';
+import { notFound } from 'next/navigation';
+import CancelIntentButton from '../CancelIntentButton';
+
+const CANCELLABLE = new Set(['queued', 'running']);
+const PARTIAL = new Set(['queued', 'running']);
+
+const looksLikeProviderAuthFailure = (message: string | null): boolean =>
+  message !== null && /\b(key|auth|credential|token|unauthorized)\b/i.test(message);
 
 export default async function IntentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect('/login');
+  const { supabase } = await requireOrgSession();
 
   const { data: intent, error } = await supabase
     .from('intents')
@@ -17,13 +27,28 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
     .eq('id', id)
     .single();
 
-  if (error) notFound();
+  if (error) {
+    // PGRST116 = "no rows" from .single() — an actual not-found. Anything
+    // else (RLS denial, connection failure) is a real error, not a 404.
+    if (error.code === 'PGRST116') notFound();
+    return (
+      <div style={{ padding: '2rem' }}>
+        <a href="/intents">← Back to Intents</a>
+        <div style={{ marginTop: '1rem', padding: '1rem', background: '#18181b', border: '1px solid #f8717155', borderRadius: '0.5rem' }}>
+          <p style={{ color: '#f87171', fontWeight: 600 }}>Failed to load intent</p>
+          <p style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>{error.message}</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Get linked insights
   const { data: insights } = await supabase
     .from('insights')
     .select('*')
     .eq('intent_id', id);
+
+  const isPartial = PARTIAL.has(intent.status);
+  const isProviderAuthFailure = intent.status === 'failed' && looksLikeProviderAuthFailure(intent.error_message);
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -34,14 +59,38 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
         </h1>
       </header>
 
+      {isPartial && (
+        <div style={{ padding: '1rem', marginBottom: '1rem', background: '#18181b', border: '1px solid #fbbf2455', borderRadius: '0.5rem' }}>
+          <p style={{ color: '#fbbf24', fontWeight: 600 }}>Still processing</p>
+          <p style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>
+            This intent hasn&apos;t finished yet — refresh to check for updates. Partial results, if any, are shown below.
+          </p>
+        </div>
+      )}
+
+      {isProviderAuthFailure && (
+        <div style={{ padding: '1rem', marginBottom: '1rem', background: '#18181b', border: '1px solid #f8717155', borderRadius: '0.5rem' }}>
+          <p style={{ color: '#f87171', fontWeight: 600 }}>Provider authentication failed</p>
+          <p style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>
+            This looks like a missing or invalid provider key rather than a general failure.
+          </p>
+          <a href="/keys" style={{ fontSize: '0.875rem', color: '#818cf8' }}>Manage provider keys →</a>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gap: '1rem', maxWidth: 800 }}>
         <DetailRow label="Status">
           <StatusBadge status={intent.status} />
+          {CANCELLABLE.has(intent.status) && (
+            <span style={{ marginLeft: '0.75rem' }}>
+              <CancelIntentButton intentId={intent.id} />
+            </span>
+          )}
         </DetailRow>
         <DetailRow label="Created" value={new Date(intent.created_at).toLocaleString()} />
         <DetailRow label="Updated" value={new Date(intent.updated_at).toLocaleString()} />
         <DetailRow label="Input Hash" value={intent.input_hash.slice(0, 16) + '...'} />
-        {intent.error_message ? (
+        {intent.error_message && !isProviderAuthFailure ? (
           <DetailRow label="Error" value={intent.error_message} />
         ) : null}
       </div>
@@ -64,11 +113,12 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
   );
 }
 
-function DetailRow({ label, value }: { label: string; value?: string; children?: React.ReactNode }) {
+function DetailRow({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid #27272a', paddingBottom: '0.5rem' }}>
+    <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid #27272a', paddingBottom: '0.5rem', alignItems: 'center' }}>
       <span style={{ width: 120, color: '#a1a1aa', fontSize: '0.875rem' }}>{label}</span>
       <span>{value}</span>
+      {children}
     </div>
   );
 }
