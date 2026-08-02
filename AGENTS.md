@@ -1,6 +1,8 @@
 # SteadyFlow — Agent Guide
 
-**E-commerce growth system.** Shopify + Printify primary; Amazon / Alibaba / WooCommerce via `@steadyflow/commerce` adapters. Supabase single source of truth.
+**Shopify revenue-optimization platform.** Shopify + Printify primary; v0.x internal pilot (not yet public v1.0.0). Supabase single source of truth.
+
+**Validation account:** Making Madi
 
 ## Commands (run from root)
 
@@ -48,17 +50,20 @@
 ```
 apps/edge         → Supabase Edge Functions (BFF + workers)
 apps/web          → Next.js 15 dashboard
-apps/desktop      → Tauri v2 shell (stub)
-apps/extension    → Chrome MV3 capture (stub)
+apps/desktop      → Tauri v2 shell (EXPERIMENTAL, not in v0.x scope)
+apps/extension    → Chrome MV3 capture (EXPERIMENTAL, not in v0.x scope)
 packages/core     → Zod schemas, audit, crypto, contract definitions ← START HERE
-packages/db       → Drizzle ORM (stub)
-packages/contracts→ OpenAPI / tRPC generation (stub)
-packages/sdk      → Typed BFF client, generated from contracts (stub)
-packages/llm           → LLM adapter pattern, Deepseek default (stub)
+packages/db       → Generated Supabase types (Drizzle ORM not implemented)
+packages/llm      → LLM adapter pattern (OpenAI-compatible providers)
 packages/shopify-admin → Shopify Admin GraphQL + Printify cost audit
-packages/commerce      → Multi-platform adapters (Shopify/Printify live; Amazon/Alibaba/Woo stubs)
+packages/commerce      → Multi-platform adapters (Shopify/Printify live; others experimental)
 tooling/devkit         → Shopify + WordPress scaffolding CLI
 ```
+
+**Note:** The following packages do NOT exist and should not be referenced:
+- `packages/sdk/` — removed (internal client only)
+- `packages/contracts/` — removed (contracts live in `packages/core/src/contracts/`)
+- `packages/crypto/` — crypto lives in `packages/core/src/crypto/`
 
 ## Contracts (the API surface)
 
@@ -78,7 +83,9 @@ Every external action **must** call `buildAuditEvent()` and write to `audit_log`
 - DEK derived from user passphrase via Argon2id
 - Provider keys wrapped with AES-GCM using the DEK
 - Server unwraps via pgsodium per-request, zeroes buffers after
-**Never store plaintext provider keys server-side.**
+- **SteadyFlow never stores plaintext provider keys at rest.** Encrypted key envelopes are stored in Supabase and decrypted only for authorized provider requests.
+
+**Note:** Hunter.io was removed (see migration 20260712000004). Supported providers: Firecrawl, Tavily, Shopify Admin, Printify, OpenAI-compatible LLMs.
 
 ## Testing
 

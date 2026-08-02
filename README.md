@@ -1,11 +1,12 @@
 # SteadyFlow
 
-Production-grade, auditable e-commerce growth system.
+Private pilot, auditable Shopify revenue-optimization platform.
 
-**Primary platforms:** Shopify + Printify (fulfillment), Etsy
-**Roadmap:** Amazon SP-API, Alibaba sourcing, WooCommerce, Tauri v2 desktop app
+**Primary platforms:** Shopify + Printify (fulfillment)
+**Status:** Active development — v0.x internal pilot (not yet public v1.0.0)
+**Validation account:** Making Madi
 
-Multi-platform adapters live in `packages/commerce`. Scaffold storefronts/themes with:
+Multi-platform adapters live in `packages/commerce`. **Experimental adapters** (Amazon, WooCommerce, Alibaba, Etsy) are not yet production-ready. Scaffold storefronts/themes with:
 
 ```bash
 pnpm scaffold:shopify-theme ./themes/my-theme
@@ -18,15 +19,13 @@ pnpm scaffold:wp-theme ./wp/themes/sf-store
 
 - TypeScript strict mode + Zod validation on every boundary
 - Supabase (Postgres + RLS + Edge Functions) as single source of truth
-- BYOK for all LLM calls (never store keys server-side)
+- BYOK for all LLM calls (encrypted key envelopes, never plaintext at rest)
 - Firecrawl primary, Playwright secondary (authenticated flows only)
-- Hunter.io + Tavily for enrichment
-- Chrome MV3 extension + web dashboard sharing a common core package
-  (Tauri v2 desktop shell is roadmap — not yet scaffolded, see `apps/desktop`)
+- Tavily for enrichment (Hunter.io removed — see migration 20260712000004)
+- Chrome MV3 extension (experimental) + web dashboard sharing a common core package
+  (Tauri v2 desktop shell is experimental — see `apps/desktop`)
 - Security: OS keychain, RLS, audit logs, proxy support
-  (rate limiting: `rate_limit_take` RPC exists in the DB but no handler calls
-  it yet — not wired up, see CHANGELOG)
-- Engineering: monorepo (Turborepo), tRPC where possible, contract tests, GitHub Actions CI/CD
+  (rate limiting: `rate_limit_take` RPC called from provider handlers in `_shared/rateLimit.ts`)
 - Code must be auditable: every external action logged with user_id, timestamp, input hash, outcome
 
 ## Architecture
@@ -34,7 +33,7 @@ pnpm scaffold:wp-theme ./wp/themes/sf-store
 ```
 ┌─────────────────┐  ┌─────────────────┐
 │ Chrome MV3 ext. │  │ Web Dashboard   │
-│ (capture)       │  │ (ops view)      │
+│ (experimental)  │  │ (ops view)      │
 └────────┬────────┘  └────────┬────────┘
          │                   │
          └─── @steadyflow/core (TS, shared) ──┘
@@ -49,11 +48,11 @@ pnpm scaffold:wp-theme ./wp/themes/sf-store
                               │
             ┌─────────────────┼─────────────────┐
             ▼                 ▼                 ▼
-       Firecrawl          Hunter.io        Tavily / LLM
+       Firecrawl          Tavily           LLM
        (BYOK proxy)       (BYOK proxy)     (BYOK proxy)
 ```
 
-Roadmap: Tauri v2 desktop shell, sharing the same `@steadyflow/core` package.
+**Experimental surfaces** (not in v0.x scope): Tauri v2 desktop shell, Amazon SP-API, WooCommerce, Alibaba, Etsy adapters.
 
 ## Repo layout
 
@@ -62,21 +61,28 @@ steadyflow/
 ├── apps/
 │   ├── edge/          # Supabase Edge Functions (BFF + workers)
 │   ├── web/           # Next.js dashboard
-│   ├── desktop/       # Tauri v2 shell — ROADMAP, not yet scaffolded
-│   └── extension/     # Chrome MV3 capture
+│   ├── desktop/       # Tauri v2 shell — EXPERIMENTAL, not in v0.x scope
+│   └── extension/     # Chrome MV3 capture — EXPERIMENTAL
 ├── packages/
-│   ├── core/          # Zod schemas, audit hashing, crypto helpers
-│   ├── db/            # Generated Supabase types (Drizzle ORM not yet implemented)
-│   ├── sdk/           # Typed BFF client (generated)
-│   ├── contracts/     # OpenAPI / tRPC procedure definitions
-│   ├── llm/           # LLM adapter pattern (Deepseek default)
-│   └── crypto/        # Argon2id DEK + envelope wrap/unwrap
-├── infra/
-│   └── supabase/      # Migrations, RLS, pgmq, seeds
+│   ├── core/          # Zod schemas, audit hashing, crypto helpers, contracts
+│   ├── db/            # Generated Supabase types (Drizzle ORM not implemented)
+│   ├── llm/           # LLM adapter pattern (OpenAI-compatible providers)
+│   ├── shopify-admin/ # Shopify Admin GraphQL + Printify cost audit
+│   └── commerce/      # Multi-platform adapters (Shopify/Printify live; others experimental)
+├── supabase/
+│   ├── migrations/    # Database migrations
+│   ├── functions/     # Edge Functions (Deno)
+│   └── scripts/       # Database scripts
 ├── tooling/
-│   └── ci/            # Reusable GitHub Actions workflows
+│   └── devkit/        # Shopify + WordPress scaffolding CLI
 └── turbo.json
 ```
+
+**Note:** The following do NOT exist and should not be referenced:
+- `packages/crypto/` — crypto lives in `packages/core/src/crypto/`
+- `packages/sdk/` — removed (internal client only, not public)
+- `packages/contracts/` — removed (contracts live in `packages/core/src/contracts/`)
+- `infra/supabase/` — Supabase config lives under `supabase/`
 
 ## Daily workflow
 
@@ -123,11 +129,11 @@ or `supabase db push` requires explicitly naming the target project first.
 
 ## BYOK
 
-All provider keys (Firecrawl, Hunter, Tavily, LLM) are wrapped with a per-org
+All provider keys (Firecrawl, Tavily, LLM) are wrapped with a per-org
 DEK derived from a passphrase via Argon2id. Wrapped blobs sync to Supabase.
 Server unwraps per-request via `pgsodium` and zeroes buffers after use.
 
-**The server never holds plaintext keys at rest.**
+**SteadyFlow never stores plaintext provider keys at rest.** Encrypted key envelopes are stored in Supabase and decrypted only for authorized provider requests.
 
 ## Audit
 
