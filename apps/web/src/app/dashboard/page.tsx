@@ -2,8 +2,8 @@
  * Dashboard — protected page requiring auth.
  */
 
-import { createClient } from '../../lib/supabase-server';
-import { redirect } from 'next/navigation';
+import { requireOrgSession } from '../../lib/session';
+import { StateBanner } from '../../components/StateBanner';
 import { Reveal } from '../../components/Reveal';
 import {
   SparkleIcon,
@@ -32,65 +32,39 @@ const NAV_ITEMS = [
 ];
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { supabase, session, orgId } = await requireOrgSession();
 
-  if (!session) redirect('/login');
+  const [
+    { count: insightsCount, error: insightsCountError },
+    { data: recentInsights },
+    { data: categoryRows },
+    { count: competitorsCount },
+    { data: latestSnapshot },
+  ] = orgId
+    ? await Promise.all([
+        supabase.from('insights').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
+        supabase
+          .from('insights')
+          .select('title, severity')
+          .eq('org_id', orgId)
+          .order('generated_at', { ascending: false })
+          .limit(3),
+        supabase.from('insights').select('category').eq('org_id', orgId).order('generated_at', { ascending: false }).limit(200),
+        supabase.from('competitors').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
+        supabase
+          .from('competitor_snapshots')
+          .select('captured_at, source')
+          .eq('org_id', orgId)
+          .order('captured_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
+    : [{ count: null, error: null }, { data: null }, { data: null }, { count: null }, { data: null }];
 
-  const { data: member } = await supabase
-    .from('memberships')
-    .select('org_id')
-    .eq('user_id', session.user.id)
-    .single();
-  const orgId = member?.org_id;
-
-  const { count: insightsCount } = orgId
-    ? await supabase
-        .from('insights')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', orgId)
-    : { count: null };
-
-  const { data: recentInsights } = orgId
-    ? await supabase
-        .from('insights')
-        .select('title, severity')
-        .eq('org_id', orgId)
-        .order('generated_at', { ascending: false })
-        .limit(3)
-    : { data: null };
-
-  const { data: categoryRows } = orgId
-    ? await supabase
-        .from('insights')
-        .select('category')
-        .eq('org_id', orgId)
-        .order('generated_at', { ascending: false })
-        .limit(200)
-    : { data: null };
   const categoryCounts = (categoryRows ?? []).reduce<Record<string, number>>((acc, row) => {
     acc[row.category] = (acc[row.category] ?? 0) + 1;
     return acc;
   }, {});
-
-  const { count: competitorsCount } = orgId
-    ? await supabase
-        .from('competitors')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', orgId)
-    : { count: null };
-
-  const { data: latestSnapshot } = orgId
-    ? await supabase
-        .from('competitor_snapshots')
-        .select('captured_at, source')
-        .eq('org_id', orgId)
-        .order('captured_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    : { data: null };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -158,6 +132,11 @@ export default async function DashboardPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 pb-24 md:px-8">
+        {insightsCountError && (
+          <div className="pt-6">
+            <StateBanner state="error" message="Couldn't load your dashboard data. Try refreshing." />
+          </div>
+        )}
         <Reveal>
           <section className="pb-12 pt-16 md:pt-20">
             <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl">

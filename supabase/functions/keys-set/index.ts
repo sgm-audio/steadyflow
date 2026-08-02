@@ -55,7 +55,7 @@ Deno.serve(async (req: Request) => {
       provider: input.provider,
       wrapped_key: wrappedKey,
     }, { onConflict: 'org_id, provider' })
-    .select('provider')
+    .select('provider, created_at')
     .single();
 
   if (error) return internalError(`Failed to store key: ${error.message}`);
@@ -67,5 +67,6 @@ Deno.serve(async (req: Request) => {
     durationMs: Date.now() - startMs,
   }).catch(() => {});
 
-  return ok({ provider: (data as { provider: string }).provider });
+  const row = data as { provider: string; created_at: string };
+  return ok({ provider: row.provider, createdAt: row.created_at });
 });

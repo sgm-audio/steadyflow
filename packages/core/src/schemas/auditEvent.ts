@@ -39,7 +39,7 @@ export const AuditEvent = z
     idempotencyKey: z.string().max(255).optional(),
     /** Free-form structured metadata (no PII, no secrets). */
     metadata: z.record(z.unknown()).default({}),
-    createdAt: z.string().datetime(),
+    createdAt: z.string().datetime({ offset: true }),
   })
   .strict();
 export type AuditEvent = z.infer<typeof AuditEvent>;

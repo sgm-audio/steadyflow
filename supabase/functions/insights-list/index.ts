@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
 
   let query = ctx.supabase
     .from('insights')
-    .select('*')
+    .select('id, category, severity, title, body, citations, model, provider, generated_at')
     .eq('org_id', ctx.orgId)
     .order('generated_at', { ascending: false })
     .limit(limit + 1);
@@ -47,9 +47,23 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: { code: 'INTERNAL', message: error.message } }), { status: 500, headers: { 'content-type': 'application/json' } });
   }
 
-  const hasMore = data && data.length > limit;
-  const items = hasMore ? data.slice(0, limit) : (data ?? []);
-  const nextCursor = hasMore ? items[items.length - 1]?.generated_at : undefined;
+  const rows = data ?? [];
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? page[page.length - 1]?.generated_at : undefined;
+
+  // Map DB rows (snake_case) to the camelCase Insight contract shape.
+  const items = page.map((row) => ({
+    id: row.id,
+    category: row.category,
+    severity: row.severity,
+    title: row.title,
+    body: row.body,
+    citations: row.citations ?? [],
+    model: row.model,
+    provider: row.provider,
+    generatedAt: row.generated_at,
+  }));
 
   return ok({ items, nextCursor });
 });

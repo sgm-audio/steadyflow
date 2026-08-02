@@ -21,9 +21,17 @@ Deno.serve(async (req: Request) => {
 
   const { data, error } = await ctx.supabase
     .from('keys_envelopes')
-    .select('provider, created_at')
+    .select('provider, created_at, rotated_at')
     .eq('org_id', ctx.orgId);
 
   if (error) return internalError(error.message);
-  return ok(data ?? []);
+
+  // Map DB rows (snake_case) to the camelCase keys.list contract shape.
+  const items = (data ?? []).map((row) => ({
+    provider: row.provider,
+    createdAt: row.created_at,
+    rotatedAt: row.rotated_at ?? undefined,
+  }));
+
+  return ok(items);
 });

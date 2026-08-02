@@ -27,6 +27,18 @@ const sha256 = async (input: string): Promise<string> => {
     .join('');
 };
 
+/**
+ * audit_log.user_id has a foreign key to auth.users — WorkerCtx only carries
+ * orgId (these are background pgmq consumers, not user-scoped requests), so
+ * writing ctx.orgId as user_id always violated the FK and silently dropped
+ * the audit row. Intents already record the user who created them; look
+ * that up instead of guessing.
+ */
+const resolveIntentUserId = async (supabase: SupabaseClient<Database>, intentId: string, fallback: string): Promise<string> => {
+  const { data } = await supabase.from('intents').select('user_id').eq('id', intentId).single();
+  return data?.user_id ?? fallback;
+};
+
 // Matches the generated `Json` type — lets Zod prove a value is safe to
 // write into a jsonb column instead of `as Json` casting past the compiler.
 const JsonValue: z.ZodType<Json> = z.lazy(() =>
@@ -416,6 +428,7 @@ const analyzeShopifyCatalog = async (
   intentId: string,
   storeUrl: string,
 ): Promise<void> => {
+  const userId = await resolveIntentUserId(ctx.supabase, intentId, ctx.orgId);
   const adminToken = await tryUnwrapKey(ctx.supabase, 'shopify-admin', ctx.orgId);
   if (!adminToken) throw new Error('No shopify-admin key configured');
   const printifyToken = (await tryUnwrapKey(ctx.supabase, 'printify', ctx.orgId)) ?? undefined;
@@ -526,7 +539,7 @@ const analyzeShopifyCatalog = async (
   }).eq('id', intentId);
 
   await ctx.supabase.from('audit_log').insert({
-    org_id: ctx.orgId, user_id: ctx.orgId,
+    org_id: ctx.orgId, user_id: userId,
     action: 'analyze.shopify_catalog', outcome: 'success',
     input_hash: await sha256(storeUrl), provider: 'shopify-admin',
     duration_ms: 0,
@@ -555,7 +568,13 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
 
   const { intentId, url, platform } = payload.data;
 
-  await ctx.supabase.from('intents').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', intentId);
+  const { data: runningRow } = await ctx.supabase
+    .from('intents')
+    .update({ status: 'running', updated_at: new Date().toISOString() })
+    .eq('id', intentId)
+    .select('user_id')
+    .single();
+  const userId = runningRow?.user_id ?? ctx.orgId;
 
   const startMs = Date.now();
 
@@ -578,6 +597,12 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
           error_message: String(err),
           updated_at: new Date().toISOString(),
         }).eq('id', intentId);
+        await ctx.supabase.from('audit_log').insert({
+          org_id: ctx.orgId, user_id: userId,
+          action: 'analyze.shopify_catalog', outcome: 'error',
+          input_hash: await sha256(url), provider: 'shopify-admin',
+          duration_ms: Date.now() - startMs, metadata: {},
+        });
       }
       return;
     }
@@ -611,7 +636,7 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
 
     const durationMs = Date.now() - startMs;
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: ctx.orgId,
+      org_id: ctx.orgId, user_id: userId,
       action: 'scrape.firecrawl', outcome: 'success',
       input_hash: urlHash, provider: 'firecrawl',
       duration_ms: durationMs, metadata: {},
@@ -628,6 +653,12 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
       error_message: String(err),
       updated_at: new Date().toISOString(),
     }).eq('id', intentId);
+    await ctx.supabase.from('audit_log').insert({
+      org_id: ctx.orgId, user_id: userId,
+      action: 'scrape.firecrawl', outcome: 'error',
+      input_hash: await sha256(url), provider: 'firecrawl',
+      duration_ms: Date.now() - startMs, metadata: {},
+    });
   }
 };
 
@@ -663,6 +694,7 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
   if (!payload.success) return;
 
   const { intentId, sourceId } = payload.data;
+  const userId = await resolveIntentUserId(ctx.supabase, intentId, ctx.orgId);
 
   try {
     const { data: source, error: srcError } = await ctx.supabase
@@ -708,7 +740,7 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
     }).eq('id', intentId);
 
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: ctx.orgId,
+      org_id: ctx.orgId, user_id: userId,
       action: 'llm.chat', outcome: 'success',
       input_hash: '0'.repeat(64), provider: llmResult.provider,
       duration_ms: 0, metadata: {},
@@ -725,6 +757,12 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
       error_message: String(err),
       updated_at: new Date().toISOString(),
     }).eq('id', intentId);
+    await ctx.supabase.from('audit_log').insert({
+      org_id: ctx.orgId, user_id: userId,
+      action: 'llm.chat', outcome: 'error',
+      input_hash: '0'.repeat(64), provider: 'unknown',
+      duration_ms: 0, metadata: {},
+    });
   }
 };
 
@@ -761,7 +799,13 @@ export const workerMonitorCompetitor = async (ctx: WorkerCtx): Promise<void> => 
 
   const { intentId, competitorId } = payload.data;
 
-  await ctx.supabase.from('intents').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', intentId);
+  const { data: runningRow } = await ctx.supabase
+    .from('intents')
+    .update({ status: 'running', updated_at: new Date().toISOString() })
+    .eq('id', intentId)
+    .select('user_id')
+    .single();
+  const userId = runningRow?.user_id ?? ctx.orgId;
 
   try {
     const { data: competitor, error: compError } = await ctx.supabase
@@ -838,7 +882,7 @@ export const workerMonitorCompetitor = async (ctx: WorkerCtx): Promise<void> => 
     }).eq('id', intentId);
 
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: ctx.orgId,
+      org_id: ctx.orgId, user_id: userId,
       action: 'monitor.competitor', outcome: 'success',
       input_hash: await sha256(competitor.url), provider: source,
       duration_ms: 0,
@@ -856,5 +900,11 @@ export const workerMonitorCompetitor = async (ctx: WorkerCtx): Promise<void> => 
       error_message: String(err),
       updated_at: new Date().toISOString(),
     }).eq('id', intentId);
+    await ctx.supabase.from('audit_log').insert({
+      org_id: ctx.orgId, user_id: userId,
+      action: 'monitor.competitor', outcome: 'error',
+      input_hash: '0'.repeat(64), provider: 'tavily',
+      duration_ms: 0, metadata: { competitorId },
+    });
   }
 };

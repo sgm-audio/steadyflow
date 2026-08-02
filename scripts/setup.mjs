@@ -4,6 +4,7 @@
  * Installs deps, ensures .env.local, runs doctor.
  */
 import { copyFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   envExamplePath,
   envLocalPath,
@@ -11,6 +12,7 @@ import {
   hasEnvLocal,
   log,
   ok,
+  ROOT,
   run,
   warn,
 } from './lib.mjs';
@@ -28,6 +30,13 @@ if (!hasEnvLocal()) {
 } else {
   ok('.env.local already exists');
 }
+
+// `next dev` only auto-loads .env.local from its own package directory
+// (apps/web), not the repo root — copy it through so NEXT_PUBLIC_* vars
+// actually reach the web app instead of throwing "Missing
+// NEXT_PUBLIC_SUPABASE_URL" at middleware startup.
+copyFileSync(envLocalPath(), join(ROOT, 'apps/web/.env.local'));
+ok('Synced .env.local into apps/web');
 
 log('\n[install] pnpm install…');
 const install = run('pnpm', ['install'], { stdio: 'inherit' });

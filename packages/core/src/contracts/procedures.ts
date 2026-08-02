@@ -66,13 +66,14 @@ export const analyzeShop = defineProcedure({
 export const ListInsightsInput = z.object({
   category: InsightCategory.optional(),
   limit: z.number().int().min(1).max(100).default(20),
-  cursor: z.string().uuid().optional(),
+  /** Opaque pagination cursor (an ISO timestamp of the last item seen), not a UUID. */
+  cursor: z.string().optional(),
 });
 export type ListInsightsInput = z.infer<typeof ListInsightsInput>;
 
 export const ListInsightsOutput = z.object({
   items: z.array(Insight),
-  nextCursor: z.string().uuid().optional(),
+  nextCursor: z.string().optional(),
 });
 export type ListInsightsOutput = z.infer<typeof ListInsightsOutput>;
 
@@ -91,7 +92,8 @@ export const listInsights = defineProcedure({
 
 export const AuditQueryInput = z.object({
   limit: z.number().int().min(1).max(100).default(50),
-  cursor: z.string().uuid().optional(),
+  /** Opaque pagination cursor (an ISO timestamp of the last item seen), not a UUID. */
+  cursor: z.string().optional(),
   action: z.string().optional(),
   outcome: z.string().optional(),
 });
@@ -99,7 +101,7 @@ export type AuditQueryInput = z.infer<typeof AuditQueryInput>;
 
 export const AuditQueryOutput = z.object({
   items: z.array(AuditEvent),
-  nextCursor: z.string().uuid().optional(),
+  nextCursor: z.string().optional(),
 });
 export type AuditQueryOutput = z.infer<typeof AuditQueryOutput>;
 
@@ -125,7 +127,7 @@ export type KeysSetInput = z.infer<typeof KeysSetInput>;
 
 export const KeysSetOutput = z.object({
   provider: Provider,
-  createdAt: z.string().datetime(),
+  createdAt: z.string().datetime({ offset: true }),
 });
 export type KeysSetOutput = z.infer<typeof KeysSetOutput>;
 
@@ -145,8 +147,8 @@ export const keysSet = defineProcedure({
 export const KeysListOutput = z.array(
   z.object({
     provider: Provider,
-    createdAt: z.string().datetime(),
-    rotatedAt: z.string().datetime().optional(),
+    createdAt: z.string().datetime({ offset: true }),
+    rotatedAt: z.string().datetime({ offset: true }).optional(),
   }),
 );
 export type KeysListOutput = z.infer<typeof KeysListOutput>;
@@ -250,7 +252,8 @@ export const IntentListInput = z.object({
   kind: IntentKind.optional(),
   status: IntentStatus.optional(),
   limit: z.number().int().min(1).max(100).default(20),
-  cursor: z.string().uuid().optional(),
+  /** Opaque pagination cursor (an ISO timestamp of the last item seen), not a UUID. */
+  cursor: z.string().optional(),
 });
 export type IntentListInput = z.infer<typeof IntentListInput>;
 
@@ -261,11 +264,11 @@ export const IntentListOutput = z.object({
       kind: IntentKind,
       status: IntentStatus,
       inputHash: z.string().length(64),
-      createdAt: z.string().datetime(),
-      updatedAt: z.string().datetime(),
+      createdAt: z.string().datetime({ offset: true }),
+      updatedAt: z.string().datetime({ offset: true }),
     }),
   ),
-  nextCursor: z.string().uuid().optional(),
+  nextCursor: z.string().optional(),
 });
 export type IntentListOutput = z.infer<typeof IntentListOutput>;
 

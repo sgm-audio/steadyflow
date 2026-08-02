@@ -20,7 +20,7 @@ export const Product = z
     images: z.array(z.string().url()).max(50).default([]),
     tags: z.array(z.string().max(100)).max(100).default([]),
     inStock: z.boolean().optional(),
-    capturedAt: z.string().datetime(),
+    capturedAt: z.string().datetime({ offset: true }),
   })
   .strict();
 export type Product = z.infer<typeof Product>;

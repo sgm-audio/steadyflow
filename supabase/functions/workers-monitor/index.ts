@@ -69,7 +69,16 @@ Deno.serve(async (_req: Request) => {
 
   if (!intentId || !orgId || !competitorId) return new Response('ok', { status: 200 });
 
-  await supabase.from('intents').update({ status: 'running' }).eq('id', intentId);
+  // audit_log.user_id has a foreign key to auth.users; orgId is not a valid
+  // user_id, so writing it there always silently violated the FK and
+  // dropped the audit row. Fetch the intent's real creator instead.
+  const { data: runningRow } = await supabase
+    .from('intents')
+    .update({ status: 'running' })
+    .eq('id', intentId)
+    .select('user_id')
+    .single();
+  const userId = (runningRow as { user_id: string } | null)?.user_id ?? orgId;
 
   try {
     const { data: competitor, error: compError } = await supabase
@@ -152,7 +161,7 @@ Deno.serve(async (_req: Request) => {
     await supabase.from('intents').update({ status: 'succeeded' }).eq('id', intentId);
 
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: orgId,
+      org_id: orgId, user_id: userId,
       action: 'monitor.competitor', outcome: 'success',
       input_hash: '0'.repeat(64), provider: source,
       duration_ms: 0,
@@ -169,6 +178,12 @@ Deno.serve(async (_req: Request) => {
       error_code: 'MONITOR_FAILED',
       error_message: String(err),
     }).eq('id', intentId);
+    await supabase.from('audit_log').insert({
+      org_id: orgId, user_id: userId,
+      action: 'monitor.competitor', outcome: 'error',
+      input_hash: '0'.repeat(64), provider: 'tavily',
+      duration_ms: 0, metadata: { competitorId },
+    });
   }
 
   return new Response('ok', { status: 200 });
