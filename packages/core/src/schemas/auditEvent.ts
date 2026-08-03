@@ -5,6 +5,7 @@ export const AuditAction = z.enum([
   'scrape.playwright',
   'enrich.tavily',
   'analyze.shopify_catalog',
+  'analyze.appstore_readiness',
   'monitor.competitor',
   'llm.chat',
   'keys.set',
