@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { runAppStoreReadinessCheck, AppStoreInput } from './appStoreReadiness.js';
+import { runAppStoreReadinessCheck } from './appStoreReadiness.js';
+import type { AppStoreInput } from './appStoreReadiness.js';
 
 describe('appStoreReadiness (experimental)', () => {
   it('passes privacy policy when URL provided and images >=3', () => {
@@ -20,13 +21,13 @@ describe('appStoreReadiness (experimental)', () => {
     const support = report.items.find((i) => i.requirement.id === 'support_contact');
 
     expect(privacy).toBeDefined();
-    expect(privacy!.status).toBe('pass');
+        if (privacy) expect(privacy.status).toBe('pass');
 
     expect(images).toBeDefined();
-    expect(images!.status).toBe('pass');
+        if (images) expect(images.status).toBe('pass');
 
     expect(support).toBeDefined();
-    expect(support!.status).toBe('pass');
+        if (support) expect(support.status).toBe('pass');
   });
 
   it('flags missing privacy policy as fail and missing images as manual_review', () => {
@@ -45,12 +46,12 @@ describe('appStoreReadiness (experimental)', () => {
     const support = report.items.find((i) => i.requirement.id === 'support_contact');
 
     expect(privacy).toBeDefined();
-    expect(privacy!.status).toBe('fail');
+        if (privacy) expect(privacy.status).toBe('fail');
 
     expect(images).toBeDefined();
-    expect(images!.status).toBe('manual_review');
+        if (images) expect(images.status).toBe('manual_review');
 
     expect(support).toBeDefined();
-    expect(support!.status).toBe('manual_review');
+        if (support) expect(support.status).toBe('manual_review');
   });
 });

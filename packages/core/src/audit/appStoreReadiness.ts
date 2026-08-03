@@ -141,7 +141,7 @@ export const runAppStoreReadinessCheck = (input: AppStoreInput): AppStoreReport 
       durationMs: 0,
       metadata: { experimental: true },
     });
-  } catch (e) {
+  } catch {
     // Fail closed: do not throw on audit build failures in this experimental path
   }
 
