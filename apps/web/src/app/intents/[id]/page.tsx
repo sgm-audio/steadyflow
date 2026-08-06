@@ -52,11 +52,21 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div style={{ padding: '2rem' }}>
-      <header style={{ marginBottom: '2rem' }}>
-        <a href="/intents">← Back to Intents</a>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.5rem' }}>
-          Intent: {intent.kind}
-        </h1>
+      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <a href="/intents">← Back to Intents</a>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.5rem' }}>
+            Intent: {intent.kind}
+          </h1>
+        </div>
+        {intent.status === 'succeeded' && (
+          <a
+            href={`/intents/${intent.id}/report`}
+            style={{ padding: '0.5rem 1rem', background: '#818cf8', color: '#fff', borderRadius: '0.375rem', fontSize: '0.875rem', fontWeight: 600 }}
+          >
+            View Report
+          </a>
+        )}
       </header>
 
       {isPartial && (

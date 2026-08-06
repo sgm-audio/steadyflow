@@ -22,6 +22,7 @@ import {
   IntentCancelOutput,
   AnalyzeShopOutput,
   OrgLlmConfigOutput,
+  ReportGenerateOutput,
 } from '@steadyflow/core';
 import type {
   ListInsightsInput,
@@ -32,6 +33,7 @@ import type {
   IntentCancelInput,
   AnalyzeShopInput,
   OrgLlmConfigInput,
+  ReportGenerateInput,
 } from '@steadyflow/core';
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: SteadyFlowError };
@@ -139,6 +141,9 @@ export const createApiClient = (accessToken: string) => ({
 
   orgLlmConfigSet: (input: z.infer<typeof OrgLlmConfigInput>) =>
     callFunction(accessToken, 'org-llm-config-set', OrgLlmConfigOutput, { method: 'POST', body: input }),
+
+  reportGenerate: (input: z.infer<typeof ReportGenerateInput>) =>
+    callFunction(accessToken, 'report-generate', ReportGenerateOutput, { method: 'POST', body: input }),
 });
 
 export type ApiClient = ReturnType<typeof createApiClient>;

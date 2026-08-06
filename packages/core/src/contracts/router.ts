@@ -10,6 +10,7 @@ import {
   orgLlmConfigSet,
   intentCancel,
   intentList,
+  reportGenerate,
 } from './procedures.js';
 
 /**
@@ -33,6 +34,7 @@ export interface Router {
   >;
   'intent.cancel': ProcedureDef<typeof intentCancel.input['_input'], typeof intentCancel.output['_output']>;
   'intent.list': ProcedureDef<typeof intentList.input['_input'], typeof intentList.output['_output']>;
+  'report.generate': ProcedureDef<typeof reportGenerate.input['_input'], typeof reportGenerate.output['_output']>;
 }
 
 export const router: Router = {
@@ -46,6 +48,7 @@ export const router: Router = {
   'org.llmConfig.set': orgLlmConfigSet,
   'intent.cancel': intentCancel,
   'intent.list': intentList,
+  'report.generate': reportGenerate,
 };
 
 export type ProcedureName = keyof Router;

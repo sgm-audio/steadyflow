@@ -15,6 +15,7 @@ import { PlatformUrl } from '../schemas/platform.js';
 import { IntentId, IntentKind, IntentStatus } from '../schemas/intent.js';
 import { Insight, InsightCategory } from '../schemas/insight.js';
 import { AuditEvent } from '../schemas/auditEvent.js';
+import { Report } from '../schemas/report.js';
 import { Provider, LlmProvider, LlmProviderConfig } from '../schemas/provider.js';
 import { SteadyFlowError } from '../errors.js';
 
@@ -278,5 +279,28 @@ export const intentList = defineProcedure({
   output: IntentListOutput,
   auth: 'required',
   rateLimit: 'standard',
+  idempotent: true,
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// report.generate — generate (or return the existing) client report for an intent
+// ──────────────────────────────────────────────────────────────────────────
+
+export const ReportGenerateInput = z.object({
+  intentId: IntentId,
+});
+export type ReportGenerateInput = z.infer<typeof ReportGenerateInput>;
+
+export const ReportGenerateOutput = Report;
+export type ReportGenerateOutput = z.infer<typeof ReportGenerateOutput>;
+
+export const reportGenerate = defineProcedure({
+  name: 'report.generate',
+  input: ReportGenerateInput,
+  output: ReportGenerateOutput,
+  auth: 'required',
+  rateLimit: 'standard',
+  // Idempotent: a report already generated for this intent is returned as-is
+  // rather than regenerated, so repeated calls are safe.
   idempotent: true,
 });

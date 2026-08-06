@@ -14,6 +14,7 @@ export const AuditAction = z.enum([
   'keys.test',
   'intent.create',
   'intent.cancel',
+  'report.generate',
   'auth.login',
   'auth.logout',
 ]);

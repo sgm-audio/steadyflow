@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { router, type ProcedureName } from './router.js';
-import { analyzeShop, listInsights, auditQuery, keysSet, keysList, keysTest, orgLlmConfigGet, orgLlmConfigSet, intentCancel, intentList } from './procedures.js';
+import { analyzeShop, listInsights, auditQuery, keysSet, keysList, keysTest, orgLlmConfigGet, orgLlmConfigSet, intentCancel, intentList, reportGenerate } from './procedures.js';
 
 describe('Router', () => {
-  it('exports all 10 procedures', () => {
+  it('exports all 11 procedures', () => {
     const expected: ProcedureName[] = [
       'intel.analyzeShop',
       'insights.list',
@@ -15,6 +15,7 @@ describe('Router', () => {
       'org.llmConfig.set',
       'intent.cancel',
       'intent.list',
+      'report.generate',
     ];
     for (const name of expected) {
       expect(router[name]).toBeDefined();
@@ -168,5 +169,23 @@ describe('intentList', () => {
     });
     expect(r.kind).toBe('analyze_shop');
     expect(r.status).toBe('succeeded');
+  });
+});
+
+describe('reportGenerate', () => {
+  it('requires intentId', () => {
+    const r = reportGenerate.input.safeParse({
+      intentId: '00000000-0000-4000-8000-000000000001',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects a non-uuid intentId', () => {
+    const r = reportGenerate.input.safeParse({ intentId: 'not-a-uuid' });
+    expect(r.success).toBe(false);
+  });
+
+  it('is idempotent', () => {
+    expect(reportGenerate.idempotent).toBe(true);
   });
 });
