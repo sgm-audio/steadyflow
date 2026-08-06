@@ -81,3 +81,6 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+graphify-out/
+apps/web/test-results/
