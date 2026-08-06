@@ -46,8 +46,9 @@ export default function LoginPage() {
         </h1>
         <form onSubmit={(e) => { void handleSubmit(e); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Email</label>
+            <label htmlFor="email" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Email</label>
             <input
+              id="email"
               type="email"
               value={email}
               onChange={(e) => { setEmail(e.target.value); }}
@@ -56,8 +57,9 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Password</label>
+            <label htmlFor="password" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Password</label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => { setPassword(e.target.value); }}

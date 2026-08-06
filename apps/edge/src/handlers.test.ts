@@ -3,6 +3,9 @@
  *
  * Runs against local Supabase (supabase start required).
  * Each test creates a fresh Supabase client with the seed user's JWT.
+ *
+ * These tests are automatically excluded when Supabase is not available
+ * (see vitest.config.ts for the dynamic availability check).
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';

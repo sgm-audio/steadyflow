@@ -5,6 +5,7 @@
  * Tests every table with every role combination.
  *
  * Requires local Supabase (supabase start).
+ * Automatically excluded when Supabase is not available locally.
  */
 
 import { describe, it, expect } from 'vitest';
