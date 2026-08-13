@@ -22,15 +22,6 @@ const SEVERITY_STYLES: Record<string, string> = {
 
 const sanitizeTitle = (title: string) => title.replace(/[—–]/g, '-');
 
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/intents', label: 'Intents' },
-  { href: '/insights', label: 'Insights' },
-  { href: '/keys', label: 'Keys' },
-  { href: '/audit', label: 'Audit' },
-  { href: '/settings', label: 'Settings' },
-];
-
 export default async function DashboardPage() {
   const { supabase, session, orgId } = await requireOrgSession();
 
@@ -82,56 +73,7 @@ export default async function DashboardPage() {
         <div className="absolute -top-40 left-1/2 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-accent/10 blur-[120px]" />
       </div>
 
-      <header className="sticky top-0 z-20 border-b border-white/5 bg-[#08080b]/70 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 md:px-8">
-          <div className="flex min-w-0 items-center gap-8">
-            <span className="shrink-0 text-lg font-semibold tracking-tight">SteadyFlow</span>
-            <nav className="hidden items-center gap-1 md:flex">
-              {NAV_ITEMS.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={`rounded-full px-3.5 py-1.5 text-sm transition-colors duration-300 ${
-                    item.href === '/dashboard'
-                      ? 'bg-white/[0.06] text-ink'
-                      : 'text-ink-muted hover:bg-white/[0.04] hover:text-ink'
-                  }`}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-          </div>
-          <div className="flex shrink-0 items-center gap-4">
-            <span className="hidden max-w-[180px] truncate text-sm text-ink-muted sm:block">
-              {session.user.email}
-            </span>
-            <a href="/logout" className="text-sm text-ink-muted transition-colors hover:text-ink">
-              Sign out
-            </a>
-          </div>
-        </div>
-        <div
-          className="flex gap-1 overflow-x-auto px-4 pb-3 md:hidden"
-          style={{ maskImage: 'linear-gradient(to right, black calc(100% - 24px), transparent)' }}
-        >
-          {NAV_ITEMS.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition-colors duration-300 ${
-                item.href === '/dashboard'
-                  ? 'bg-white/[0.06] text-ink'
-                  : 'text-ink-muted hover:bg-white/[0.04] hover:text-ink'
-              }`}
-            >
-              {item.label}
-            </a>
-          ))}
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 pb-24 md:px-8">
+      <main className="mx-auto max-w-7xl px-4 pb-24 pt-4 md:px-8">
         {insightsCountError && (
           <div className="pt-6">
             <StateBanner state="error" message="Couldn't load your dashboard data. Try refreshing." />

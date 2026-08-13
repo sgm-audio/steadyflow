@@ -12,6 +12,10 @@ export const InsightCategory = z.enum([
   'conversion',
   'inventory',
   'trend',
+  'ai_agent_readiness',
+  'first_sale_math',
+  'channel_gap',
+  'creator_playbook',
 ]);
 export type InsightCategory = z.infer<typeof InsightCategory>;
 

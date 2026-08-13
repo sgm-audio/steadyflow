@@ -4,6 +4,7 @@ import { descriptionWordCount } from '../util/html.js';
 
 export type FlagCode =
   | 'low_margin'
+  | 'margin_negative'
   | 'missing_alt_text'
   | 'short_description'
   | 'missing_type_or_tags'
@@ -11,7 +12,16 @@ export type FlagCode =
   | 'orphaned'
   | 'unlinked_cost'
   | 'price_spread'
-  | 'fx_fallback';
+  | 'fx_fallback'
+  | 'missing_seo_title'
+  | 'missing_seo_description'
+  | 'seo_title_too_short'
+  | 'seo_description_too_short'
+  | 'only_one_image'
+  | 'no_alt_text_on_any_image'
+  | 'out_of_stock'
+  | 'on_sale'
+  | 'no_vendor';
 
 export type FlagSeverity = 'red' | 'yellow';
 
@@ -155,6 +165,66 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
       severity: 'yellow',
       message: 'FX rate fetch failed; using fallback rate',
     });
+  }
+
+  // 10. margin_negative
+  if (margin.marginPct !== null && margin.marginPct < 0) {
+    flags.push({
+      code: 'margin_negative',
+      severity: 'red',
+      message: `Negative margin (${margin.marginPct.toFixed(1)}%) — price is below cost`,
+    });
+  }
+
+  // 11. missing_seo_title
+  const seoTitle = product.seo?.title ?? '';
+  if (seoTitle.length > 0 && seoTitle.trim().length === 0) {
+    flags.push({ code: 'missing_seo_title', severity: 'yellow', message: 'No SEO title set' });
+  }
+
+  // 12. missing_seo_description
+  const seoDescription = product.seo?.description ?? '';
+  if (seoDescription.length > 0 && seoDescription.trim().length === 0) {
+    flags.push({ code: 'missing_seo_description', severity: 'yellow', message: 'No SEO description set' });
+  }
+
+  // 13. seo_title_too_short
+  if (product.seo?.title && product.seo.title.trim().length > 0 && product.seo.title.trim().length < 30) {
+    flags.push({ code: 'seo_title_too_short', severity: 'yellow', message: `SEO title is ${product.seo.title.trim().length} characters (aim for 50-60)` });
+  }
+
+  // 14. seo_description_too_short
+  if (product.seo?.description && product.seo.description.trim().length > 0 && product.seo.description.trim().length < 100) {
+    flags.push({ code: 'seo_description_too_short', severity: 'yellow', message: `SEO description is ${product.seo.description.trim().length} characters (aim for 120-160)` });
+  }
+
+  // 15. only_one_image
+  if (images.length === 1) {
+    flags.push({ code: 'only_one_image', severity: 'yellow', message: 'Only one product image — 3+ images improve conversion' });
+  }
+
+  // 16. no_alt_text_on_any_image
+  if (images.length > 0 && missingAltImages.length === images.length) {
+    flags.push({ code: 'no_alt_text_on_any_image', severity: 'red', message: `All ${images.length} image(s) have no alt text` });
+  }
+
+  // 17. out_of_stock — derived from variant availability (product-level
+  // availableForSale/totalInventory require read_inventory, which may be
+  // absent under a read_products-only scope).
+  const allVariantsUnavailable = variants.length > 0 && variants.every((v) => v.availableForSale === false);
+  if (allVariantsUnavailable) {
+    flags.push({ code: 'out_of_stock', severity: 'red', message: 'Product is out of stock' });
+  }
+
+  // 18. on_sale
+  const hasCompareAt = variants.some((v) => v.compareAtPrice && parseFloat(v.compareAtPrice) > 0);
+  if (hasCompareAt) {
+    flags.push({ code: 'on_sale', severity: 'yellow', message: 'Product has a compare-at (sale) price set' });
+  }
+
+  // 19. no_vendor
+  if (!product.vendor || product.vendor.trim().length === 0) {
+    flags.push({ code: 'no_vendor', severity: 'yellow', message: 'No vendor/brand set' });
   }
 
   return flags;

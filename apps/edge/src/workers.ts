@@ -10,8 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@steadyflow/db';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { runCatalogAudit, type FlagCode } from '@steadyflow/shopify-admin';
-import { mapShopifyAuditToCatalog } from '@steadyflow/commerce';
+import { runCatalogAudit, computeAuditScore, buildProductFinding, buildLeakList, totalEstimatedImpact, analyzeStorefrontHtml, type FlagCode } from '@steadyflow/shopify-admin';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -336,18 +335,29 @@ export const proxyLlm = async (
 
 const FLAG_CATEGORY: Record<FlagCode, string> = {
   low_margin: 'pricing',
+  margin_negative: 'pricing',
   price_spread: 'pricing',
+  on_sale: 'pricing',
   unlinked_cost: 'pricing',
   missing_alt_text: 'seo',
-  short_description: 'seo',
+  no_alt_text_on_any_image: 'seo',
+  missing_seo_title: 'seo',
+  missing_seo_description: 'seo',
+  seo_title_too_short: 'seo',
+  seo_description_too_short: 'seo',
+  short_description: 'conversion',
+  only_one_image: 'conversion',
   missing_type_or_tags: 'seo',
   missing_weight: 'inventory',
+  out_of_stock: 'inventory',
   orphaned: 'product_mix',
+  no_vendor: 'product_mix',
   fx_fallback: 'trend',
 };
 
 const FLAG_TITLE: Record<FlagCode, string> = {
-  low_margin: 'Products with thin margins',
+  low_margin: 'Products with thin margins (<35%)',
+  margin_negative: 'Products with negative margins',
   missing_alt_text: 'Product images missing alt text',
   short_description: 'Product descriptions are too short',
   missing_type_or_tags: 'Products missing type or tags',
@@ -356,6 +366,15 @@ const FLAG_TITLE: Record<FlagCode, string> = {
   unlinked_cost: 'Products with no matched Printify cost',
   price_spread: 'Wide price spread across variants',
   fx_fallback: 'FX rate fetch failed during this audit',
+  missing_seo_title: 'Products with no SEO title',
+  missing_seo_description: 'Products with no SEO meta description',
+  seo_title_too_short: 'SEO titles too short (<30 chars)',
+  seo_description_too_short: 'SEO meta descriptions too short (<100 chars)',
+  only_one_image: 'Products with only one image',
+  no_alt_text_on_any_image: 'Products with zero alt text on any image',
+  out_of_stock: 'Products that are out of stock',
+  on_sale: 'Products currently on sale (compare-at pricing)',
+  no_vendor: 'Products with no vendor/brand',
 };
 
 const FLAG_SEVERITY: Record<'red' | 'yellow', 'high' | 'medium'> = {
@@ -369,6 +388,22 @@ interface PageSeoSignals {
   hasStructuredData: boolean;
   hasSitemap: boolean;
   hasRobotsTxt: boolean;
+  allowsOaiSearchBot: boolean;
+  allowsPerplexityBot: boolean;
+  hasProductSchema: boolean;
+  hasGtin: boolean;
+}
+
+interface AiReadiness {
+  score: number;
+  chatgptShopping: boolean;
+  googleAiMode: boolean;
+  perplexityShopping: boolean;
+  productSchemaPresent: boolean;
+  gtinOnProducts: boolean;
+  merchantCenterConnected: boolean;
+  shopPayEnabled: boolean;
+  googlePayEnabled: boolean;
 }
 
 /**
@@ -384,6 +419,11 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
   let hasMetaDescription = false;
   let metaDescriptionLength = 0;
   let hasStructuredData = false;
+  let hasProductSchema = false;
+  let hasGtin = false;
+  let allowsOaiSearchBot = false;
+  let allowsPerplexityBot = false;
+  let robotsText = '';
   try {
     await assertPublicHttpUrl(base);
     const res = await fetch(base, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
@@ -393,10 +433,43 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
       metaDescriptionLength = descMatch?.[1]?.trim().length ?? 0;
       hasMetaDescription = metaDescriptionLength > 0;
       hasStructuredData = /<script[^>]+type=["']application\/ld\+json["']/i.test(html);
+
+      const ldJsonMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ?? [];
+      for (const match of ldJsonMatches) {
+        try {
+          const jsonStr = match.replace(/<[^>]+>/g, '').trim();
+          const ld = JSON.parse(jsonStr) as Record<string, unknown>;
+          if (Array.isArray(ld['@graph'])) {
+            for (const item of ld['@graph'] as Record<string, unknown>[]) {
+              if (item['@type'] === 'Product') {
+                hasProductSchema = true;
+                if (item.gtin || item.sku || item.mpn) hasGtin = true;
+              }
+            }
+          }
+          if (ld['@type'] === 'Product') {
+            hasProductSchema = true;
+            if (ld.gtin || ld.sku || ld.mpn) hasGtin = true;
+          }
+        } catch { /* malformed JSON-LD */ }
+      }
     }
   } catch {
     // Homepage unreachable -- signals stay at their "missing" defaults.
   }
+
+  // Fetch robots.txt for AI crawler bot directives
+  try {
+    const robotsUrl = `${base}/robots.txt`;
+    await assertPublicHttpUrl(robotsUrl);
+    const robotsRes = await fetch(robotsUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+    if (robotsRes.ok) {
+      robotsText = await robotsRes.text();
+      allowsOaiSearchBot = robotsText.includes('OAI-SearchBot') && !robotsText.includes('Disallow: /\nUser-agent: OAI-SearchBot');
+      allowsOaiSearchBot = /User-agent:\s*OAI-SearchBot/i.test(robotsText) && !/User-agent:\s*\*\s*\n\s*Disallow:\s*\/\s*$/.test(robotsText) && !/User-agent:\s*OAI-SearchBot[\s\S]*Disallow:\s*\//im.test(robotsText);
+      allowsPerplexityBot = /User-agent:\s*PerplexityBot/i.test(robotsText) && !/User-agent:\s*PerplexityBot[\s\S]*Disallow:\s*\//im.test(robotsText);
+    }
+  } catch { /* robots.txt unreachable */ }
 
   const checkExists = async (path: string): Promise<boolean> => {
     try {
@@ -414,14 +487,200 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
     checkExists('/robots.txt'),
   ]);
 
-  return { hasMetaDescription, metaDescriptionLength, hasStructuredData, hasSitemap, hasRobotsTxt };
+  return { hasMetaDescription, metaDescriptionLength, hasStructuredData, hasSitemap, hasRobotsTxt, allowsOaiSearchBot, allowsPerplexityBot, hasProductSchema, hasGtin };
 };
 
 /**
- * Real per-product analysis from Shopify Admin + Printify data (margin math,
- * content-quality flags) -- ported from the shopify-printify-audit CLI. No
- * LLM required: this replaces the $NN-regex/h1-exists heuristic entirely for
- * any org with a 'shopify-admin' key configured.
+ * Static storefront speed / friction / app-bloat analysis. Fetches the
+ * homepage (SSRF-guarded) and runs the deterministic HTML analyzer. Best
+ * effort: any failure reads as "no data" rather than aborting the audit.
+ */
+const checkStorefrontSignals = async (storeUrl: string): Promise<ReturnType<typeof analyzeStorefrontHtml> | null> => {
+  const base = storeUrl.replace(/\/+$/, '');
+  try {
+    await assertPublicHttpUrl(base);
+    const res = await fetch(base, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+    if (!res.ok) return null;
+    const html = await res.text();
+    return analyzeStorefrontHtml(html, new URL(base).hostname);
+  } catch {
+    return null;
+  }
+};
+
+const computeAiReadiness = (signals: PageSeoSignals, _audit: { totalProducts: number }): AiReadiness => {
+  const productSchemaPresent = signals.hasProductSchema;
+  const gtinOnProducts = signals.hasGtin;
+  const chatgptShopping = true; // Shopify stores are auto-integrated via Shop Pay
+  const googleAiMode = signals.hasSitemap;
+  const perplexityShopping = signals.allowsPerplexityBot || signals.hasProductSchema;
+  const shopPayEnabled = true; // Shopify stores have this out of the box
+  const googlePayEnabled = signals.hasSitemap;
+
+  let score = 50; // Shopify baseline
+  if (productSchemaPresent) score += 15;
+  if (gtinOnProducts) score += 10;
+  if (signals.allowsOaiSearchBot) score += 10;
+  if (signals.allowsPerplexityBot) score += 5;
+  if (signals.hasSitemap) score += 5;
+  if (signals.hasMetaDescription) score += 5;
+
+  return {
+    score: Math.min(100, score),
+    chatgptShopping,
+    googleAiMode,
+    perplexityShopping,
+    productSchemaPresent,
+    gtinOnProducts,
+    merchantCenterConnected: false,
+    shopPayEnabled,
+    googlePayEnabled,
+  };
+};
+
+interface FirstSaleMath {
+  grossMarginPct: number;
+  breakEvenRoas: number;
+  recommendedChannel: string;
+  recommendedCpc: number;
+  clicksForFirstSale: number;
+  estimatedFirstSaleCost: number;
+  dailyBudget: number;
+}
+
+const computeFirstSaleMath = (audit: { rows: { margin: { marginPct: number | null } }[] }): FirstSaleMath | null => {
+  const withMargin = audit.rows.filter((r) => r.margin.marginPct !== null);
+  if (withMargin.length === 0) return null;
+
+  const grossMarginPct = withMargin.reduce((sum, r) => sum + (r.margin.marginPct ?? 0), 0) / withMargin.length;
+  const breakEvenRoas = grossMarginPct > 0 ? 1 / (grossMarginPct / 100) : 4.0;
+
+  // Channel CPC benchmarks (from Triple Whale + WordStream 2025/2026)
+  const metaCpc = 0.45; // Fashion/apparel on Meta
+  const tiktokCpc = 0.50; // Typical TikTok Spark Ads
+  const googleCpc = 4.44; // Google Ads apparel
+
+  let recommendedChannel: string;
+  let recommendedCpc: number;
+  if (grossMarginPct >= 60) {
+    recommendedChannel = 'Google Shopping + Meta';
+    recommendedCpc = googleCpc;
+  } else if (grossMarginPct >= 25) {
+    recommendedChannel = 'Meta (Facebook/Instagram)';
+    recommendedCpc = metaCpc;
+  } else {
+    recommendedChannel = 'TikTok Spark Ads';
+    recommendedCpc = tiktokCpc;
+  }
+
+  const conversionRate = 0.02; // 2% median for paid traffic
+  const clicksForFirstSale = Math.ceil(1 / conversionRate); // 50 clicks
+  const estimatedFirstSaleCost = clicksForFirstSale * recommendedCpc;
+  const dailyBudget = Math.max(10, Math.round(estimatedFirstSaleCost / 3));
+
+  return {
+    grossMarginPct,
+    breakEvenRoas: Math.round(breakEvenRoas * 10) / 10,
+    recommendedChannel,
+    recommendedCpc,
+    clicksForFirstSale,
+    estimatedFirstSaleCost: Math.round(estimatedFirstSaleCost),
+    dailyBudget,
+  };
+};
+
+/**
+ * Deterministic first-sale playbook — works without an LLM key.
+ * Returns a 30-day prioritized action plan with channel-specific steps.
+ */
+const buildFirstSalePlaybook = (
+  aiReadiness: AiReadiness,
+  firstSaleMath: FirstSaleMath | null,
+  storeName: string,
+): Record<string, unknown> => {
+  const actions: Record<string, unknown>[] = [];
+
+  // Immediate actions (Day 1)
+  if (!aiReadiness.productSchemaPresent) {
+    actions.push({
+      step: actions.length + 1, channel: 'ai_agents', priority: 'immediate',
+      action: 'Add JSON-LD Product schema to all product pages (name, image, price, availability, GTIN/SKU, aggregateRating). This feeds ChatGPT Shopping, Google AI Mode, Perplexity, and Copilot simultaneously.',
+      estimatedBudget: 'Free (theme edit or free SEO app)', estimatedTimeToResult: '1-7 days for AI crawlers to index',
+    });
+  }
+  actions.push({
+    step: actions.length + 1, channel: 'ai_agents', priority: 'immediate',
+    action: 'Submit product feed to Google Merchant Center. One feed covers Google AI Mode (0% fee), Google free listings, and Bing/Copilot. Include GTINs, product highlights, shipping weight, return policy.',
+    estimatedBudget: 'Free (Google Merchant Center)', estimatedTimeToResult: '2-5 days for feed approval',
+  });
+  if (!aiReadiness.chatgptShopping) {
+    actions.push({
+      step: actions.length + 1, channel: 'ai_agents', priority: 'immediate',
+      action: 'Allow OAI-SearchBot in robots.txt — add "User-agent: OAI-SearchBot\nAllow: /" so ChatGPT can crawl your products.',
+      estimatedBudget: 'Free (theme liquid edit)', estimatedTimeToResult: '1-2 days for crawl',
+    });
+  }
+
+  // Week 1 actions
+  actions.push({
+    step: actions.length + 1, channel: 'etsy', priority: 'week_1',
+    action: `Create Etsy shop and connect Printify. List your top 5-10 products with SEO-optimized titles (all 13 tags used) and lifestyle mockups. Etsy has 90M+ active buyers searching for unique designs. Fees: $0.20/listing + 6.5% transaction.`,
+    estimatedBudget: '$0-5 startup cost', estimatedTimeToResult: '3-14 days to first sale',
+  });
+  actions.push({
+    step: actions.length + 1, channel: 'tiktok', priority: 'week_1',
+    action: 'Create TikTok business account. Post 1-2 videos/day: design-process timelapses, niche skits, unboxings. Use trending sounds in your niche. Target: 1,000 followers in 2-4 weeks to unlock TikTok Shop.',
+    estimatedBudget: 'Free (organic content)', estimatedTimeToResult: '2-4 weeks to 1,000 followers',
+  });
+  actions.push({
+    step: actions.length + 1, channel: 'email_sms', priority: 'week_1',
+    action: 'Install email capture popup (15-30% capture rate). Set up abandoned-cart email sequence (10.7% recovery rate). At 70% cart abandonment, recovering even 5 carts/month = serious revenue for a new store.',
+    estimatedBudget: 'Free-20/month (Shopify Email or Klaviyo free tier)', estimatedTimeToResult: 'Immediate capture; first recovery within 1-3 days',
+  });
+
+  // Week 2
+  actions.push({
+    step: actions.length + 1, channel: 'creators', priority: 'week_2',
+    action: 'Find 3-5 micro-creators (1k-50k followers) in your niche. Send free product in exchange for a TikTok/IG Reel. Budget $50-150 per creator for paid usage rights. Total: <$1,000 for full content library you can repurpose as ads.',
+    estimatedBudget: '$150-750 total', estimatedTimeToResult: '1-2 weeks for content delivery',
+  });
+
+  // Month 1
+  if (firstSaleMath) {
+    actions.push({
+      step: actions.length + 1, channel: 'ads', priority: 'month_1',
+      action: `Launch ${firstSaleMath.recommendedChannel} ads at $${firstSaleMath.dailyBudget}/day. Use creator content as ad creative (Spark Ads on TikTok, Advantage+ on Meta). Target CPC <$${firstSaleMath.recommendedCpc.toFixed(2)}. Break-even ROAS: ${firstSaleMath.breakEvenRoas.toFixed(1)}×. Expected first-sale cost: ~$${firstSaleMath.estimatedFirstSaleCost} at 2% conversion. Start AFTER you have 10-20 organic posts that got engagement — ads amplify what already works.`,
+      estimatedBudget: `$${firstSaleMath.dailyBudget}/day`, estimatedTimeToResult: '1-7 days to first sale',
+    });
+  }
+  actions.push({
+    step: actions.length + 1, channel: 'pinterest', priority: 'month_1',
+    action: 'Repurpose TikTok/Reels as Pinterest Idea Pins. Pinterest users are deliberate buyers — higher conversion intent. Tag products with Rich Pins. Free organic reach.',
+    estimatedBudget: 'Free', estimatedTimeToResult: '2-4 weeks for Pinterest SEO traction',
+  });
+
+  return {
+    breakEvenRoas: firstSaleMath?.breakEvenRoas,
+    grossMarginPct: firstSaleMath?.grossMarginPct,
+    recommendedChannel: firstSaleMath?.recommendedChannel,
+    dailyBudgetRange: firstSaleMath ? `$${firstSaleMath.dailyBudget}/day` : '$10-20/day',
+    actions,
+    aiPlatformsAudit: {
+      chatgptShopping: aiReadiness.chatgptShopping,
+      googleAiMode: aiReadiness.googleAiMode,
+      perplexityShopping: aiReadiness.perplexityShopping,
+      productSchemaPresent: aiReadiness.productSchemaPresent,
+      gtinOnProducts: aiReadiness.gtinOnProducts,
+      merchantCenterConnected: aiReadiness.merchantCenterConnected,
+    },
+    generatedForStore: storeName,
+  };
+};
+
+/**
+ * v2 catalog analysis — paginated, per-product findings persisted,
+ * LLM synthesis for narrative + missing categories, audit score,
+ * store profiles for dedup.
  */
 const analyzeShopifyCatalog = async (
   ctx: WorkerCtx,
@@ -429,17 +688,68 @@ const analyzeShopifyCatalog = async (
   storeUrl: string,
 ): Promise<void> => {
   const userId = await resolveIntentUserId(ctx.supabase, intentId, ctx.orgId);
-  const adminToken = await tryUnwrapKey(ctx.supabase, 'shopify-admin', ctx.orgId);
-  if (!adminToken) throw new Error('No shopify-admin key configured');
+  const shopifyKey = await tryUnwrapKey(ctx.supabase, 'shopify-admin', ctx.orgId);
+  if (!shopifyKey) throw new Error('No shopify-admin key configured');
   const printifyToken = (await tryUnwrapKey(ctx.supabase, 'printify', ctx.orgId)) ?? undefined;
 
-  const audit = await runCatalogAudit({ storeUrl, adminToken, printifyToken });
-  // Normalize into the multi-platform commerce catalog shape (Amazon/Alibaba-ready).
-  const commerceCatalog = mapShopifyAuditToCatalog(audit);
-  const seoSignals = await checkPageSeoSignals(storeUrl);
+  // The shopify-admin key is either a legacy static token, or a JSON object
+  // {clientId, clientSecret} for the 2026 client-credentials grant.
+  let adminToken: string | undefined;
+  let clientId: string | undefined;
+  let clientSecret: string | undefined;
+  try {
+    const parsed = JSON.parse(shopifyKey) as { clientId?: unknown; clientSecret?: unknown };
+    if (typeof parsed.clientId === 'string' && typeof parsed.clientSecret === 'string') {
+      clientId = parsed.clientId;
+      clientSecret = parsed.clientSecret;
+    } else {
+      adminToken = shopifyKey;
+    }
+  } catch {
+    adminToken = shopifyKey;
+  }
 
-  // Aggregate by flag code across the whole catalog -- one insight per
-  // affected flag, not one row per product per flag.
+  const audit = await runCatalogAudit({ storeUrl, adminToken, clientId, clientSecret, printifyToken });
+  const seoSignals = await checkPageSeoSignals(storeUrl);
+  const score = computeAuditScore(audit.rows);
+  // Matches intents.input_hash (SHA-256 of JSON {platform,url}) set by the
+  // intel-analyze-shop edge function, so dedup links prior runs of the store.
+  const urlHash = await sha256(JSON.stringify({ platform: 'shopify', url: storeUrl }));
+
+  // ── Supersede prior analyses of the same store ──
+  await ctx.supabase.rpc('supersede_store_insights', {
+    p_org_id: ctx.orgId,
+    p_input_hash: urlHash,
+    p_exclude_intent: intentId,
+  });
+
+  // ── Upsert store profile ──
+  await ctx.supabase.from('store_profiles').upsert({
+    org_id: ctx.orgId,
+    url: storeUrl,
+    url_hash: urlHash,
+    store_name: audit.shop.name,
+    currency: audit.shopCurrency,
+    product_count: audit.totalProducts,
+    collection_count: audit.totalCollections,
+    latest_intent_id: intentId,
+    latest_score: score,
+    last_analyzed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'org_id, url_hash' });
+
+  // ── Persist per-product findings ──
+  for (const row of audit.rows) {
+    const pf = buildProductFinding(row);
+    await ctx.supabase.from('product_findings').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      ...pf,
+      flags: pf.flags as unknown as Json,
+    });
+  }
+
+  // ── Aggregate deterministic insights by flag code ──
   const byFlag = new Map<FlagCode, { severity: 'red' | 'yellow'; products: string[] }>();
   for (const row of audit.rows) {
     for (const flag of row.flags) {
@@ -449,10 +759,23 @@ const analyzeShopifyCatalog = async (
     }
   }
 
+  // ── Revenue impact (ranked Leak List) ──
+  const leakList = buildLeakList(
+    audit.rows.map((r) => ({ priceMinCAD: r.margin.priceMinCAD, flags: r.flags })),
+    audit.shopCurrency,
+    audit.salesSummary ? { sales: audit.salesSummary } : undefined,
+  );
+  const leakImpactByCode = new Map(leakList.map((l) => [l.code, l.estimatedAnnualImpact]));
+  const leakTotal = totalEstimatedImpact(leakList);
+
   for (const [code, { severity, products }] of byFlag) {
-    const shown = products.slice(0, 10);
+    const shown = products.slice(0, 8);
     const remainder = products.length - shown.length;
-    const body = `${products.length} product${products.length === 1 ? '' : 's'} affected: ${shown.join(', ')}${remainder > 0 ? `, and ${remainder} more` : ''}.`;
+    const impact = leakImpactByCode.get(code);
+    const impactSuffix = impact !== undefined && impact > 0
+      ? ` Estimated recoverable revenue: ~$${impact.toLocaleString()}/yr.`
+      : '';
+    const body = `${products.length} product${products.length === 1 ? '' : 's'}: ${shown.join(', ')}${remainder > 0 ? ` + ${remainder} more` : ''}.${impactSuffix}`;
     await ctx.supabase.from('insights').insert({
       org_id: ctx.orgId,
       intent_id: intentId,
@@ -461,40 +784,44 @@ const analyzeShopifyCatalog = async (
       title: FLAG_TITLE[code],
       body: body.slice(0, 5000),
       citations: [],
-      model: 'shopify-admin-audit-v1',
+      model: 'shopify-admin-audit-v2',
       provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
 
-  // Page-fetch SEO signals the Admin API doesn't expose.
+  // ── Ranked Leak List summary ──
+  if (leakList.length > 0) {
+    const top = leakList.slice(0, 5).map((l, i) => `${i + 1}. ${l.title} — ~$${l.estimatedAnnualImpact.toLocaleString()}/yr`).join('\n');
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId, intent_id: intentId, category: 'pricing',
+      severity: leakTotal >= 10000 ? 'high' : 'medium',
+      title: `Revenue Leak List — ~$${leakTotal.toLocaleString()}/yr recoverable (estimated)`,
+      body: `Ranked by estimated annual recoverable revenue:\n${top}${leakList.length > 5 ? `\n+ ${leakList.length - 5} more` : ''}\n\nEstimates use ${audit.shopCurrency} prices/margins${audit.salesSummary ? ' and real order data (AOV + order volume)' : ' and documented assumptions (read_orders not granted)'}.`,
+      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // ── Homepage SEO signals ──
   if (!seoSignals.hasMetaDescription || seoSignals.metaDescriptionLength < 50) {
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId,
-      intent_id: intentId,
-      category: 'seo',
+      org_id: ctx.orgId, intent_id: intentId, category: 'seo',
       severity: seoSignals.hasMetaDescription ? 'medium' : 'high',
       title: seoSignals.hasMetaDescription ? 'Meta description is too short' : 'Homepage missing a meta description',
       body: seoSignals.hasMetaDescription
         ? `Homepage meta description is ${seoSignals.metaDescriptionLength} characters; aim for 120-160.`
-        : 'The homepage has no <meta name="description"> tag, which search engines use for the result snippet.',
-      citations: [],
-      model: 'shopify-admin-audit-v1',
-      provider: 'shopify-admin',
+        : 'The homepage has no <meta name="description"> tag.',
+      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
   if (!seoSignals.hasStructuredData) {
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId,
-      intent_id: intentId,
-      category: 'seo',
-      severity: 'medium',
-      title: 'No structured data found on the homepage',
-      body: 'No schema.org JSON-LD found. Structured data (Product, Organization, BreadcrumbList) helps search engines show rich results.',
-      citations: [],
-      model: 'shopify-admin-audit-v1',
-      provider: 'shopify-admin',
+      org_id: ctx.orgId, intent_id: intentId, category: 'seo', severity: 'medium',
+      title: 'No structured data on homepage',
+      body: 'No schema.org JSON-LD found. Structured data helps search engines show rich results.',
+      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
@@ -502,37 +829,219 @@ const analyzeShopifyCatalog = async (
     const missing = [!seoSignals.hasSitemap && 'sitemap.xml', !seoSignals.hasRobotsTxt && 'robots.txt']
       .filter((v): v is string => Boolean(v));
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId,
-      intent_id: intentId,
-      category: 'seo',
-      severity: 'high',
+      org_id: ctx.orgId, intent_id: intentId, category: 'seo', severity: 'high',
       title: `${missing.join(' and ')} not found`,
-      body: `${missing.join(' and ')} returned a non-OK response at the store's root. Both should be reachable for search engines to crawl and index the store correctly.`,
-      citations: [],
-      model: 'shopify-admin-audit-v1',
-      provider: 'shopify-admin',
+      body: `${missing.join(' and ')} returned a non-OK response. Both should be reachable for search engines.`,
+      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
 
-  // One catalog-wide pricing summary, if margin data exists for anything.
+  // ── Speed / friction + app bloat (static storefront analysis) ──
+  const storefront = await checkStorefrontSignals(storeUrl);
+  if (storefront) {
+    if (storefront.appHosts.length > 0) {
+      const apps = storefront.appHosts.map((h) => h.appName ?? h.host).join(', ');
+      await ctx.supabase.from('insights').insert({
+        org_id: ctx.orgId, intent_id: intentId, category: 'conversion',
+        severity: storefront.appHosts.length >= 3 ? 'high' : 'medium',
+        title: `App bloat: ${storefront.appHosts.length} third-party app${storefront.appHosts.length === 1 ? '' : 's'} loading scripts`,
+        body: `Detected: ${apps}. Each app adds load time and a potential subscription overlap. Review which are still used — removing dead apps cuts page weight and cost.`,
+        citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+        generated_at: new Date().toISOString(),
+      });
+    }
+    if (storefront.renderBlockingScripts > 0 || storefront.thirdPartyHosts.length > 0 || storefront.imagesWithoutDimensions > 0) {
+      const parts: string[] = [];
+      if (storefront.renderBlockingScripts > 0) parts.push(`${storefront.renderBlockingScripts} render-blocking script(s)`);
+      if (storefront.thirdPartyHosts.length > 0) parts.push(`${storefront.thirdPartyHosts.length} third-party host(s) (${storefront.thirdPartyHosts.map((h) => h.host).join(', ')})`);
+      if (storefront.imagesWithoutDimensions > 0) parts.push(`${storefront.imagesWithoutDimensions}/${storefront.totalImages} image(s) without width/height`);
+      await ctx.supabase.from('insights').insert({
+        org_id: ctx.orgId, intent_id: intentId, category: 'conversion',
+        severity: storefront.lcpRisk === 'high' ? 'high' : 'medium',
+        title: `Speed & friction: ${storefront.inefficiencyScore}/100 friction score`,
+        body: `${parts.join('; ')}. LCP risk: ${storefront.lcpRisk}, CLS risk: ${storefront.clsRisk}. These are static proxies for Core Web Vitals — render-blocking JS and undimensioned images are the most common causes of slow LCP and layout shift.`,
+        citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+        generated_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // ── Catalog-wide summaries ──
   const withMargin = audit.rows.filter((r) => r.margin.marginPct !== null);
   if (withMargin.length > 0) {
     const avgMarginPct = withMargin.reduce((sum, r) => sum + (r.margin.marginPct ?? 0), 0) / withMargin.length;
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId,
-      intent_id: intentId,
-      category: 'pricing',
+      org_id: ctx.orgId, intent_id: intentId, category: 'pricing',
       severity: avgMarginPct < 35 ? 'high' : 'low',
       title: 'Catalog margin summary',
-      body: `Average gross margin across ${withMargin.length} priced product(s): ${avgMarginPct.toFixed(1)}% (${audit.shopCurrency}${audit.fxSource === 'fallback' ? ', FX fallback rate used' : ''}).`,
-      citations: [],
-      model: 'shopify-admin-audit-v1',
-      provider: 'shopify-admin',
+      body: `Average gross margin: ${avgMarginPct.toFixed(1)}% across ${withMargin.length} priced product(s) (${audit.shopCurrency}${audit.fxSource === 'fallback' ? ', FX fallback' : ''}).`,
+      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
 
+  const outOfStock = audit.rows.filter((r) => {
+    const variants = r.product.variants.edges.map((e) => e.node);
+    return variants.length > 0 && variants.every((v) => v.availableForSale === false);
+  });
+  if (outOfStock.length > 0) {
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId, intent_id: intentId, category: 'inventory',
+      severity: outOfStock.length > 3 ? 'high' : 'medium',
+      title: 'Out-of-stock products',
+      body: `${outOfStock.length} product(s) currently out of stock: ${outOfStock.map((r) => r.product.title).slice(0, 8).join(', ')}.`,
+      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // ── AI Agent Readiness Score ──
+  const aiReadiness = computeAiReadiness(seoSignals, audit);
+  await ctx.supabase.from('insights').insert({
+    org_id: ctx.orgId, intent_id: intentId, category: 'ai_agent_readiness',
+    severity: aiReadiness.score < 40 ? 'high' : aiReadiness.score < 70 ? 'medium' : 'low',
+    title: `AI Shopping Agent Readiness Score: ${aiReadiness.score}/100`,
+    body: `Store is ${aiReadiness.score >= 70 ? 'well-prepared' : aiReadiness.score >= 40 ? 'partially ready' : 'not ready'} for AI shopping agents (ChatGPT Shopping, Google AI Mode, Perplexity). Product schema: ${aiReadiness.productSchemaPresent ? 'present' : 'MISSING'}. GTINs: ${aiReadiness.gtinOnProducts ? 'present' : 'MISSING'}. OAI-SearchBot allowed: ${aiReadiness.chatgptShopping ? 'yes' : 'no'}. ChatGPT Shopping is free for Shopify stores via Shop Pay integration — your products may already appear if you have Shop Pay enabled. Google AI Mode (0% fees) requires a Google Merchant Center feed. Perplexity merchant program is free via crawl. Action: submit GMC feed, add Product JSON-LD schema with GTINs, and allow AI crawlers in robots.txt.`,
+    citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+    generated_at: new Date().toISOString(),
+  });
+
+  // ── First Sale Math ──
+  const firstSaleMath = computeFirstSaleMath(audit);
+  if (firstSaleMath) {
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId, intent_id: intentId, category: 'first_sale_math',
+      severity: firstSaleMath.breakEvenRoas > 3.5 ? 'high' : firstSaleMath.breakEvenRoas > 2.0 ? 'medium' : 'low',
+      title: `Break-even ROAS: ${firstSaleMath.breakEvenRoas.toFixed(1)}x at ${firstSaleMath.grossMarginPct.toFixed(0)}% margin`,
+      body: `Gross margin: ${firstSaleMath.grossMarginPct.toFixed(0)}% (Printify cost + payment fees). Break-even ROAS: ${firstSaleMath.breakEvenRoas.toFixed(1)}×. Recommended first channel: ${firstSaleMath.recommendedChannel} at ~$${firstSaleMath.recommendedCpc.toFixed(2)} CPC. At 2% conversion: need ${firstSaleMath.clicksForFirstSale} clicks → ~$${firstSaleMath.estimatedFirstSaleCost} estimated first-sale cost. Meta/TikTok have the lowest CPCs for apparel ($0.45-0.50); avoid Google Shopping ($4.44 CPC) unless margin exceeds 75%. Budget recommendation: $${firstSaleMath.dailyBudget}/day on ${firstSaleMath.recommendedChannel}. With POD margins (20-40% typical per Printful), every dollar of ad spend must return $2.5-5× in revenue to break even.`,
+      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // ── Channel Gap Audit ──
+  await ctx.supabase.from('insights').insert({
+    org_id: ctx.orgId, intent_id: intentId, category: 'channel_gap',
+    severity: 'high',
+    title: 'You are only selling on Shopify',
+    body: `Your store is only reachable through your Shopify domain. Expand to: (1) Etsy — $0.20 listing fee, 6.5% transaction, instant access to 90M+ buyers, Printify integrates directly. (2) TikTok Shop — free to list, 1,000 followers to unlock, organic video discovery reaches 10k+ views from account with 0 followers. (3) Google free listings — submit Merchant Center feed, zero ad cost, feeds AI Mode at same time. (4) ChatGPT Shopping — Shopify stores are auto-integrated via Shop Pay; your products may already be discoverable by AI shoppers. Each channel adds a separate zero-CAC revenue stream.`,
+    citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+    generated_at: new Date().toISOString(),
+  });
+
+  // ── Creator Playbook ──
+  await ctx.supabase.from('insights').insert({
+    org_id: ctx.orgId, intent_id: intentId, category: 'creator_playbook',
+    severity: 'medium',
+    title: 'First-sale content playbook',
+    body: `Find 3-5 micro-creators (1k-50k followers) in your niche. Send free product + $50-150 per post (total <$1,000 for full set). Formats that convert: design-process timelapses (show creation on TikTok), unboxing/reaction videos (social proof), niche skits (insider humor + product reveal). Micro-creators drive ~60% of TikTok Shop GMV. Gifting + small payment = 2.3× engagement vs gifting alone. Repurpose their content as paid ad creative (Spark Ads, $10-20/day). Post 1-2× daily at 7-9am and 7-10pm for first 30 days. Trend window: 3-7 days. Target: 1,000 followers in 2-4 weeks for TikTok Shop eligibility.`,
+    citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+    generated_at: new Date().toISOString(),
+  });
+  try {
+    const flagsSummary = byFlag.size > 0
+      ? [...byFlag.entries()].map(([code, { severity, products }]) =>
+          `${FLAG_TITLE[code]} (${severity}, ${products.length} products)`)
+        : ['No flags raised'];
+    const productSample = audit.rows.slice(0, 15).map((r) =>
+      `${r.product.title} | ${r.product.productType || 'no-type'} | $${r.margin.priceMinCAD} | ${r.margin.marginPct?.toFixed(0) ?? '?'}% margin | ${r.flags.length} flags`);
+
+    const llmPrompt = `You are auditing a Shopify store named "${audit.shop.name}" (${storeUrl}) with ${audit.totalProducts} products in ${audit.totalCollections} collections, operating in ${audit.shopCurrency}. Plan: ${audit.shop.plan?.displayName ?? 'unknown'}.
+
+Store-level SEO: homepage meta description ${seoSignals.hasMetaDescription ? `present (${seoSignals.metaDescriptionLength} chars)` : 'MISSING'}, structured data ${seoSignals.hasStructuredData ? 'present' : 'MISSING'}, sitemap ${seoSignals.hasSitemap ? 'OK' : 'MISSING'}, robots.txt ${seoSignals.hasRobotsTxt ? 'OK' : 'MISSING'}.
+
+Audit score: ${score}/100.
+
+Flag summary:
+${flagsSummary.join('\n')}
+
+Product sample (price in ${audit.shopCurrency}):
+${productSample.join('\n')}
+
+Output a JSON object with:
+- "narrative": 2-3 paragraph executive summary of the store's health (tone: professional, direct, actionable)
+- "positioning": 1 insight about brand/market positioning (or null if insufficient data)
+- "marketing": 1 insight about marketing gaps (or null)
+- "conversion": 1 insight about conversion optimization (or null)
+- "trend": 1 insight about data trends (or null)
+- "priorityActions": array of 3-5 specific actions, each with "action" (string), "effort" ("small"|"medium"|"large"), "impact" ("high"|"medium"|"low")
+
+Respond ONLY with valid JSON, no markdown wrapping.`;
+
+    const llmResult = await proxyLlm(ctx.supabase, ctx.orgId, llmPrompt);
+    if (llmResult.content && llmResult.provider !== 'heuristic') {
+      const parsed = JSON.parse(llmResult.content) as {
+        narrative?: string;
+        positioning?: { title: string; body: string } | null;
+        marketing?: { title: string; body: string } | null;
+        conversion?: { title: string; body: string } | null;
+        trend?: { title: string; body: string } | null;
+        priorityActions?: { action: string; effort: string; impact: string }[];
+      };
+
+      if (parsed.narrative) {
+        await ctx.supabase.from('insights').insert({
+          org_id: ctx.orgId, intent_id: intentId, category: 'positioning',
+          severity: score < 50 ? 'high' : score < 75 ? 'medium' : 'low',
+          title: 'Audit Narrative',
+          body: parsed.narrative.slice(0, 5000),
+          citations: [], model: llmResult.model, provider: llmResult.provider,
+          generated_at: new Date().toISOString(),
+        });
+      }
+
+      for (const cat of ['positioning', 'marketing', 'conversion', 'trend'] as const) {
+        const item = parsed[cat];
+        if (item?.title && item.body) {
+          await ctx.supabase.from('insights').insert({
+            org_id: ctx.orgId, intent_id: intentId, category: cat,
+            severity: 'medium',
+            title: item.title,
+            body: item.body.slice(0, 5000),
+            citations: [], model: llmResult.model, provider: llmResult.provider,
+            generated_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+  } catch (_err) {
+    // LLM is best-effort; deterministic insights are already written.
+    console.warn('[worker] LLM synthesis failed:', String(_err));
+  }
+
+  // ── First-Sale Playbook (deterministic, always generated) ──
+  const firstSalePlan = buildFirstSalePlaybook(aiReadiness, firstSaleMath, audit.shop.name);
+
+  // Persist to reports table (create or update) for the report-generate endpoint
+  const reportRow = {
+    org_id: ctx.orgId,
+    intent_id: intentId,
+    executive_summary: `First-sale readiness audit for ${audit.shop.name}. AI Shopping readiness: ${aiReadiness.score}/100. ${firstSaleMath ? `Margin: ${firstSaleMath.grossMarginPct.toFixed(0)}%, break-even ROAS: ${firstSaleMath.breakEvenRoas.toFixed(1)}×, recommended channel: ${firstSaleMath.recommendedChannel}.` : 'No margin data available.'}`,
+    sprint_recommendation: firstSaleMath
+      ? `Start with ${firstSaleMath.recommendedChannel} ads at $${firstSaleMath.dailyBudget}/day using creator content as ad creative. Estimated first-sale cost: ~$${firstSaleMath.estimatedFirstSaleCost}. Simultaneously submit GMC feed, add Product schema, and list on Etsy for zero-CAC channels.`
+      : 'Focus on channel expansion (Etsy, TikTok Shop) and AI agent readiness (GMC feed, Product schema) before scaling paid ads.',
+    first_sale_plan: firstSalePlan as unknown as Json,
+    finding_count: 4,
+    generated_by: userId,
+  };
+
+  const { data: existingReport } = await ctx.supabase
+    .from('reports')
+    .select('id')
+    .eq('intent_id', intentId)
+    .maybeSingle();
+
+  if (existingReport) {
+    await ctx.supabase.from('reports')
+      .update({ first_sale_plan: firstSalePlan as unknown as Json })
+      .eq('intent_id', intentId);
+  } else {
+    await ctx.supabase.from('reports')
+      .insert(reportRow);
+  }
+
+  // ── Mark intent succeeded ──
   await ctx.supabase.from('intents').update({
     status: 'succeeded',
     updated_at: new Date().toISOString(),
@@ -541,13 +1050,14 @@ const analyzeShopifyCatalog = async (
   await ctx.supabase.from('audit_log').insert({
     org_id: ctx.orgId, user_id: userId,
     action: 'analyze.shopify_catalog', outcome: 'success',
-    input_hash: await sha256(storeUrl), provider: 'shopify-admin',
+    input_hash: urlHash, provider: 'shopify-admin',
     duration_ms: 0,
     metadata: {
       totalProducts: audit.totalProducts,
       totalCollections: audit.totalCollections,
-      commercePlatform: commerceCatalog.platform,
-      commerceProductCount: commerceCatalog.totalProducts,
+      score,
+      currency: audit.shopCurrency,
+      flagCount: byFlag.size,
     },
   });
 };

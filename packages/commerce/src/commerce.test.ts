@@ -19,6 +19,7 @@ function sampleShopifyProduct(): ShopifyProduct {
     title: 'Test Print',
     status: 'ACTIVE',
     productType: 'Wall Art',
+    vendor: '',
     tags: ['canvas'],
     descriptionHtml: '<p>hello</p>',
     priceRangeV2: {
@@ -45,6 +46,7 @@ function sampleShopifyProduct(): ShopifyProduct {
     collections: {
       edges: [{ node: { id: 'c1', title: 'Wall Art', handle: 'wall-art' } }],
     },
+    options: [],
   };
 }
 

@@ -21,6 +21,34 @@ export const Report = z
     executiveSummary: z.string().min(1).max(4000),
     findings: z.array(ReportFinding),
     sprintRecommendation: z.string().min(1).max(2000),
+    firstSalePlan: z
+      .object({
+        breakEvenRoas: z.number().optional(),
+        grossMarginPct: z.number().optional(),
+        recommendedChannel: z.string().optional(),
+        dailyBudgetRange: z.string().optional(),
+        actions: z.array(
+          z.object({
+            step: z.number().int(),
+            channel: z.string(),
+            action: z.string().min(1).max(500),
+            estimatedBudget: z.string().optional(),
+            estimatedTimeToResult: z.string().optional(),
+            priority: z.enum(['immediate', 'week_1', 'week_2', 'month_1']),
+          }),
+        ),
+        aiPlatformsAudit: z
+          .object({
+            chatgptShopping: z.boolean().optional(),
+            googleAiMode: z.boolean().optional(),
+            perplexityShopping: z.boolean().optional(),
+            productSchemaPresent: z.boolean().optional(),
+            gtinOnProducts: z.boolean().optional(),
+            merchantCenterConnected: z.boolean().optional(),
+          })
+          .optional(),
+      })
+      .optional(),
     findingCount: z.number().int().nonnegative(),
     generatedAt: z.string().datetime({ offset: true }),
   })

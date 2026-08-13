@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 /**
  * Zod schemas for Shopify Admin GraphQL responses.
- * These validate the SHAPE of the response — not the full GraphQL spec.
- * We only model the fields we actually consume.
+ * Expanded for v2 audit — per-product SEO, inventory, pricing detail,
+ * shop identity, collection SEO.
  */
 
 const MoneySchema = z.object({
@@ -16,13 +16,39 @@ const PriceRangeSchema = z.object({
   maxVariantPrice: MoneySchema,
 });
 
+const CompareAtPriceRangeSchema = z.object({
+  minVariantCompareAtPrice: MoneySchema.nullable().optional(),
+  maxVariantCompareAtPrice: MoneySchema.nullable().optional(),
+}).optional();
+
+const SeoSchema = z.object({
+  title: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+}).optional();
+
+const FeaturedImageSchema = z.object({
+  url: z.string(),
+  altText: z.string().nullable().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+}).nullish();
+
+const OptionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  values: z.array(z.string()),
+});
+
 const VariantNodeSchema = z.object({
   id: z.string(),
   sku: z.string().nullable().optional(),
   title: z.string(),
   price: z.string(),
+  compareAtPrice: z.string().nullable().optional(),
   weight: z.number().nullable().optional(),
   weightUnit: z.string().nullable().optional(),
+  inventoryQuantity: z.number().optional(),
+  availableForSale: z.boolean().optional(),
 });
 
 const VariantsConnectionSchema = z.object({
@@ -45,6 +71,13 @@ const CollectionNodeSchema = z.object({
   handle: z.string(),
 });
 
+const CollectionDetailSchema = CollectionNodeSchema.extend({
+  descriptionHtml: z.string().optional(),
+  seo: SeoSchema,
+  image: FeaturedImageSchema,
+  productsCount: z.object({ count: z.number() }).optional(),
+});
+
 const CollectionsConnectionSchema = z.object({
   edges: z.array(z.object({ node: CollectionNodeSchema })),
 });
@@ -55,39 +88,75 @@ const ProductNodeSchema = z.object({
   title: z.string(),
   status: z.string(),
   productType: z.string(),
+  vendor: z.string().default(''),
   tags: z.array(z.string()),
   descriptionHtml: z.string(),
   priceRangeV2: PriceRangeSchema,
+  compareAtPriceRange: CompareAtPriceRangeSchema.nullable().optional(),
+  seo: SeoSchema,
+  featuredImage: FeaturedImageSchema,
+  options: z.array(OptionSchema).default([]),
   variants: VariantsConnectionSchema,
   images: ImagesConnectionSchema,
   collections: CollectionsConnectionSchema,
+  totalInventory: z.number().optional(),
+  availableForSale: z.boolean().optional(),
+  hasOnlyDefaultVariant: z.boolean().optional(),
+  mediaCount: z.object({ count: z.number() }).optional(),
+  createdAt: z.string().optional(),
+  publishedAt: z.string().nullable().optional(),
+  onlineStorePreviewUrl: z.string().nullable().optional(),
 });
 
 const ProductsConnectionSchema = z.object({
   edges: z.array(z.object({ node: ProductNodeSchema })),
+  pageInfo: z.object({
+    hasNextPage: z.boolean(),
+    endCursor: z.string().nullable().optional(),
+  }),
 });
 
-const AllCollectionsConnectionSchema = z.object({
+const ShopSchema = z.object({
+  name: z.string(),
+  email: z.string().optional(),
+  currencyCode: z.string(),
+  plan: z.object({
+    displayName: z.string(),
+    partnerDevelopment: z.boolean().optional(),
+    shopifyPlus: z.boolean().optional(),
+  }).optional(),
+  primaryDomain: z.object({
+    url: z.string(),
+    host: z.string(),
+  }).optional(),
+  timezoneAbbreviation: z.string().nullable().optional(),
+  billingAddress: z.object({
+    country: z.string().optional(),
+    city: z.string().nullable().optional(),
+    province: z.string().nullable().optional(),
+  }).nullish(),
+});
+
+const AllCollectionsDetailSchema = z.object({
   edges: z.array(
-    z.object({
-      node: CollectionNodeSchema.extend({
-        productsCount: z.object({ count: z.number() }),
-      }),
-    }),
+    z.object({ node: CollectionDetailSchema }),
   ),
 });
 
 export const CatalogResponseSchema = z.object({
-  shop: z.object({ currencyCode: z.string() }),
+  shop: ShopSchema,
   products: ProductsConnectionSchema,
-  collections: AllCollectionsConnectionSchema,
+  collections: AllCollectionsDetailSchema,
 });
+
+/** A single page of the paginated catalog query. */
+export const CatalogPageSchema = CatalogResponseSchema;
 
 export type CatalogResponse = z.infer<typeof CatalogResponseSchema>;
 export type ShopifyProduct = z.infer<typeof ProductNodeSchema>;
 export type ShopifyVariant = z.infer<typeof VariantNodeSchema>;
 export type ShopifyImage = z.infer<typeof ImageNodeSchema>;
 export type ShopifyCollection = z.infer<typeof CollectionNodeSchema>;
-export type ShopifyAllCollection = z.infer<
-  typeof AllCollectionsConnectionSchema
->['edges'][number]['node'];
+export type ShopifyAllCollection = z.infer<typeof CollectionDetailSchema>;
+export type ShopifyShop = z.infer<typeof ShopSchema>;
+export type ShopSeo = z.infer<typeof SeoSchema>;

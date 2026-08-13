@@ -1,15 +1,10 @@
 /**
- * Shopify Admin + Printify catalog audit — library entry point.
- *
- * Ported from the standalone `shopify-printify-audit` CLI
- * (/home/sgm/Desktop/Dev/Making Madi). Unlike the CLI, this is a pure
- * function: no env reading, no file writes, no console output — the caller
- * supplies already-unwrapped tokens and gets structured data back.
+ * Shopify Admin + Printify catalog audit — v2 library entry point.
  */
 
 import { ShopifyClient } from './shopify/client.js';
-import { CATALOG_QUERY } from './shopify/queries.js';
-import type { ShopifyProduct, ShopifyAllCollection } from './shopify/schema.js';
+import type { SalesSummary } from './shopify/client.js';
+import type { ShopifyProduct, ShopifyAllCollection, ShopifyShop } from './shopify/schema.js';
 import { PrintifyClient } from './printify/client.js';
 import { buildCostLookup, type CostLookup } from './printify/catalog.js';
 import { getUsdToCadRate } from './util/fx.js';
@@ -19,10 +14,13 @@ import { formatError } from './util/redact.js';
 
 export interface CatalogAuditOptions {
   storeUrl: string;
-  adminToken: string;
-  /** Omit or leave empty to skip Printify cost matching (all costs flagged manual). */
+  /** Legacy static admin token (deprecated by Shopify Jan 2026). */
+  adminToken?: string | undefined;
+  /** Dev Dashboard client ID — client credentials grant (2026 flow). */
+  clientId?: string | undefined;
+  /** Dev Dashboard client secret. */
+  clientSecret?: string | undefined;
   printifyToken?: string | undefined;
-  /** USD→CAD fallback rate if the live FX fetch fails. Default 1.37. */
   fxFallback?: number | undefined;
 }
 
@@ -36,6 +34,7 @@ export interface AuditRow {
 
 export interface CatalogAuditResult {
   shopCurrency: Currency;
+  shop: ShopifyShop;
   fxRate: number;
   fxSource: 'live' | 'fallback';
   printifyEnabled: boolean;
@@ -43,6 +42,8 @@ export interface CatalogAuditResult {
   collections: ShopifyAllCollection[];
   totalProducts: number;
   totalCollections: number;
+  /** Real sales signal (recent orders) when `read_orders` is granted; null otherwise. */
+  salesSummary: SalesSummary | null;
 }
 
 function pickPrimarySku(variants: readonly { sku?: string | null | undefined }[]): string {
@@ -52,14 +53,24 @@ function pickPrimarySku(variants: readonly { sku?: string | null | undefined }[]
   return '';
 }
 
-/**
- * Fetch the full Shopify catalog, join against Printify costs (if a token is
- * given), compute per-product margin, and evaluate content-quality flags.
- * Read-only — makes no mutating calls to either API.
- */
+function toNumber(amount: string): number {
+  const n = parseFloat(amount);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function countWords(html: string): number {
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.length > 0 ? text.split(' ').length : 0;
+}
+
 export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<CatalogAuditResult> {
-  const shopify = new ShopifyClient({ storeUrl: opts.storeUrl, adminToken: opts.adminToken });
-  const catalog = await shopify.fetchCatalog(CATALOG_QUERY);
+  const shopify = new ShopifyClient({
+    storeUrl: opts.storeUrl,
+    adminToken: opts.adminToken,
+    clientId: opts.clientId,
+    clientSecret: opts.clientSecret,
+  });
+  const catalog = await shopify.fetchCatalog();
 
   const rawCurrency = catalog.shop.currencyCode;
   if (rawCurrency !== 'CAD' && rawCurrency !== 'USD') {
@@ -89,9 +100,7 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
         costLookup = buildCostLookup(products);
       }
     } catch (err) {
-      // Costs will be flagged manual (unlinked_cost) — don't fail the whole audit.
       console.warn(`[shopify-admin] Printify fetch failed: ${formatError(err)}`);
-      costLookup = null;
     }
   }
 
@@ -108,8 +117,12 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
     };
   });
 
+  // Best-effort real sales signal; null when read_orders isn't granted.
+  const salesSummary = await shopify.fetchSalesSummary();
+
   return {
     shopCurrency,
+    shop: catalog.shop,
     fxRate,
     fxSource,
     printifyEnabled,
@@ -117,13 +130,80 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
     collections: catalog.collections.edges.map((e) => e.node),
     totalProducts: catalog.products.edges.length,
     totalCollections: catalog.collections.edges.length,
+    salesSummary,
   };
 }
+
+/** Compute a 0-100 audit score from the rows. */
+export function computeAuditScore(rows: AuditRow[]): number {
+  if (rows.length === 0) return 100;
+  let penalty = 0;
+  const maxPenalty = rows.length * 10;
+  for (const row of rows) {
+    const reds = row.flags.filter((f) => f.severity === 'red').length;
+    const yellows = row.flags.filter((f) => f.severity === 'yellow').length;
+    penalty += reds * 3 + yellows;
+  }
+  const raw = Math.max(0, 100 - Math.round((penalty / maxPenalty) * 100));
+  return raw;
+}
+
+/** Build a per-product findings object suitable for the product_findings table. */
+export function buildProductFinding(row: AuditRow) {
+  const product = row.product;
+  const variants = product.variants.edges.map((e) => e.node);
+  const images = product.images.edges.map((e) => e.node);
+  const reds = row.flags.filter((f) => f.severity === 'red').length;
+  const yellows = row.flags.filter((f) => f.severity === 'yellow').length;
+  const primaryVariant = variants[0];
+
+  return {
+    product_id: product.id,
+    handle: product.handle,
+    title: product.title,
+    product_type: product.productType || null,
+    vendor: product.vendor || null,
+    price: primaryVariant ? toNumber(primaryVariant.price) : null,
+    compare_at_price: primaryVariant?.compareAtPrice ? toNumber(primaryVariant.compareAtPrice) : null,
+    margin_pct: row.margin.marginPct,
+    margin_cad: row.margin.marginAvg$,
+    cost_cad: row.margin.costMinCAD,
+    flags: row.flags.map((f) => ({ code: f.code, severity: f.severity, message: f.message })),
+    red_flags: reds,
+    yellow_flags: yellows,
+    description_words: countWords(product.descriptionHtml),
+    image_count: images.length,
+    alt_count: images.filter((img) => (img.altText ?? '').trim().length > 0).length,
+    variant_count: variants.length,
+    total_inventory: product.totalInventory ?? null,
+    available_for_sale: product.availableForSale ?? null,
+    collection_count: product.collections.edges.length,
+    seo_title_length: product.seo?.title?.length ?? null,
+    seo_description_length: product.seo?.description?.length ?? null,
+  };
+}
+
+export type ProductFinding = ReturnType<typeof buildProductFinding>;
 
 export { summarizeFlags };
 export type { Flag, FlagCode, FlagSeverity } from './audit/flags.js';
 export type { ProductMargin, Currency } from './audit/margin.js';
-export type { ShopifyProduct, ShopifyVariant, ShopifyImage, ShopifyCollection, ShopifyAllCollection } from './shopify/schema.js';
+export {
+  buildLeakList,
+  deriveLeakContext,
+  aggregateFlags,
+  totalEstimatedImpact,
+  DEFAULT_MONTHLY_ORDERS,
+  TARGET_MARGIN_PCT,
+} from './audit/impact.js';
+export type { LeakContext, LeakItem } from './audit/impact.js';
+export { analyzeStorefrontHtml } from './storefront.js';
+export type { StorefrontAnalysis, HostSummary } from './storefront.js';
+export type {
+  ShopifyProduct, ShopifyVariant, ShopifyImage,
+  ShopifyCollection, ShopifyAllCollection, ShopifyShop,
+} from './shopify/schema.js';
 export type { PrintifyShop, PrintifyVariant } from './printify/schema.js';
 export { ShopifyClient } from './shopify/client.js';
+export type { SalesSummary } from './shopify/client.js';
 export { PrintifyClient } from './printify/client.js';

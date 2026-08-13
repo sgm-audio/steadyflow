@@ -12,19 +12,30 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@steadyflow/db';
-import { workerScrape } from './workers.js';
+import { workerScrape, workerAnalyze } from './workers.js';
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const ORG_ID = process.env.TEST_ORG_ID ?? '22222222-2222-2222-2222-222222222222';
 const USER_ID = process.env.TEST_USER_ID ?? '11111111-1111-1111-1111-111111111111';
+const ANON_KEY = 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
 
 describe('audit lifecycle (integration)', () => {
   let intentId: string;
   let supabase: ReturnType<typeof createClient<Database>>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     supabase = createClient<Database>(URL, KEY);
+
+    // pgmq queues are shared across the whole test run and are not reset
+    // between files. Drain any stale messages enqueued by earlier suites so
+    // this suite's worker invocations dequeue its own messages.
+    for (const queue of ['q:scrape', 'q:analyze']) {
+      for (let i = 0; i < 100; i++) {
+        const { data } = await supabase.rpc('dequeue_message', { p_queue_name: queue });
+        if (!data) break;
+      }
+    }
   });
 
   afterAll(async () => {
@@ -69,6 +80,7 @@ describe('audit lifecycle (integration)', () => {
 
     // Step 3: Run the worker (simulating what pg_cron or worker:loop does)
     await workerScrape({ supabase, orgId: ORG_ID });
+    await workerAnalyze({ supabase, orgId: ORG_ID });
 
     // Step 4: Verify the intent was processed
     const { data: updatedIntent } = await supabase
@@ -95,27 +107,23 @@ describe('audit lifecycle (integration)', () => {
   }, 30_000);
 
   it('rejects unauthorized mutation attempts (RLS safety)', async () => {
-    // Create a second org to test cross-org isolation
-    const otherOrgId = '33333333-3333-3333-3333-333333333333';
+    // RLS `intents_member_insert` requires `is_member_of(org_id) AND
+    // user_id = auth.uid()`. An authenticated non-member (or a user_id that
+    // does not match the JWT) must be rejected — this test proves the policy
+    // is enforced at the row level, independent of the service_role bypass.
+    const authed = createClient<Database>(URL, ANON_KEY);
+    await authed.auth.signInWithPassword({ email: 'dev@steadyflow.local', password: 'admin' });
 
-    // Try to insert an insight into the other org using service_role
-    // (this should succeed at the DB level since service_role bypasses RLS,
-    // but the application logic should never do this — this test documents
-    // the expected behavior).
-    const { error } = await supabase.from('intents').insert({
-      org_id: otherOrgId,
-      user_id: USER_ID,
+    const { error } = await authed.from('intents').insert({
+      org_id: ORG_ID,
+      user_id: '99999999-9999-9999-9999-999999999999',
       kind: 'analyze_shop',
       status: 'queued',
       input_hash: 'b'.repeat(64),
       idempotency_key: `rls-test-${Date.now()}`,
     });
 
-    // service_role can insert into any org — this is expected.
-    // The RLS safety is enforced at the application layer (membership checks).
-    expect(error).toBeNull();
-
-    // Cleanup
-    await supabase.from('intents').delete().eq('org_id', otherOrgId);
+    // RLS rejects the mutation (user_id does not match the authenticated user).
+    expect(error).toBeTruthy();
   });
 });

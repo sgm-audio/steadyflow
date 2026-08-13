@@ -1,0 +1,166 @@
+{
+  "metadata": {
+    "app": {
+      "name": "SteadyFlow Validation App",
+      "description": "Internal pilot app validating Shopify App Store readiness checks",
+      "version": "0.1.0",
+      "apiVersion": "2026-07",
+      "embedded": true,
+      "scopes": [
+        "read_products",
+        "write_orders"
+      ],
+      "privacyPolicyUrl": "https://steadyflow.dev/privacy",
+      "supportUrl": "https://steadyflow.dev/support",
+      "webhooks": [
+        {
+          "topic": "orders/create",
+          "address": "https://steadyflow.dev/webhook"
+        }
+      ],
+      "extensions": [
+        {
+          "type": "theme_app_extension",
+          "handle": "steadyflow-theme"
+        }
+      ]
+    },
+    "scan": {
+      "scanTimestamp": "2026-08-12T18:11:30.439Z",
+      "commitSha": "0123456789abcdef0123456789abcdef01234567",
+      "scannerVersion": "0.1.0",
+      "scannedBy": "validation@steadyflow.dev"
+    },
+    "registryVersion": "1.0.0",
+    "generatedAt": "2026-08-12T18:11:30.448Z"
+  },
+  "summary": {
+    "totalRequirements": 13,
+    "passed": 8,
+    "failed": 0,
+    "warnings": 0,
+    "manualReview": 1,
+    "notApplicable": 4,
+    "unknown": 0,
+    "overallStatus": "ready"
+  },
+  "staticChecks": [
+    {
+      "requirementId": "config-parsing",
+      "status": "pass",
+      "message": "Configuration parsed successfully",
+      "evidence": {
+        "fieldCount": 13
+      }
+    },
+    {
+      "requirementId": "api-scopes",
+      "status": "pass",
+      "message": "Scopes declared: read_products, write_orders",
+      "evidence": {
+        "scopes": [
+          "read_products",
+          "write_orders"
+        ]
+      }
+    },
+    {
+      "requirementId": "deprecated-api",
+      "status": "pass",
+      "message": "No deprecated API references detected"
+    },
+    {
+      "requirementId": "oauth-installation",
+      "status": "not_applicable",
+      "message": "OAuth configuration not provided; cannot verify"
+    },
+    {
+      "requirementId": "embedded-app",
+      "status": "manual_review",
+      "message": "Embedded app detected – verify App Bridge usage manually",
+      "evidence": {
+        "embeddedApp": true
+      }
+    },
+    {
+      "requirementId": "theme-extension",
+      "status": "pass",
+      "message": "1 theme extension(s) validated",
+      "evidence": {
+        "extensions": [
+          {
+            "name": "steadyflow-theme",
+            "handle": "steadyflow-theme"
+          }
+        ]
+      }
+    },
+    {
+      "requirementId": "direct-mutations",
+      "status": "not_applicable",
+      "message": "No mutation data provided; cannot verify"
+    },
+    {
+      "requirementId": "privacy-support-urls",
+      "status": "pass",
+      "message": "Privacy policy and support URLs present",
+      "evidence": {
+        "privacyPolicyUrl": "https://steadyflow.dev/privacy",
+        "supportUrl": "https://steadyflow.dev/support"
+      }
+    },
+    {
+      "requirementId": "name-description",
+      "status": "pass",
+      "message": "Name: \"SteadyFlow Validation App\", Description length: 64",
+      "evidence": {
+        "name": "SteadyFlow Validation App",
+        "description": "Internal pilot app validating Shopify App Store readiness checks"
+      }
+    },
+    {
+      "requirementId": "dev-urls",
+      "status": "not_applicable",
+      "message": "No development URL data provided; cannot verify"
+    },
+    {
+      "requirementId": "secret-detection",
+      "status": "pass",
+      "message": "No secret-like values detected"
+    },
+    {
+      "requirementId": "webhook-identification",
+      "status": "pass",
+      "message": "1 webhook(s) validated",
+      "evidence": {
+        "webhooks": [
+          {
+            "topic": "orders/create",
+            "address": "https://steadyflow.dev/webhook"
+          }
+        ]
+      }
+    },
+    {
+      "requirementId": "external-deps",
+      "status": "not_applicable",
+      "message": "No external dependency data provided; cannot verify"
+    }
+  ],
+  "manualReviews": [
+    {
+      "requirementId": "embedded-app",
+      "requirementVersion": "1.0.0",
+      "reviewerId": "validation@steadyflow.dev",
+      "reviewerName": "SteadyFlow Validation",
+      "decision": "approved",
+      "evidence": [],
+      "applicabilityDecision": "applicable",
+      "applicabilityReason": "Embedded public app",
+      "reviewedAt": "2026-08-12T18:11:30.421Z"
+    }
+  ],
+  "staleWarnings": [],
+  "checklistMarkdown": "# Manual Review Checklist: SteadyFlow Validation App\n\n**App ID:** 0.1.0  \n**Generated:** 2026-08-12T18:11:30.446Z by validation@steadyflow.dev  \n**Progress:** 1/13 completed\n\n---\n\n## Other\n\n### ⬜ Configuration Parsing (config-parsing)\n\n**Description:** App configuration must be valid JSON and contain required fields\n**Severity:** blocker  \n**Validation Mode:** automatic  \n**Source:** [Shopify App Configuration](https://shopify.dev/docs/apps/build/shopify-app-configuration)  \n\n**Review Status:** Pending\n\n---\n\n### ⬜ External Dependency Inventory (external-deps)\n\n**Description:** App should document external services and packages used\n**Severity:** warning  \n**Validation Mode:** automatic  \n**Source:** [App Requirements Checklist](https://shopify.dev/docs/apps/launch/app-requirements-checklist)  \n\n**Review Status:** Pending\n\n---\n\n## Api\n\n### ⬜ API Scopes (api-scopes)\n\n**Description:** App must request only necessary API scopes\n**Severity:** warning  \n**Validation Mode:** automatic  \n**Source:** [Shopify API Scopes](https://shopify.dev/docs/apps/getting-started/scopes)  \n\n**Review Status:** Pending\n\n---\n\n### ⬜ Deprecated API Detection (deprecated-api)\n\n**Description:** App must not use deprecated REST/GraphQL APIs\n**Severity:** blocker  \n**Validation Mode:** automatic  \n**Source:** [API Versioning](https://shopify.dev/docs/api/usage/versioning)  \n\n**Review Status:** Pending\n\n---\n\n### ⬜ Webhook Identification (webhook-identification)\n\n**Description:** App must declare webhooks with valid topics and HTTPS endpoints\n**Severity:** warning  \n**Validation Mode:** automatic  \n**Source:** [Webhook Subscriptions](https://shopify.dev/docs/apps/build/webhooks/subscribe)  \n\n**Review Status:** Pending\n\n---\n\n## Authentication\n\n### ⬜ OAuth Installation (oauth-installation)\n\n**Description:** App must use Shopify OAuth for authentication and authorization\n**Severity:** blocker  \n**Validation Mode:** automatic  \n**Source:** [Shopify App Authentication](https://shopify.dev/docs/apps/getting-started/authentication)  \n\n**Review Status:** Pending\n\n---\n\n## Functionality\n\n### ✅ Embedded App (embedded-app)\n\n**Description:** Embedded apps must use App Bridge\n**Severity:** warning  \n**Validation Mode:** manual  \n**Source:** [App Bridge](https://shopify.dev/docs/apps/tools/app-bridge)  \n\n**Review Status:** Completed\n- **Decision:** approved\n- **Reviewer:** SteadyFlow Validation (validation@steadyflow.dev)\n- **Reviewed At:** 2026-08-12T18:11:30.421Z\n- **Applicability:** applicable\n- **Applicability Reason:** Embedded public app\n\n---\n\n## Theme\n\n### ⬜ Theme App Extension (theme-extension)\n\n**Description:** App must use theme app extensions for theme modifications\n**Severity:** warning  \n**Validation Mode:** manual  \n**Source:** [Theme App Extensions](https://shopify.dev/docs/apps/launch/theme-app-extensions)  \n\n**Review Status:** Pending\n\n---\n\n## Security\n\n### ⬜ Direct Mutation Flags (direct-mutations)\n\n**Description:** App must not perform direct database mutations bypassing Shopify APIs\n**Severity:** warning  \n**Validation Mode:** automatic  \n**Source:** [Shopify App Configuration](https://shopify.dev/docs/apps/build/shopify-app-configuration)  \n\n**Review Status:** Pending\n\n---\n\n### ⬜ Hardcoded Development URLs (dev-urls)\n\n**Description:** App must not contain hardcoded development URLs\n**Severity:** blocker  \n**Validation Mode:** automatic  \n**Source:** [App Requirements Checklist](https://shopify.dev/docs/apps/launch/app-requirements-checklist)  \n\n**Review Status:** Pending\n\n---\n\n### ⬜ Secret-like Value Detection (secret-detection)\n\n**Description:** App configuration must not contain API keys, tokens, or secrets\n**Severity:** blocker  \n**Validation Mode:** automatic  \n**Source:** [App Requirements Checklist](https://shopify.dev/docs/apps/launch/app-requirements-checklist)  \n\n**Review Status:** Pending\n\n---\n\n## Privacy\n\n### ⬜ Privacy Policy and Support URLs (privacy-support-urls)\n\n**Description:** App must provide privacy policy and support URLs\n**Severity:** blocker  \n**Validation Mode:** automatic  \n**Source:** [App Requirements Checklist](https://shopify.dev/docs/apps/launch/app-requirements-checklist)  \n\n**Review Status:** Pending\n\n---\n\n## Listing\n\n### ⬜ Name and Description (name-description)\n\n**Description:** App must have non-empty name and description\n**Severity:** blocker  \n**Validation Mode:** automatic  \n**Source:** [App Requirements Checklist](https://shopify.dev/docs/apps/launch/app-requirements-checklist)  \n\n**Review Status:** Pending\n\n---\n\n\n*Generated by SteadyFlow Shopify App Readiness Module*",
+  "reportHash": "f50ec8ba3a41492f468d7d89fdcf5b941a36b69396ce1f26095e209266b58b33"
+}

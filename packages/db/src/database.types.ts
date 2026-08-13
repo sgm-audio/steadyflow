@@ -1,8 +1,3 @@
-/**
- * Generated from the local Supabase schema — do not hand-edit.
- * Regenerate: `supabase gen types typescript --local > src/database.types.ts`
- * (run from repo root with `supabase start` up).
- */
 export type Json =
   | string
   | number
@@ -225,6 +220,7 @@ export type Database = {
           org_id: string
           provider: string
           severity: string
+          superseded_at: string | null
           title: string
         }
         Insert: {
@@ -238,6 +234,7 @@ export type Database = {
           org_id: string
           provider: string
           severity: string
+          superseded_at?: string | null
           title: string
         }
         Update: {
@@ -251,6 +248,7 @@ export type Database = {
           org_id?: string
           provider?: string
           severity?: string
+          superseded_at?: string | null
           title?: string
         }
         Relationships: [
@@ -429,6 +427,111 @@ export type Database = {
         }
         Relationships: []
       }
+      product_findings: {
+        Row: {
+          alt_count: number
+          available_for_sale: boolean | null
+          collection_count: number
+          compare_at_price: number | null
+          cost_cad: number | null
+          created_at: string
+          description_words: number | null
+          flags: Json
+          handle: string
+          id: string
+          image_count: number
+          intent_id: string
+          margin_cad: number | null
+          margin_pct: number | null
+          org_id: string
+          price: number | null
+          product_id: string
+          product_type: string | null
+          red_flags: number
+          seo_description_length: number | null
+          seo_title_length: number | null
+          superseded_at: string | null
+          title: string
+          total_inventory: number | null
+          variant_count: number
+          vendor: string | null
+          yellow_flags: number
+        }
+        Insert: {
+          alt_count?: number
+          available_for_sale?: boolean | null
+          collection_count?: number
+          compare_at_price?: number | null
+          cost_cad?: number | null
+          created_at?: string
+          description_words?: number | null
+          flags?: Json
+          handle: string
+          id?: string
+          image_count?: number
+          intent_id: string
+          margin_cad?: number | null
+          margin_pct?: number | null
+          org_id: string
+          price?: number | null
+          product_id: string
+          product_type?: string | null
+          red_flags?: number
+          seo_description_length?: number | null
+          seo_title_length?: number | null
+          superseded_at?: string | null
+          title: string
+          total_inventory?: number | null
+          variant_count?: number
+          vendor?: string | null
+          yellow_flags?: number
+        }
+        Update: {
+          alt_count?: number
+          available_for_sale?: boolean | null
+          collection_count?: number
+          compare_at_price?: number | null
+          cost_cad?: number | null
+          created_at?: string
+          description_words?: number | null
+          flags?: Json
+          handle?: string
+          id?: string
+          image_count?: number
+          intent_id?: string
+          margin_cad?: number | null
+          margin_pct?: number | null
+          org_id?: string
+          price?: number | null
+          product_id?: string
+          product_type?: string | null
+          red_flags?: number
+          seo_description_length?: number | null
+          seo_title_length?: number | null
+          superseded_at?: string | null
+          title?: string
+          total_inventory?: number | null
+          variant_count?: number
+          vendor?: string | null
+          yellow_flags?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_findings_intent_id_fkey"
+            columns: ["intent_id"]
+            isOneToOne: false
+            referencedRelation: "intents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_findings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_limits: {
         Row: {
           bucket: string
@@ -457,6 +560,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rate_limits_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          executive_summary: string
+          finding_count: number
+          first_sale_plan: Json | null
+          generated_at: string
+          generated_by: string
+          id: string
+          intent_id: string
+          org_id: string
+          sprint_recommendation: string
+        }
+        Insert: {
+          executive_summary: string
+          finding_count?: number
+          first_sale_plan?: Json | null
+          generated_at?: string
+          generated_by: string
+          id?: string
+          intent_id: string
+          org_id: string
+          sprint_recommendation: string
+        }
+        Update: {
+          executive_summary?: string
+          finding_count?: number
+          first_sale_plan?: Json | null
+          generated_at?: string
+          generated_by?: string
+          id?: string
+          intent_id?: string
+          org_id?: string
+          sprint_recommendation?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_intent_id_fkey"
+            columns: ["intent_id"]
+            isOneToOne: true
+            referencedRelation: "intents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "orgs"
@@ -518,6 +672,79 @@ export type Database = {
           },
         ]
       }
+      store_profiles: {
+        Row: {
+          collection_count: number | null
+          created_at: string
+          currency: string | null
+          id: string
+          last_analyzed_at: string | null
+          latest_intent_id: string | null
+          latest_report_id: string | null
+          latest_score: number | null
+          org_id: string
+          product_count: number | null
+          store_name: string | null
+          updated_at: string
+          url: string
+          url_hash: string
+        }
+        Insert: {
+          collection_count?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          last_analyzed_at?: string | null
+          latest_intent_id?: string | null
+          latest_report_id?: string | null
+          latest_score?: number | null
+          org_id: string
+          product_count?: number | null
+          store_name?: string | null
+          updated_at?: string
+          url: string
+          url_hash: string
+        }
+        Update: {
+          collection_count?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          last_analyzed_at?: string | null
+          latest_intent_id?: string | null
+          latest_report_id?: string | null
+          latest_score?: number | null
+          org_id?: string
+          product_count?: number | null
+          store_name?: string | null
+          updated_at?: string
+          url?: string
+          url_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_profiles_latest_intent_id_fkey"
+            columns: ["latest_intent_id"]
+            isOneToOne: false
+            referencedRelation: "intents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_profiles_latest_report_id_fkey"
+            columns: ["latest_report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -552,6 +779,14 @@ export type Database = {
           remaining: number
           retry_after_seconds: number
         }[]
+      }
+      supersede_store_insights: {
+        Args: {
+          p_exclude_intent: string
+          p_input_hash: string
+          p_org_id: string
+        }
+        Returns: undefined
       }
       unwrap_dek: { Args: { p_wrapped: string }; Returns: string }
       wrap_dek: { Args: { p_dek: string }; Returns: string }

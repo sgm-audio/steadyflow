@@ -21,6 +21,10 @@ const REMEDIATION_BY_CATEGORY: Record<InsightCategory, string> = {
   conversion: 'Adjust the affected page or checkout flow to remove the friction this finding identifies.',
   inventory: 'Update the affected product or variant data (weight, stock, shipping fields) this finding flags.',
   trend: 'Monitor this trend and revisit pricing or positioning if it persists.',
+  ai_agent_readiness: 'Submit product feed to Google Merchant Center, add JSON-LD Product schema, allow AI crawler bots in robots.txt, and enable Shop Pay / Google Pay for AI-native checkout.',
+  first_sale_math: 'Calculate break-even ROAS from your actual Printify costs + Shopify pricing, then choose the cheapest CPA channel (Meta/TikTok, not Google Shopping) that clears break-even at 2% conversion.',
+  channel_gap: 'You are only selling through Shopify. Expand to Etsy (built-in traffic, $0.20 listing), TikTok Shop (1,000-follower threshold, zero-fee discovery), and Google free listings (via Merchant Center) to add three new zero-CAC channels.',
+  creator_playbook: 'Find 3-5 micro-creators in your niche (1k-50k followers), send free product + $50-150 per post, and repurpose their content as paid ad creative. Gifting + small payment delivers 2.3x engagement vs gifting alone.',
 };
 
 const EFFORT_BY_CATEGORY: Record<InsightCategory, EffortEstimate> = {
@@ -32,6 +36,10 @@ const EFFORT_BY_CATEGORY: Record<InsightCategory, EffortEstimate> = {
   conversion: 'medium',
   inventory: 'small',
   trend: 'small',
+  ai_agent_readiness: 'medium',
+  first_sale_math: 'small',
+  channel_gap: 'medium',
+  creator_playbook: 'medium',
 };
 
 const ACCESS_BY_CATEGORY: Record<InsightCategory, string[]> = {
@@ -43,6 +51,10 @@ const ACCESS_BY_CATEGORY: Record<InsightCategory, string[]> = {
   conversion: ['Shopify Admin (Online Store)'],
   inventory: ['Shopify Admin (Products, Inventory)', 'Printify (optional, for cost sync)'],
   trend: [],
+  ai_agent_readiness: ['Google Merchant Center', 'Shopify Admin (Online Store, Themes)'],
+  first_sale_math: ['Shopify Admin (Products)', 'Printify (required, for cost data)'],
+  channel_gap: ['Etsy account', 'TikTok Shop account', 'Google Merchant Center'],
+  creator_playbook: ['TikTok account', 'social media accounts'],
 };
 
 /**

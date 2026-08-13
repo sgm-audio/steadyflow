@@ -11,6 +11,7 @@ function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
     title: 'Test Print',
     status: 'ACTIVE',
     productType: 'Wall Art',
+    vendor: '',
     tags: ['canvas'],
     descriptionHtml: `<p>${'word '.repeat(90).trim()}</p>`,
     priceRangeV2: {
@@ -28,6 +29,9 @@ function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
     collections: {
       edges: [{ node: { id: 'c1', title: 'Wall Art', handle: 'wall-art' } }],
     },
+    options: [],
+    featuredImage: null,
+    seo: { title: null, description: null },
     ...overrides,
   };
 }
@@ -105,7 +109,20 @@ describe('evaluateFlags', () => {
     const costLookup = buildCostLookup([
       { id: 1, title: 'Canvas Print', variants: [{ id: 1, sku: 'PRINT-001', cost: 1000 }] },
     ]);
-    const product = makeProduct();
+    const product = makeProduct({
+      vendor: 'Making Madi',
+      images: {
+        edges: [
+          { node: { id: 'i1', altText: 'Framed canvas print front', url: 'https://example.com/1.jpg' } },
+          { node: { id: 'i2', altText: 'Framed canvas print angle', url: 'https://example.com/2.jpg' } },
+          { node: { id: 'i3', altText: 'Framed canvas print detail', url: 'https://example.com/3.jpg' } },
+        ],
+      },
+      seo: {
+        title: 'Modern Framed Canvas Wall Art Print for Home Office',
+        description: 'This beautiful framed canvas print brings modern wall art to your space. Made with premium materials, it is a perfect gift or home office accent piece that elevates any room.',
+      },
+    });
     const margin = calcMargin(product, { shopCurrency: 'CAD', fxRate: 1, costLookup });
     const flags = evaluateFlags({ product, margin, fxFallback: false });
 
