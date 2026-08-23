@@ -21,7 +21,21 @@ export type FlagCode =
   | 'no_alt_text_on_any_image'
   | 'out_of_stock'
   | 'on_sale'
-  | 'no_vendor';
+  | 'no_vendor'
+  | 'mix_undifferentiated'
+  | 'mix_lopsided'
+  | 'mix_single_collection'
+  | 'conversion_no_barcode'
+  | 'conversion_no_sku'
+  | 'conversion_long_title'
+  | 'conversion_high_price_no_compare_at'
+  | 'inventory_low_stock'
+  | 'inventory_overselling'
+  | 'inventory_continue_when_out'
+  | 'marketing_no_tags'
+  | 'marketing_no_description'
+  | 'marketing_never_published'
+  | 'marketing_no_compare_at_range';
 
 export type FlagSeverity = 'red' | 'yellow';
 
@@ -109,17 +123,23 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
     });
   }
 
-  // 5. missing_weight
+  // 5. missing_weight — weight moved off ProductVariant in the 2026 API
+  // (now on InventoryItem, which needs read_inventory). Only flag when
+  // variant-level weight data is actually present.
   const variants = product.variants.edges.map((e) => e.node);
-  const missingWeight = variants.filter(
-    (v) => v.weight === null || v.weight === undefined || v.weight === 0,
-  );
-  if (variants.length > 0 && missingWeight.length > 0) {
-    flags.push({
-      code: 'missing_weight',
-      severity: 'red',
-      message: `${missingWeight.length}/${variants.length} variant(s) missing weight (blocks intl shipping)`,
+  const weightPresent = variants.some((v) => v.weight?.value !== undefined && v.weight?.value !== null);
+  if (weightPresent) {
+    const missingWeight = variants.filter((v) => {
+      const w = v.weight?.value;
+      return w === undefined || w === null || w === 0;
     });
+    if (missingWeight.length > 0) {
+      flags.push({
+        code: 'missing_weight',
+        severity: 'red',
+        message: `${missingWeight.length} variant(s) missing weight`,
+      });
+    }
   }
 
   // 6. orphaned
@@ -136,13 +156,13 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
     flags.push({
       code: 'unlinked_cost',
       severity: 'yellow',
-      message: `No Printify cost match for any variant (${margin.unlinkedVariants.length} variants)`,
+      message: `No Printify cost match for any variant`,
     });
   } else if (margin.unlinkedVariants.length > 0) {
     flags.push({
       code: 'unlinked_cost',
       severity: 'yellow',
-      message: `${margin.unlinkedVariants.length}/${variants.length} variant(s) unlinked to Printify`,
+      message: `${margin.unlinkedVariants.length} variants unlinked to Printify`,
     });
   }
 
@@ -190,22 +210,22 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
 
   // 13. seo_title_too_short
   if (product.seo?.title && product.seo.title.trim().length > 0 && product.seo.title.trim().length < 30) {
-    flags.push({ code: 'seo_title_too_short', severity: 'yellow', message: `SEO title is ${product.seo.title.trim().length} characters (aim for 50-60)` });
+    flags.push({ code: 'seo_title_too_short', severity: 'yellow', message: `SEO title only ${product.seo.title.trim().length} chars (aim for 50-60)` });
   }
 
   // 14. seo_description_too_short
   if (product.seo?.description && product.seo.description.trim().length > 0 && product.seo.description.trim().length < 100) {
-    flags.push({ code: 'seo_description_too_short', severity: 'yellow', message: `SEO description is ${product.seo.description.trim().length} characters (aim for 120-160)` });
+    flags.push({ code: 'seo_description_too_short', severity: 'yellow', message: `SEO description only ${product.seo.description.trim().length} chars (aim for 120-160)` });
   }
 
   // 15. only_one_image
   if (images.length === 1) {
-    flags.push({ code: 'only_one_image', severity: 'yellow', message: 'Only one product image — 3+ images improve conversion' });
+    flags.push({ code: 'only_one_image', severity: 'yellow', message: 'Single product image — 3+ images boost conversion' });
   }
 
   // 16. no_alt_text_on_any_image
   if (images.length > 0 && missingAltImages.length === images.length) {
-    flags.push({ code: 'no_alt_text_on_any_image', severity: 'red', message: `All ${images.length} image(s) have no alt text` });
+    flags.push({ code: 'no_alt_text_on_any_image', severity: 'red', message: `All ${images.length} images missing alt text` });
   }
 
   // 17. out_of_stock — derived from variant availability (product-level

@@ -70,6 +70,24 @@ const IMPACT_COEFFICIENT: Partial<Record<FlagCode, number>> = {
   out_of_stock: 0.02,
   orphaned: 0.01,
   no_vendor: 0.005,
+  // Mix / assortment — cannibalization is real lost revenue (rank-splitting in search)
+  mix_undifferentiated: 0.02,
+  mix_lopsided: 0.005,
+  mix_single_collection: 0.005,
+  // Conversion — barcode/sku blocks channels; long titles truncate in cart
+  conversion_no_barcode: 0.01,
+  conversion_no_sku: 0.005,
+  conversion_long_title: 0.005,
+  conversion_high_price_no_compare_at: 0.015,
+  // Inventory — overselling is direct fulfillment + chargeback risk
+  inventory_low_stock: 0.01,
+  inventory_overselling: 0.02,
+  inventory_continue_when_out: 0.015,
+  // Marketing readiness — discoverability across channels
+  marketing_no_tags: 0.005,
+  marketing_no_description: 0.01,
+  marketing_never_published: 0.02,
+  marketing_no_compare_at_range: 0.005,
   // Informational flags — not revenue leaks.
   on_sale: 0,
   fx_fallback: 0,
@@ -95,6 +113,20 @@ const FLAG_TITLE: Record<FlagCode, string> = {
   out_of_stock: 'Products that are out of stock',
   on_sale: 'Products currently on sale (compare-at pricing)',
   no_vendor: 'Products with no vendor/brand',
+  mix_undifferentiated: 'Near-duplicate products (cannibalization)',
+  mix_lopsided: 'Catalog dominated by one product type',
+  mix_single_collection: 'All products in one collection',
+  conversion_no_barcode: 'No barcode on any variant',
+  conversion_no_sku: 'No SKU on any variant',
+  conversion_long_title: 'Product title too long',
+  conversion_high_price_no_compare_at: 'High price with no compare-at anchor',
+  inventory_low_stock: 'Inventory low (≤5 units)',
+  inventory_overselling: 'Tracking disabled but variants at 0 stock',
+  inventory_continue_when_out: 'Inventory policy CONTINUE with 0 stock',
+  marketing_no_tags: 'Products with no tags',
+  marketing_no_description: 'Products with empty or very short descriptions',
+  marketing_never_published: 'Active products never published',
+  marketing_no_compare_at_range: 'No compare-at price range',
 };
 
 export const deriveLeakContext = (
@@ -119,6 +151,7 @@ export const deriveLeakContext = (
 /** Aggregate per-row flags into a map of code → { severity, affectedCount }. */
 export const aggregateFlags = (
   rows: readonly { flags: readonly Flag[] }[],
+  catalogFlags: readonly Flag[] = [],
 ): Map<FlagCode, { severity: 'high' | 'medium'; affectedCount: number }> => {
   const map = new Map<FlagCode, { severity: 'high' | 'medium'; affectedCount: number }>();
   for (const row of rows) {
@@ -130,6 +163,14 @@ export const aggregateFlags = (
       map.set(flag.code, entry);
     }
   }
+  // Catalog-level flags contribute once each (they describe the catalog, not individual products).
+  for (const flag of catalogFlags) {
+    const severity = flag.severity === 'red' ? 'high' : 'medium';
+    const entry = map.get(flag.code) ?? { severity, affectedCount: 0 };
+    entry.affectedCount = Math.max(entry.affectedCount, 1);
+    if (flag.severity === 'red') entry.severity = 'high';
+    map.set(flag.code, entry);
+  }
   return map;
 };
 
@@ -140,10 +181,10 @@ export const aggregateFlags = (
 export const buildLeakList = (
   rows: readonly { priceMinCAD: number; flags: readonly Flag[] }[],
   currency: 'CAD' | 'USD',
-  opts?: { monthlyOrders?: number; sales?: SalesSignal },
+  opts?: { monthlyOrders?: number; sales?: SalesSignal; catalogFlags?: readonly Flag[] },
 ): LeakItem[] => {
   const context = deriveLeakContext(rows, currency, opts);
-  const byFlag = aggregateFlags(rows);
+  const byFlag = aggregateFlags(rows, opts?.catalogFlags ?? []);
   const annualBaseline = context.averageOrderValue * context.monthlyOrders * 12;
   const sourceNote = context.source === 'real'
     ? 'real order data'

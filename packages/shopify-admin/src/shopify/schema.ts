@@ -45,10 +45,18 @@ const VariantNodeSchema = z.object({
   title: z.string(),
   price: z.string(),
   compareAtPrice: z.string().nullable().optional(),
-  weight: z.number().nullable().optional(),
-  weightUnit: z.string().nullable().optional(),
+  weight: z.object({
+    value: z.number().nullable().optional(),
+    unit: z.string().nullable().optional(),
+  }).nullish(),
   inventoryQuantity: z.number().optional(),
   availableForSale: z.boolean().optional(),
+  inventoryPolicy: z.enum(['DENY', 'CONTINUE']).optional(),
+  barcode: z.string().nullable().optional(),
+  taxable: z.boolean().optional(),
+  requiresShipping: z.boolean().optional(),
+  position: z.number().optional(),
+  selectedOptions: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
 });
 
 const VariantsConnectionSchema = z.object({
@@ -73,9 +81,12 @@ const CollectionNodeSchema = z.object({
 
 const CollectionDetailSchema = CollectionNodeSchema.extend({
   descriptionHtml: z.string().optional(),
+  description: z.string().optional(),
   seo: SeoSchema,
   image: FeaturedImageSchema,
   productsCount: z.object({ count: z.number() }).optional(),
+  updatedAt: z.string().optional(),
+  sortOrder: z.string().optional(),
 });
 
 const CollectionsConnectionSchema = z.object({
@@ -91,6 +102,7 @@ const ProductNodeSchema = z.object({
   vendor: z.string().default(''),
   tags: z.array(z.string()),
   descriptionHtml: z.string(),
+  description: z.string().optional(),
   priceRangeV2: PriceRangeSchema,
   compareAtPriceRange: CompareAtPriceRangeSchema.nullable().optional(),
   seo: SeoSchema,
@@ -103,9 +115,15 @@ const ProductNodeSchema = z.object({
   availableForSale: z.boolean().optional(),
   hasOnlyDefaultVariant: z.boolean().optional(),
   mediaCount: z.object({ count: z.number() }).optional(),
-  createdAt: z.string().optional(),
-  publishedAt: z.string().nullable().optional(),
+  tracksInventory: z.boolean().optional(),
+  isGiftCard: z.boolean().optional(),
+  requiresShipping: z.boolean().optional(),
+  onlineStoreUrl: z.string().nullable().optional(),
   onlineStorePreviewUrl: z.string().nullable().optional(),
+  giftCardTemplateSuffix: z.string().nullable().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  publishedAt: z.string().nullable().optional(),
 });
 
 const ProductsConnectionSchema = z.object({
@@ -120,6 +138,7 @@ const ShopSchema = z.object({
   name: z.string(),
   email: z.string().optional(),
   currencyCode: z.string(),
+  description: z.string().optional(),
   plan: z.object({
     displayName: z.string(),
     partnerDevelopment: z.boolean().optional(),
@@ -130,10 +149,13 @@ const ShopSchema = z.object({
     host: z.string(),
   }).optional(),
   timezoneAbbreviation: z.string().nullable().optional(),
+  timezoneOffsetMinutes: z.number().optional(),
+  ianaTimezone: z.string().optional(),
   billingAddress: z.object({
     country: z.string().optional(),
     city: z.string().nullable().optional(),
     province: z.string().nullable().optional(),
+    zip: z.string().nullable().optional(),
   }).nullish(),
 });
 
