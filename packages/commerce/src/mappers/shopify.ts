@@ -21,12 +21,14 @@ function mapVariant(
   if (Number.isFinite(priceNum)) {
     variant.price = money(priceNum, currency);
   }
-  if (typeof node.weight === 'number' && node.weight > 0) {
+  const weight = node.weight?.value;
+  const weightUnit = node.weight?.unit;
+  if (typeof weight === 'number' && weight > 0) {
     // Shopify weight units vary; normalize only when unit is grams / kg.
-    if (node.weightUnit === 'GRAMS' || node.weightUnit === 'g') {
-      variant.weightGrams = node.weight;
-    } else if (node.weightUnit === 'KILOGRAMS' || node.weightUnit === 'kg') {
-      variant.weightGrams = node.weight * 1000;
+    if (weightUnit === 'GRAMS' || weightUnit === 'g') {
+      variant.weightGrams = weight;
+    } else if (weightUnit === 'KILOGRAMS' || weightUnit === 'kg') {
+      variant.weightGrams = weight * 1000;
     }
   }
   return variant;
