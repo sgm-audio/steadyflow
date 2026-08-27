@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="{{ request.locale.iso_code }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>
+      {{ page_title }}
+      {% if current_tags %} &ndash; {{ current_tags | join: ', ' }}{% endif %}
+      {% unless page_title contains shop.name %} &ndash; {{ shop.name }}{% endunless %}
+    </title>
+    {{ content_for_header }}
+    {{ 'theme.css' | asset_url | stylesheet_tag }}
+  </head>
+  <body>
+    <a class="skip-link" href="#MainContent">Skip to content</a>
+    <header class="sf-header">
+      <a href="{{ routes.root_url }}">{{ shop.name }}</a>
+    </header>
+    <main id="MainContent" role="main">
+      {{ content_for_layout }}
+    </main>
+    <footer class="sf-footer">
+      <small>&copy; {{ 'now' | date: '%Y' }} {{ shop.name }}</small>
+    </footer>
+  </body>
+</html>

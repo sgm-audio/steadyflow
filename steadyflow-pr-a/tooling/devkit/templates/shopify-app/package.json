@@ -1,0 +1,14 @@
+{
+  "name": "{{SLUG}}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"Run: shopify app dev\"",
+    "build": "echo \"Run: shopify app build\"",
+    "deploy": "echo \"Run: shopify app deploy\""
+  },
+  "dependencies": {
+    "@shopify/shopify-api": "^11.0.0"
+  }
+}
