@@ -5,12 +5,14 @@
 import { requireOrgSession } from '../../lib/session';
 import { StateBanner } from '../../components/StateBanner';
 import { Reveal } from '../../components/Reveal';
+import { ScoreRing, CategoryBar } from '../../components/Charts';
 import {
   SparkleIcon,
   KeyIcon,
   ClockCounterClockwiseIcon,
   ArrowUpRightIcon,
   UsersThreeIcon,
+  StorefrontIcon,
 } from '@phosphor-icons/react/ssr';
 import type { ReactNode } from 'react';
 
@@ -18,6 +20,21 @@ const SEVERITY_STYLES: Record<string, string> = {
   high: 'text-rose-300 bg-rose-400/10',
   medium: 'text-amber-300 bg-amber-400/10',
   low: 'text-emerald-300 bg-emerald-400/10',
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  pricing: '#f87171',
+  positioning: '#818cf8',
+  product_mix: '#34d399',
+  marketing: '#fbbf24',
+  seo: '#60a5fa',
+  conversion: '#a78bfa',
+  inventory: '#fb923c',
+  trend: '#94a3b8',
+  ai_agent_readiness: '#22d3ee',
+  first_sale_math: '#f472b6',
+  channel_gap: '#4ade80',
+  creator_playbook: '#c084fc',
 };
 
 const sanitizeTitle = (title: string) => title.replace(/[—–]/g, '-');
@@ -31,6 +48,7 @@ export default async function DashboardPage() {
     { data: categoryRows },
     { count: competitorsCount },
     { data: latestSnapshot },
+    { data: topStore },
   ] = orgId
     ? await Promise.all([
         supabase.from('insights').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
@@ -39,8 +57,8 @@ export default async function DashboardPage() {
           .select('title, severity')
           .eq('org_id', orgId)
           .order('generated_at', { ascending: false })
-          .limit(3),
-        supabase.from('insights').select('category').eq('org_id', orgId).order('generated_at', { ascending: false }).limit(200),
+          .limit(5),
+        supabase.from('insights').select('category').eq('org_id', orgId).is('superseded_at', null).order('generated_at', { ascending: false }).limit(200),
         supabase.from('competitors').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
         supabase
           .from('competitor_snapshots')
@@ -49,13 +67,24 @@ export default async function DashboardPage() {
           .order('captured_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
+        supabase
+          .from('store_profiles')
+          .select('store_name, latest_score, product_count, last_analyzed_at, currency')
+          .eq('org_id', orgId)
+          .order('last_analyzed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ])
-    : [{ count: null, error: null }, { data: null }, { data: null }, { count: null }, { data: null }];
+    : [{ count: null, error: null }, { data: null }, { data: null }, { count: null }, { data: null }, { data: null }];
 
   const categoryCounts = (categoryRows ?? []).reduce<Record<string, number>>((acc, row) => {
     acc[row.category] = (acc[row.category] ?? 0) + 1;
     return acc;
   }, {});
+  const categoryBars = Object.entries(categoryCounts)
+    .map(([label, count]) => ({ label: label.replace('_', ' '), count, color: CATEGORY_COLORS[label] ?? '#a1a1aa' }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -116,17 +145,11 @@ export default async function DashboardPage() {
               stat={orgId ? `${insightsCount ?? 0} generated` : undefined}
               href="/insights"
             >
-              {Object.keys(categoryCounts).length > 0 && (
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {Object.entries(categoryCounts).map(([category, count]) => (
-                    <span
-                      key={category}
-                      className="rounded-full bg-white/[0.04] px-3 py-1 text-xs text-ink-muted"
-                    >
-                      {category.replace('_', ' ')} <span className="font-mono text-ink">{count}</span>
-                    </span>
-                  ))}
-                </div>
+              {categoryBars.length > 0 && (
+                <div className="mt-6">
+                  <p className="mb-2 text-xs uppercase tracking-wide text-ink-muted">Findings by category</p>
+                  <CategoryBar categories={categoryBars} />
+               </div>
               )}
               {recentInsights && recentInsights.length > 0 && (
                 <ul className="mt-6 flex-1 divide-y divide-white/[0.04] border-y border-white/[0.04]">
@@ -151,6 +174,22 @@ export default async function DashboardPage() {
               )}
             </DashboardCard>
             <div className="grid gap-6 md:col-span-5">
+              {topStore && topStore.latest_score !== null ? (
+                <DashboardCard
+                  icon={<StorefrontIcon size={20} weight="light" />}
+                  title="Latest audit score"
+                  description={`${topStore.store_name ?? 'Most recent store'} — ${topStore.product_count ?? 0} product${topStore.product_count === 1 ? '' : 's'} in ${topStore.currency ?? 'CAD'}.`}
+                  stat={topStore.last_analyzed_at ? `Analyzed ${new Date(topStore.last_analyzed_at).toLocaleDateString()}` : undefined}
+                  href="/intents"
+                >
+                  <div className="mt-4 flex items-center gap-4">
+                    <ScoreRing score={topStore.latest_score} size={88} strokeWidth={8} />
+                    <div className="text-xs leading-relaxed text-ink-muted">
+                      Higher is better. 75+ = healthy; 50-75 = needs work; under 50 = urgent fixes.
+                   </div>
+                 </div>
+               </DashboardCard>
+              ) : null}
               <DashboardCard
                 icon={<UsersThreeIcon size={20} weight="light" />}
                 title="Competitors"

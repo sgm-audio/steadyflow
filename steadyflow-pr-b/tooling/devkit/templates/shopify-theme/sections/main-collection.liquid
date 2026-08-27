@@ -1,0 +1,16 @@
+<section class="sf-collection">
+  <h1>{{ collection.title }}</h1>
+  <ul>
+    {% for product in collection.products %}
+      <li><a href="{{ product.url }}">{{ product.title }}</a></li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% schema %}
+{
+  "name": "Main collection",
+  "settings": [],
+  "presets": [{ "name": "Main collection" }]
+}
+{% endschema %}

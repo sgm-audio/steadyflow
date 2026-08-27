@@ -20,7 +20,7 @@ function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
     },
     variants: {
       edges: [
-        { node: { id: 'v1', sku: 'PRINT-001', title: 'Default', price: '40.00', weight: 0.5, weightUnit: 'kg' } },
+        { node: { id: 'v1', sku: 'PRINT-001', title: 'Default', price: '40.00', weight: { value: 0.5, unit: 'KILOGRAMS' } } },
       ],
     },
     images: {

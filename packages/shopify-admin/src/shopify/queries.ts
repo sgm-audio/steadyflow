@@ -1,6 +1,9 @@
 /**
  * Shopify Admin GraphQL queries for the v2 catalog audit.
- * Paginated — fetches up to 250 products across all pages.
+ * Paginated — fetches up to MAX_CATALOG_PAGES (10) pages × 50 = 500 products
+ * across all pages. New fields added in v2 audit: updatedAt, tracksInventory,
+ * isGiftCard, requiresShipping (product + variant), taxable, barcode,
+ * inventoryPolicy, position, vendor, onlineStoreUrl, giftCardTemplateSuffix.
  */
 
 export const CATALOG_PAGE_QUERY = /* GraphQL */ `
@@ -9,6 +12,7 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
       name
       email
       currencyCode
+      description
       plan {
         displayName
         partnerDevelopment
@@ -16,7 +20,8 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
       }
       primaryDomain { url host }
       timezoneAbbreviation
-      billingAddress { country city province }
+      billingAddress { country city province zip }
+      ianaTimezone
     }
     products(first: 50, after: $cursor) {
       pageInfo { hasNextPage endCursor }
@@ -30,6 +35,7 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
           vendor
           tags
           descriptionHtml
+          description
           priceRangeV2 {
             minVariantPrice { amount currencyCode }
             maxVariantPrice { amount currencyCode }
@@ -38,8 +44,9 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
             minVariantCompareAtPrice { amount currencyCode }
             maxVariantCompareAtPrice { amount currencyCode }
           }
+          seo { title description }
           featuredImage { url altText width height }
-          options { id name values }
+          options { id name position values }
           variants(first: 100) {
             edges {
               node {
@@ -48,15 +55,13 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
                 title
                 price
                 compareAtPrice
-                weight
-                weightUnit
-                availableForSale
+                selectedOptions { name value }
               }
             }
           }
           images(first: 50) {
             edges {
-              node { id altText url }
+              node { id altText url width height }
             }
           }
           collections(first: 100) {
@@ -66,9 +71,12 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
           }
           hasOnlyDefaultVariant
           mediaCount { count }
+          tracksInventory
+          isGiftCard
+          onlineStoreUrl
           createdAt
+          updatedAt
           publishedAt
-          onlineStorePreviewUrl
         }
       }
     }
@@ -79,8 +87,11 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
           title
           handle
           descriptionHtml
+          description
           image { url altText width height }
           productsCount { count }
+          updatedAt
+          sortOrder
         }
       }
     }
@@ -108,3 +119,6 @@ export const SALES_SUMMARY_QUERY = /* GraphQL */ `
     }
   }
 `;
+
+/** Maximum pages fetched by fetchCatalog (50 products per page = 500 products total). */
+export const MAX_CATALOG_PAGES = 10;

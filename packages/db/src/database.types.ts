@@ -431,28 +431,46 @@ export type Database = {
         Row: {
           alt_count: number
           available_for_sale: boolean | null
+          barcode_count: number | null
           collection_count: number
+          collection_titles: string[]
           compare_at_price: number | null
           cost_cad: number | null
           created_at: string
           description_words: number | null
+          flag_categories: Json
+          flag_codes: string[]
           flags: Json
           handle: string
+          has_barcode: boolean | null
+          has_sku: boolean | null
           id: string
           image_count: number
           intent_id: string
+          is_gift_card: boolean | null
           margin_cad: number | null
           margin_pct: number | null
+          online_store_url: string | null
           org_id: string
           price: number | null
+          product_created_at: string | null
           product_id: string
           product_type: string | null
+          product_updated_at: string | null
+          published_at: string | null
           red_flags: number
+          requires_shipping: boolean | null
           seo_description_length: number | null
           seo_title_length: number | null
+          sku_count: number | null
+          status: string | null
           superseded_at: string | null
+          tag_count: number | null
+          tags: string[]
           title: string
+          title_length: number | null
           total_inventory: number | null
+          tracks_inventory: boolean | null
           variant_count: number
           vendor: string | null
           yellow_flags: number
@@ -460,28 +478,46 @@ export type Database = {
         Insert: {
           alt_count?: number
           available_for_sale?: boolean | null
+          barcode_count?: number | null
           collection_count?: number
+          collection_titles?: string[]
           compare_at_price?: number | null
           cost_cad?: number | null
           created_at?: string
           description_words?: number | null
+          flag_categories?: Json
+          flag_codes?: string[]
           flags?: Json
           handle: string
+          has_barcode?: boolean | null
+          has_sku?: boolean | null
           id?: string
           image_count?: number
           intent_id: string
+          is_gift_card?: boolean | null
           margin_cad?: number | null
           margin_pct?: number | null
+          online_store_url?: string | null
           org_id: string
           price?: number | null
+          product_created_at?: string | null
           product_id: string
           product_type?: string | null
+          product_updated_at?: string | null
+          published_at?: string | null
           red_flags?: number
+          requires_shipping?: boolean | null
           seo_description_length?: number | null
           seo_title_length?: number | null
+          sku_count?: number | null
+          status?: string | null
           superseded_at?: string | null
+          tag_count?: number | null
+          tags?: string[]
           title: string
+          title_length?: number | null
           total_inventory?: number | null
+          tracks_inventory?: boolean | null
           variant_count?: number
           vendor?: string | null
           yellow_flags?: number
@@ -489,28 +525,46 @@ export type Database = {
         Update: {
           alt_count?: number
           available_for_sale?: boolean | null
+          barcode_count?: number | null
           collection_count?: number
+          collection_titles?: string[]
           compare_at_price?: number | null
           cost_cad?: number | null
           created_at?: string
           description_words?: number | null
+          flag_categories?: Json
+          flag_codes?: string[]
           flags?: Json
           handle?: string
+          has_barcode?: boolean | null
+          has_sku?: boolean | null
           id?: string
           image_count?: number
           intent_id?: string
+          is_gift_card?: boolean | null
           margin_cad?: number | null
           margin_pct?: number | null
+          online_store_url?: string | null
           org_id?: string
           price?: number | null
+          product_created_at?: string | null
           product_id?: string
           product_type?: string | null
+          product_updated_at?: string | null
+          published_at?: string | null
           red_flags?: number
+          requires_shipping?: boolean | null
           seo_description_length?: number | null
           seo_title_length?: number | null
+          sku_count?: number | null
+          status?: string | null
           superseded_at?: string | null
+          tag_count?: number | null
+          tags?: string[]
           title?: string
+          title_length?: number | null
           total_inventory?: number | null
+          tracks_inventory?: boolean | null
           variant_count?: number
           vendor?: string | null
           yellow_flags?: number

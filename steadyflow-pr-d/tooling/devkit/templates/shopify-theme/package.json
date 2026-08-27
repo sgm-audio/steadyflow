@@ -1,0 +1,8 @@
+{
+  "name": "{{SLUG}}",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": {
+    "description": "Steadyflow Shopify theme starter — use with Shopify CLI"
+  }
+}

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Integration suites need a live `supabase start` on :54321.
 const integrationTests = [
+  'src/e2e-audit-lifecycle.test.ts',
   'src/handlers.test.ts',
   'src/workers.test.ts',
   'src/rls-security.test.ts',

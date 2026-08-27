@@ -15,6 +15,12 @@ export interface ShopifyClientOptions {
   clientId?: string | undefined;
   /** Dev Dashboard client secret. */
   clientSecret?: string | undefined;
+  /**
+   * The store's canonical *.myshopify.com handle (e.g. "81d7ax-pg"). When
+   * provided, skips the DNS-dependent custom-domain redirect discovery —
+   * required when the custom domain doesn't resolve.
+   */
+  shopDomain?: string | undefined;
   maxRetries?: number;
   baseBackoffMs?: number;
   /** Maximum product pages to fetch (default 5 = 250 products). */
@@ -52,6 +58,7 @@ export class ShopifyClient {
   private readonly adminToken: string | undefined;
   private readonly clientId: string | undefined;
   private readonly clientSecret: string | undefined;
+  private readonly shopDomain: string | undefined;
   private readonly maxRetries: number;
   private readonly baseBackoffMs: number;
   private readonly maxPages: number;
@@ -63,6 +70,7 @@ export class ShopifyClient {
     this.adminToken = opts.adminToken;
     this.clientId = opts.clientId;
     this.clientSecret = opts.clientSecret;
+    this.shopDomain = opts.shopDomain;
     this.maxRetries = opts.maxRetries ?? 3;
     this.baseBackoffMs = opts.baseBackoffMs ?? 500;
     this.maxPages = opts.maxPages ?? 5;
@@ -76,6 +84,10 @@ export class ShopifyClient {
    */
   private async resolveShopHandle(): Promise<string> {
     if (this.shopHandle) return this.shopHandle;
+    if (this.shopDomain) {
+      this.shopHandle = this.shopDomain;
+      return this.shopHandle;
+    }
 
     const own = /^https?:\/\/([a-z0-9-]+)\.myshopify\.com/i.exec(this.storeUrl);
     const ownHandle = own?.[1];

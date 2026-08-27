@@ -353,6 +353,21 @@ const FLAG_CATEGORY: Record<FlagCode, string> = {
   orphaned: 'product_mix',
   no_vendor: 'product_mix',
   fx_fallback: 'trend',
+  // Phase A3 — new audit modules
+  mix_undifferentiated: 'product_mix',
+  mix_lopsided: 'product_mix',
+  mix_single_collection: 'product_mix',
+  conversion_no_barcode: 'conversion',
+  conversion_no_sku: 'conversion',
+  conversion_long_title: 'conversion',
+  conversion_high_price_no_compare_at: 'conversion',
+  inventory_low_stock: 'inventory',
+  inventory_overselling: 'inventory',
+  inventory_continue_when_out: 'inventory',
+  marketing_no_tags: 'marketing',
+  marketing_no_description: 'marketing',
+  marketing_never_published: 'marketing',
+  marketing_no_compare_at_range: 'marketing',
 };
 
 const FLAG_TITLE: Record<FlagCode, string> = {
@@ -375,6 +390,20 @@ const FLAG_TITLE: Record<FlagCode, string> = {
   out_of_stock: 'Products that are out of stock',
   on_sale: 'Products currently on sale (compare-at pricing)',
   no_vendor: 'Products with no vendor/brand',
+  mix_undifferentiated: 'Near-duplicate products (cannibalization)',
+  mix_lopsided: 'Catalog dominated by one product type',
+  mix_single_collection: 'All products in one collection',
+  conversion_no_barcode: 'No barcode on any variant',
+  conversion_no_sku: 'No SKU on any variant',
+  conversion_long_title: 'Product title too long',
+  conversion_high_price_no_compare_at: 'High price with no compare-at anchor',
+  inventory_low_stock: 'Inventory low (≤5 units)',
+  inventory_overselling: 'Tracking disabled but variants at 0 stock',
+  inventory_continue_when_out: 'Inventory policy CONTINUE with 0 stock',
+  marketing_no_tags: 'Products with no tags',
+  marketing_no_description: 'Products with empty or very short descriptions',
+  marketing_never_published: 'Active products never published',
+  marketing_no_compare_at_range: 'No compare-at price range',
 };
 
 const FLAG_SEVERITY: Record<'red' | 'yellow', 'high' | 'medium'> = {
@@ -693,15 +722,17 @@ const analyzeShopifyCatalog = async (
   const printifyToken = (await tryUnwrapKey(ctx.supabase, 'printify', ctx.orgId)) ?? undefined;
 
   // The shopify-admin key is either a legacy static token, or a JSON object
-  // {clientId, clientSecret} for the 2026 client-credentials grant.
+  // {clientId, clientSecret, shop?} for the 2026 client-credentials grant.
   let adminToken: string | undefined;
   let clientId: string | undefined;
   let clientSecret: string | undefined;
+  let shopDomain: string | undefined;
   try {
-    const parsed = JSON.parse(shopifyKey) as { clientId?: unknown; clientSecret?: unknown };
+    const parsed = JSON.parse(shopifyKey) as { clientId?: unknown; clientSecret?: unknown; shop?: unknown };
     if (typeof parsed.clientId === 'string' && typeof parsed.clientSecret === 'string') {
       clientId = parsed.clientId;
       clientSecret = parsed.clientSecret;
+      if (typeof parsed.shop === 'string') shopDomain = parsed.shop;
     } else {
       adminToken = shopifyKey;
     }
@@ -709,7 +740,7 @@ const analyzeShopifyCatalog = async (
     adminToken = shopifyKey;
   }
 
-  const audit = await runCatalogAudit({ storeUrl, adminToken, clientId, clientSecret, printifyToken });
+  const audit = await runCatalogAudit({ storeUrl, adminToken, clientId, clientSecret, shopDomain, printifyToken });
   const seoSignals = await checkPageSeoSignals(storeUrl);
   const score = computeAuditScore(audit.rows);
   // Matches intents.input_hash (SHA-256 of JSON {platform,url}) set by the
@@ -759,30 +790,57 @@ const analyzeShopifyCatalog = async (
     }
   }
 
+  // Track inserted insights to prevent duplicates within this run
+  const insertedBodies = new Set<string>();
+
   // ── Revenue impact (ranked Leak List) ──
   const leakList = buildLeakList(
     audit.rows.map((r) => ({ priceMinCAD: r.margin.priceMinCAD, flags: r.flags })),
     audit.shopCurrency,
-    audit.salesSummary ? { sales: audit.salesSummary } : undefined,
+    {
+      ...(audit.salesSummary ? { sales: audit.salesSummary } : {}),
+      catalogFlags: audit.catalogFlags,
+    },
   );
   const leakImpactByCode = new Map(leakList.map((l) => [l.code, l.estimatedAnnualImpact]));
   const leakTotal = totalEstimatedImpact(leakList);
 
   for (const [code, { severity, products }] of byFlag) {
-    const shown = products.slice(0, 8);
+    // Deduplicate: skip if this out-of-stock body was already inserted
+    const bodyKey = `${products.length} product${products.length === 1 ? '' : 's'} out of stock`;
+    if (insertedBodies.has(bodyKey)) continue;
+    insertedBodies.add(bodyKey);
+
+    const shown = products.slice(0, 3);
     const remainder = products.length - shown.length;
     const impact = leakImpactByCode.get(code);
     const impactSuffix = impact !== undefined && impact > 0
-      ? ` Estimated recoverable revenue: ~$${impact.toLocaleString()}/yr.`
+      ? ` ~$${impact.toLocaleString()}/yr`
       : '';
-    const body = `${products.length} product${products.length === 1 ? '' : 's'}: ${shown.join(', ')}${remainder > 0 ? ` + ${remainder} more` : ''}.${impactSuffix}`;
+    const body = `${products.length} product${products.length === 1 ? '' : 's'} out of stock${remainder > 0 ? ` (${shown.join(', ')} + ${remainder} more)` : ''}${impactSuffix}`;
     await ctx.supabase.from('insights').insert({
       org_id: ctx.orgId,
       intent_id: intentId,
       category: FLAG_CATEGORY[code],
       severity: FLAG_SEVERITY[severity],
       title: FLAG_TITLE[code],
-      body: body.slice(0, 5000),
+      body: body.slice(0, 3000),
+      citations: [],
+      model: 'shopify-admin-audit-v2',
+      provider: 'shopify-admin',
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // ── Catalog-level flags (mix / assortment) — one insight per flag ──
+  for (const flag of audit.catalogFlags) {
+    await ctx.supabase.from('insights').insert({
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: FLAG_CATEGORY[flag.code],
+      severity: FLAG_SEVERITY[flag.severity],
+      title: FLAG_TITLE[flag.code],
+      body: flag.message.slice(0, 5000),
       citations: [],
       model: 'shopify-admin-audit-v2',
       provider: 'shopify-admin',

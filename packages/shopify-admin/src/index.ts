@@ -10,6 +10,10 @@ import { buildCostLookup, type CostLookup } from './printify/catalog.js';
 import { getUsdToCadRate } from './util/fx.js';
 import { calcMargin, type Currency, type ProductMargin } from './audit/margin.js';
 import { evaluateFlags, summarizeFlags, type Flag } from './audit/flags.js';
+import { evaluateMixFlags } from './audit/mix.js';
+import { evaluateConversionFlags } from './audit/conversion.js';
+import { evaluateInventoryFlags } from './audit/inventory.js';
+import { evaluateMarketingFlags } from './audit/marketing.js';
 import { formatError } from './util/redact.js';
 
 export interface CatalogAuditOptions {
@@ -20,6 +24,8 @@ export interface CatalogAuditOptions {
   clientId?: string | undefined;
   /** Dev Dashboard client secret. */
   clientSecret?: string | undefined;
+  /** Canonical *.myshopify.com handle (skips custom-domain DNS resolution). */
+  shopDomain?: string | undefined;
   printifyToken?: string | undefined;
   fxFallback?: number | undefined;
 }
@@ -30,6 +36,14 @@ export interface AuditRow {
   flags: Flag[];
   primarySku: string;
   collectionTitles: string[];
+  /** Flag codes grouped by audit module for downstream filtering. */
+  flagCategories: {
+    core: number;
+    mix: number;
+    conversion: number;
+    inventory: number;
+    marketing: number;
+  };
 }
 
 export interface CatalogAuditResult {
@@ -42,6 +56,8 @@ export interface CatalogAuditResult {
   collections: ShopifyAllCollection[];
   totalProducts: number;
   totalCollections: number;
+  /** Catalog-wide flags (mix/assortment) — applied once across the catalog, not per-product. */
+  catalogFlags: Flag[];
   /** Real sales signal (recent orders) when `read_orders` is granted; null otherwise. */
   salesSummary: SalesSummary | null;
 }
@@ -69,6 +85,7 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
     adminToken: opts.adminToken,
     clientId: opts.clientId,
     clientSecret: opts.clientSecret,
+    shopDomain: opts.shopDomain,
   });
   const catalog = await shopify.fetchCatalog();
 
@@ -106,7 +123,14 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
 
   const rows: AuditRow[] = catalog.products.edges.map(({ node: product }) => {
     const margin = calcMargin(product, { shopCurrency, fxRate, costLookup });
-    const flags = evaluateFlags({ product, margin, fxFallback: fxFallbackUsed });
+    const coreFlags = evaluateFlags({ product, margin, fxFallback: fxFallbackUsed });
+    const conversionFlags = evaluateConversionFlags({ product });
+    const inventoryFlags = evaluateInventoryFlags({ product });
+    const marketingFlags = evaluateMarketingFlags({ product });
+
+    // Mix flags are catalog-level (computed once below), not per-row.
+    const flags: Flag[] = [...coreFlags, ...conversionFlags, ...inventoryFlags, ...marketingFlags];
+
     const variants = product.variants.edges.map((e) => e.node);
     return {
       product,
@@ -114,7 +138,20 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
       flags,
       primarySku: pickPrimarySku(variants),
       collectionTitles: product.collections.edges.map((e) => e.node.title),
+      flagCategories: {
+        core: coreFlags.length,
+        mix: 0,
+        conversion: conversionFlags.length,
+        inventory: inventoryFlags.length,
+        marketing: marketingFlags.length,
+      },
     };
+  });
+
+  // Catalog-wide flags (mix/assortment) — computed after rows exist
+  const mixFlags = evaluateMixFlags({
+    rows,
+    collections: catalog.collections.edges.map((e) => e.node),
   });
 
   // Best-effort real sales signal; null when read_orders isn't granted.
@@ -130,6 +167,7 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
     collections: catalog.collections.edges.map((e) => e.node),
     totalProducts: catalog.products.edges.length,
     totalCollections: catalog.collections.edges.length,
+    catalogFlags: mixFlags,
     salesSummary,
   };
 }
@@ -156,6 +194,8 @@ export function buildProductFinding(row: AuditRow) {
   const reds = row.flags.filter((f) => f.severity === 'red').length;
   const yellows = row.flags.filter((f) => f.severity === 'yellow').length;
   const primaryVariant = variants[0];
+  const barcodeCount = variants.filter((v) => v.barcode && v.barcode.trim().length > 0).length;
+  const skuCount = variants.filter((v) => v.sku && v.sku.trim().length > 0).length;
 
   return {
     product_id: product.id,
@@ -163,23 +203,39 @@ export function buildProductFinding(row: AuditRow) {
     title: product.title,
     product_type: product.productType || null,
     vendor: product.vendor || null,
+    tags: product.tags,
+    tag_count: product.tags.length,
     price: primaryVariant ? toNumber(primaryVariant.price) : null,
     compare_at_price: primaryVariant?.compareAtPrice ? toNumber(primaryVariant.compareAtPrice) : null,
     margin_pct: row.margin.marginPct,
     margin_cad: row.margin.marginAvg$,
     cost_cad: row.margin.costMinCAD,
     flags: row.flags.map((f) => ({ code: f.code, severity: f.severity, message: f.message })),
+    flag_codes: row.flags.map((f) => f.code),
     red_flags: reds,
     yellow_flags: yellows,
     description_words: countWords(product.descriptionHtml),
     image_count: images.length,
     alt_count: images.filter((img) => (img.altText ?? '').trim().length > 0).length,
     variant_count: variants.length,
-    total_inventory: product.totalInventory ?? null,
-    available_for_sale: product.availableForSale ?? null,
     collection_count: product.collections.edges.length,
+    collection_titles: row.collectionTitles,
+    sku_count: skuCount,
+    barcode_count: barcodeCount,
+    has_barcode: barcodeCount === variants.length && variants.length > 0,
+    has_sku: skuCount === variants.length && variants.length > 0,
     seo_title_length: product.seo?.title?.length ?? null,
     seo_description_length: product.seo?.description?.length ?? null,
+    is_gift_card: product.isGiftCard ?? false,
+    requires_shipping: product.requiresShipping ?? true,
+    status: product.status,
+    published_at: product.publishedAt ?? null,
+    product_updated_at: product.updatedAt ?? null,
+    product_created_at: product.createdAt ?? null,
+    online_store_url: product.onlineStoreUrl ?? null,
+    title_length: product.title.length,
+    // Flag-category breakdown for fast UI rendering of dashboard breakdown
+    flag_categories: row.flagCategories,
   };
 }
 
