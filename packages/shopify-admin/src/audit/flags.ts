@@ -127,7 +127,7 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
   // (now on InventoryItem, which needs read_inventory). Only flag when
   // variant-level weight data is actually present.
   const variants = product.variants.edges.map((e) => e.node);
-  const weightPresent = variants.some((v) => v.weight?.value !== undefined && v.weight?.value !== null);
+  const weightPresent = variants.some((v) => v.weight?.value !== undefined && v.weight.value !== null);
   if (weightPresent) {
     const missingWeight = variants.filter((v) => {
       const w = v.weight?.value;
