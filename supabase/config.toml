@@ -374,10 +374,6 @@ allow_dynamic_registration = false
 
 [edge_runtime]
 enabled = true
-# Maps bare import specifiers (e.g. `zod`, `@supabase/supabase-js`) to npm/URL
-# targets for all edge functions. The vendored `@steadyflow/shopify-admin`
-# bundle imports `zod` as a bare specifier and relies on this map.
-import_map_path = "./supabase/functions/import_map.json"
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).

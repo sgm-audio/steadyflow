@@ -11,7 +11,7 @@
  * Run before deploying edge functions (or add as a predeploy hook):
  *   node scripts/vendor-shopify-admin.mjs
  */
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -46,4 +46,27 @@ cpSync(SRC, DEST, {
     !src.endsWith('.test.js') && !src.endsWith('.d.ts') && !src.endsWith('.map'),
 });
 
+// Deno resolves `zod` only via an explicit `npm:` specifier (the import map is
+// not reliably wired into the edge runtime). Rewrite the compiled dist's bare
+// `zod` import to `npm:zod@3` so the vendored bundle is self-contained.
+rewriteBareZod(DEST);
+
 console.log('[vendor] done. Deno import path: ../_shared/shopify-admin/index.js');
+
+function rewriteBareZod(dir) {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const stat = statSync(full);
+    if (stat.isDirectory()) {
+      rewriteBareZod(full);
+      continue;
+    }
+    if (!full.endsWith('.js')) continue;
+    const source = readFileSync(full, 'utf8');
+    const next = source.replaceAll("from 'zod'", "from 'npm:zod@3'");
+    if (next !== source) {
+      writeFileSync(full, next);
+      console.log(`[vendor] rewrote zod import: ${entry}`);
+    }
+  }
+}
