@@ -3,6 +3,10 @@ import { z } from 'zod';
 export const InsightId = z.string().uuid().brand<'InsightId'>();
 export type InsightId = z.infer<typeof InsightId>;
 
+/**
+ * 12 categories aligned to the 200-pt audit taxonomy (see TODO.md / S2).
+ * Every insight produced by the audit pipeline must map to one of these.
+ */
 export const InsightCategory = z.enum([
   'pricing',
   'positioning',

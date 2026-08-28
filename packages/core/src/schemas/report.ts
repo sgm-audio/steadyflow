@@ -52,5 +52,14 @@ export const Report = z
     findingCount: z.number().int().nonnegative(),
     generatedAt: z.string().datetime({ offset: true }),
   })
-  .strict();
+  .strict()
+  .superRefine((val, ctx) => {
+    if (val.findingCount !== val.findings.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `findingCount (${val.findingCount}) must equal findings.length (${val.findings.length}) — derived field`,
+        path: ['findingCount'],
+      });
+    }
+  });
 export type Report = z.infer<typeof Report>;

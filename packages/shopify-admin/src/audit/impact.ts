@@ -1,4 +1,6 @@
 import type { Flag, FlagCode } from './flags.js';
+import { FLAG_TO_RUBRIC, type RubricCategoryId } from './rubric.js';
+import { FLAG_TITLE } from './findings.js';
 
 /**
  * Deterministic revenue-impact estimation for the "Revenue Leak Audit".
@@ -41,6 +43,8 @@ export interface LeakItem {
   title: string;
   severity: 'high' | 'medium';
   affectedCount: number;
+  /** Rubric category this flag belongs to (single source: `rubric.ts`). */
+  rubricCategory: RubricCategoryId;
   /** Estimated recoverable annual revenue in the store currency (integer). */
   estimatedAnnualImpact: number;
   /** Human-readable explanation of the estimate's inputs and assumptions. */
@@ -91,42 +95,6 @@ const IMPACT_COEFFICIENT: Partial<Record<FlagCode, number>> = {
   // Informational flags — not revenue leaks.
   on_sale: 0,
   fx_fallback: 0,
-};
-
-const FLAG_TITLE: Record<FlagCode, string> = {
-  low_margin: 'Products with thin margins (<35%)',
-  margin_negative: 'Products with negative margins',
-  missing_alt_text: 'Product images missing alt text',
-  short_description: 'Product descriptions are too short',
-  missing_type_or_tags: 'Products missing type or tags',
-  missing_weight: 'Variants missing weight (blocks international shipping)',
-  orphaned: 'Products not in any collection',
-  unlinked_cost: 'Products with no matched Printify cost',
-  price_spread: 'Wide price spread across variants',
-  fx_fallback: 'FX rate fetch failed during this audit',
-  missing_seo_title: 'Products with no SEO title',
-  missing_seo_description: 'Products with no SEO meta description',
-  seo_title_too_short: 'SEO titles too short (<30 chars)',
-  seo_description_too_short: 'SEO meta descriptions too short (<100 chars)',
-  only_one_image: 'Products with only one image',
-  no_alt_text_on_any_image: 'Products with zero alt text on any image',
-  out_of_stock: 'Products that are out of stock',
-  on_sale: 'Products currently on sale (compare-at pricing)',
-  no_vendor: 'Products with no vendor/brand',
-  mix_undifferentiated: 'Near-duplicate products (cannibalization)',
-  mix_lopsided: 'Catalog dominated by one product type',
-  mix_single_collection: 'All products in one collection',
-  conversion_no_barcode: 'No barcode on any variant',
-  conversion_no_sku: 'No SKU on any variant',
-  conversion_long_title: 'Product title too long',
-  conversion_high_price_no_compare_at: 'High price with no compare-at anchor',
-  inventory_low_stock: 'Inventory low (≤5 units)',
-  inventory_overselling: 'Tracking disabled but variants at 0 stock',
-  inventory_continue_when_out: 'Inventory policy CONTINUE with 0 stock',
-  marketing_no_tags: 'Products with no tags',
-  marketing_no_description: 'Products with empty or very short descriptions',
-  marketing_never_published: 'Active products never published',
-  marketing_no_compare_at_range: 'No compare-at price range',
 };
 
 export const deriveLeakContext = (
@@ -200,6 +168,7 @@ export const buildLeakList = (
       title: FLAG_TITLE[code],
       severity,
       affectedCount,
+      rubricCategory: FLAG_TO_RUBRIC[code],
       estimatedAnnualImpact,
       basis: `Baseline: $${context.averageOrderValue.toFixed(2)} AOV × ${context.monthlyOrders} orders/month (${sourceNote}) = $${Math.round(annualBaseline).toLocaleString()}/yr. Applies a ${(coefficient * 100).toFixed(1)}% recoverable-revenue share across ${affectedCount}/${context.productCount} affected products.`,
     });

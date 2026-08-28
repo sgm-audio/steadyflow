@@ -25,10 +25,10 @@ export interface StorefrontAnalysis {
   imagesWithoutDimensions: number;
   totalImages: number;
   hasPreload: boolean;
-  /** Proxy for LCP: render-blocking JS / missing preload / heavy hero images. */
-  lcpRisk: 'high' | 'medium' | 'low';
-  /** Proxy for CLS: undimensioned images / injected third-party widgets. */
-  clsRisk: 'high' | 'medium' | 'low';
+  /** Static proxy for LCP (render-blocking JS / missing preload / heavy hero images) — not a measured Lighthouse metric. */
+  renderBlockingRisk: 'high' | 'medium' | 'low';
+  /** Static proxy for CLS (undimensioned images / injected third-party widgets) — not a measured Lighthouse metric. */
+  layoutShiftRisk: 'high' | 'medium' | 'low';
   /** 0-100 friction score; higher = more to fix. */
   inefficiencyScore: number;
 }
@@ -158,11 +158,11 @@ export const analyzeStorefrontHtml = (html: string, storeHost: string): Storefro
 
   const hasPreload = PRELOAD_RE.test(head);
 
-  const lcpRisk =
+  const renderBlockingRisk =
     renderBlockingScripts >= 3 || !hasPreload ? 'high' :
     renderBlockingScripts >= 1 ? 'medium' : 'low';
 
-  const clsRisk =
+  const layoutShiftRisk =
     totalImages > 0 && imagesWithoutDimensions / totalImages >= 0.5 ? 'high' :
     imagesWithoutDimensions > 0 || thirdPartyHosts.length >= 3 ? 'medium' : 'low';
 
@@ -181,8 +181,8 @@ export const analyzeStorefrontHtml = (html: string, storeHost: string): Storefro
     imagesWithoutDimensions,
     totalImages,
     hasPreload,
-    lcpRisk,
-    clsRisk,
+    renderBlockingRisk,
+    layoutShiftRisk,
     inefficiencyScore,
   };
 };

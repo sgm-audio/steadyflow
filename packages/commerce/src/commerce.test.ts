@@ -4,10 +4,10 @@ import {
   CommerceProduct,
   createCommerceRegistry,
   mapShopifyProduct,
-  AdapterNotImplementedError,
-  createAmazonSellingAdapter,
-  createAlibabaDistributorAdapter,
 } from './index.js';
+import { AdapterNotImplementedError } from './adapters/types.js';
+import { createAmazonSellingAdapter } from './adapters/amazon/selling.js';
+import { createAlibabaDistributorAdapter } from './adapters/alibaba/distributor.js';
 import type { ShopifyProduct } from '@steadyflow/shopify-admin';
 
 const orgId = '11111111-1111-1111-1111-111111111111';
@@ -98,7 +98,7 @@ describe('mapShopifyProduct', () => {
 });
 
 describe('createCommerceRegistry', () => {
-  it('registers Amazon + Alibaba stubs and skips Shopify without credentials', () => {
+  it('tracks experimental platforms as stubs and skips Shopify without credentials', () => {
     const config = CommerceConfigSchema.parse({
       orgId,
       primarySelling: 'shopify',
@@ -116,12 +116,12 @@ describe('createCommerceRegistry', () => {
 
     const registry = createCommerceRegistry({ config, credentials: {} });
 
+    // v0.x trim: experimental adapters not instantiated, only tracked in stubAdapters.
     expect(registry.selling.has('shopify')).toBe(false);
-    expect(registry.selling.has('amazon')).toBe(true);
-    expect(registry.selling.get('amazon')?.meta.stub).toBe(true);
-    expect(registry.selling.has('woocommerce')).toBe(true);
-    expect(registry.fulfillment.has('amazon-fba')).toBe(true);
-    expect(registry.distributors.has('alibaba')).toBe(true);
+    expect(registry.selling.has('amazon')).toBe(false);
+    expect(registry.selling.has('woocommerce')).toBe(false);
+    expect(registry.fulfillment.has('amazon-fba')).toBe(false);
+    expect(registry.distributors.has('alibaba')).toBe(false);
     expect(registry.readySelling).toEqual([]);
     expect(registry.stubAdapters).toEqual(
       expect.arrayContaining(['amazon', 'woocommerce', 'amazon-fba', 'alibaba']),

@@ -1,14 +1,25 @@
 /**
  * workers/scrape — pgmq consumer for q:scrape.
  *
- * Dequeues scrape jobs, calls Firecrawl proxy OR Shopify Admin API,
- * inserts source records, and enqueues the q:analyze message for processing.
+ * Dequeues scrape jobs, calls Firecrawl proxy OR the shared Shopify Admin
+ * audit engine, inserts source/insight records, and enqueues q:analyze.
+ *
+ * Shopify path imports the vendored `@steadyflow/shopify-admin` bundle
+ * (supabase/functions/_shared/shopify-admin/) — the SAME code the Node worker
+ * runs, so findings and the leak list cannot drift between runtimes.
  *
  * Auth: none (called internally via pgmq, uses service_role)
  */
 
 import { createServiceRoleClient } from '../_shared/supabase.ts';
 import { z } from 'npm:zod@3';
+import {
+  runCatalogAudit,
+  buildLeakList,
+  totalEstimatedImpact,
+  computeAuditScore,
+  describeFlag,
+} from '../_shared/shopify-admin/index.js';
 
 const ScrapeMessage = z.object({
   intentId: z.string(),
@@ -69,9 +80,9 @@ const isPrivateIp = (ip: string): boolean => {
  * SSRF guard: reject non-http(s) schemes and hosts that resolve to a
  * private/loopback/link-local address (cloud metadata endpoints, internal
  * services) before a scrape is allowed to fetch a user-submitted URL.
- * Mirrors the Node worker's guard (apps/edge/src/workers.ts); checks
- * resolve-time only, not connect-time, so a DNS-rebind (short-TTL record
- * swapped between this check and fetch()) isn't covered.
+ * Mirrors the Node worker's guard; checks resolve-time only, not connect-time,
+ * so a DNS-rebind (short-TTL record swapped between this check and fetch())
+ * isn't covered.
  */
 const assertPublicHttpUrl = async (rawUrl: string): Promise<void> => {
   const url = new URL(rawUrl);
@@ -159,9 +170,9 @@ Deno.serve(async (_req: Request) => {
 
   const payload = (msg as { message?: Record<string, unknown> }).message ?? {};
   const parsed = ScrapeMessage.safeParse(payload);
-  
+
   if (!parsed.success) return new Response('ok', { status: 200 });
-  
+
   const { intentId, orgId, url, platform } = parsed.data;
 
   // audit_log.user_id has a foreign key to auth.users; orgId is not a valid
@@ -179,301 +190,134 @@ Deno.serve(async (_req: Request) => {
   let attemptedProvider: 'shopify-admin' | 'firecrawl' = 'firecrawl';
 
   try {
-    // Check if Shopify Admin key is configured for real catalog audit
+    // Shopify Admin key configured → run the shared catalog audit engine.
     if (platform === 'shopify') {
       const adminToken = await tryUnwrapKey(supabase, 'shopify-admin', orgId);
+      const printifyToken = (await tryUnwrapKey(supabase, 'printify', orgId)) ?? undefined;
 
       if (adminToken) {
         attemptedProvider = 'shopify-admin';
-        // Use Shopify Admin API for real catalog audit instead of scraping
-        const printifyToken = await tryUnwrapKey(supabase, 'printify', orgId) ?? undefined;
-        
-        // Call Shopify Admin directly via fetch
-        const shopDomain = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const productsQuery = `
-          query {
-            products(first: 250) {
-              edges {
-                node {
-                  id
-                  title
-                  handle
-                  productType
-                  tags
-                  vendor
-                  status
-                  images(first: 10) { edges { node { altText url } } }
-                  variants(first: 100) { edges { node { id title sku price compareAtPrice weight weightUnit } } }
-                  collections(first: 50) { edges { node { title } } }
-                }
-              }
-            }
-            shop {
-              currencyCode
-              name
-            }
-          }
-        `;
-        
-        const shopifyRes = await fetch(`https://${shopDomain}/admin/api/2024-07/graphql.json`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Shopify-Access-Token': adminToken,
-          },
-          body: JSON.stringify({ query: productsQuery }),
+
+        const audit = await runCatalogAudit({
+          storeUrl: url,
+          adminToken,
+          ...(printifyToken ? { printifyToken } : {}),
         });
-        
-        if (!shopifyRes.ok) {
-          throw new Error(`Shopify Admin API error: ${shopifyRes.status} ${shopifyRes.statusText}`);
-        }
-        
-        const shopifyData = await shopifyRes.json() as {
-          data?: {
-            products?: { edges: Array<{ node: Record<string, unknown> }> };
-            shop?: { currencyCode: string; name: string };
-          };
-          errors?: Array<{ message: string }>;
-        };
-        
-        if (shopifyData.errors?.length) {
-          throw new Error(`Shopify GraphQL errors: ${shopifyData.errors.map(e => e.message).join(', ')}`);
-        }
-        
-        const products = shopifyData.data?.products?.edges ?? [];
-        const shop = shopifyData.data?.shop;
-        
-        // Generate insights from Shopify catalog data
-        let insightCount = 0;
-        
-        // Check for products missing alt text
-        const missingAltProducts: string[] = [];
-        for (const edge of products) {
-          const node = edge.node;
-          const images = (node.images as { edges: Array<{ node: { altText: string | null } }> } | undefined)?.edges ?? [];
-          for (const imgEdge of images) {
-            if (!imgEdge.node.altText) {
-              missingAltProducts.push(String(node.title ?? 'Unknown'));
-              break;
-            }
+
+        const leakList = buildLeakList(
+          audit.rows.map((r: { margin: { priceMinCAD: number }; flags: unknown[] }) => ({
+            priceMinCAD: r.margin.priceMinCAD,
+            flags: r.flags,
+          })),
+          audit.shopCurrency,
+          {
+            ...(audit.salesSummary ? { sales: audit.salesSummary } : {}),
+            catalogFlags: audit.catalogFlags,
+          },
+        );
+        const leakTotal = totalEstimatedImpact(leakList);
+        const leakImpactByCode = new Map(leakList.map((l: { code: string; estimatedAnnualImpact: number }) => [l.code, l.estimatedAnnualImpact]));
+        const score = computeAuditScore(audit.rows);
+
+        // Aggregate flags by code → one insight per finding type.
+        const byFlag = new Map<string, { severity: 'red' | 'yellow'; products: string[] }>();
+        for (const row of audit.rows) {
+          for (const flag of row.flags) {
+            const entry = byFlag.get(flag.code) ?? { severity: flag.severity, products: [] };
+            entry.products.push(row.product.title);
+            byFlag.set(flag.code, entry);
           }
         }
-        
-        if (missingAltProducts.length > 0) {
-          const shown = missingAltProducts.slice(0, 10);
-          const remainder = missingAltProducts.length - shown.length;
+
+        for (const [code, { severity, products }] of byFlag) {
+          const desc = describeFlag(code, severity);
+          const impact = leakImpactByCode.get(code);
+          const impactSuffix = impact !== undefined && impact > 0 ? ` ~$${impact.toLocaleString()}/yr` : '';
+          const shown = products.slice(0, 3);
+          const remainder = products.length - shown.length;
           await supabase.from('insights').insert({
             org_id: orgId,
             intent_id: intentId,
-            category: 'seo',
-            severity: missingAltProducts.length > 5 ? 'high' : 'medium',
-            title: 'Product images missing alt text',
-            body: `${missingAltProducts.length} product(s) affected: ${shown.join(', ')}${remainder > 0 ? `, and ${remainder} more` : ''}. Alt text improves SEO and accessibility.`,
+            category: desc.category,
+            severity: desc.severity,
+            title: desc.title,
+            body: `${products.length} product${products.length === 1 ? '' : 's'} affected${remainder > 0 ? ` (${shown.join(', ')} + ${remainder} more)` : ''}${impactSuffix}`,
             citations: [],
-            model: 'shopify-admin-audit-v1',
+            model: 'shopify-admin-audit-v2',
             provider: 'shopify-admin',
             generated_at: new Date().toISOString(),
           });
-          insightCount++;
         }
-        
-        // Check for products missing type or tags
-        const missingTypeOrTags: string[] = [];
-        for (const edge of products) {
-          const node = edge.node;
-          const productType = String(node.productType ?? '');
-          const tags = String(node.tags ?? '');
-          if (!productType.trim() && (!tags.trim() || tags.split(',').length === 0)) {
-            missingTypeOrTags.push(String(node.title ?? 'Unknown'));
-          }
-        }
-        
-        if (missingTypeOrTags.length > 0) {
-          const shown = missingTypeOrTags.slice(0, 10);
-          const remainder = missingTypeOrTags.length - shown.length;
+
+        // Catalog-level flags (mix / assortment) — one insight per flag
+        for (const flag of audit.catalogFlags) {
+          const desc = describeFlag(flag.code, flag.severity);
           await supabase.from('insights').insert({
             org_id: orgId,
             intent_id: intentId,
-            category: 'seo',
-            severity: 'medium',
-            title: 'Products missing type or tags',
-            body: `${missingTypeOrTags.length} product(s) affected: ${shown.join(', ')}${remainder > 0 ? `, and ${remainder} more` : ''}. Product type and tags help with navigation and search.`,
+            category: desc.category,
+            severity: desc.severity,
+            title: desc.title,
+            body: flag.message.slice(0, 5000),
             citations: [],
-            model: 'shopify-admin-audit-v1',
+            model: 'shopify-admin-audit-v2',
             provider: 'shopify-admin',
             generated_at: new Date().toISOString(),
           });
-          insightCount++;
         }
-        
-        // Check for orphaned products (not in any collection)
-        const orphanedProducts: string[] = [];
-        for (const edge of products) {
-          const node = edge.node;
-          const collections = (node.collections as { edges: Array<{ node: { title: string } }> } | undefined)?.edges ?? [];
-          if (collections.length === 0) {
-            orphanedProducts.push(String(node.title ?? 'Unknown'));
-          }
-        }
-        
-        if (orphanedProducts.length > 0) {
-          const shown = orphanedProducts.slice(0, 10);
-          const remainder = orphanedProducts.length - shown.length;
+
+        // Ranked Leak List summary
+        if (leakList.length > 0) {
+          const top = leakList.slice(0, 5).map((l: { title: string; estimatedAnnualImpact: number }, i: number) => `${i + 1}. ${l.title} — ~$${l.estimatedAnnualImpact.toLocaleString()}/yr`).join('\n');
           await supabase.from('insights').insert({
-            org_id: orgId,
-            intent_id: intentId,
-            category: 'product_mix',
-            severity: 'high',
-            title: 'Products not in any collection',
-            body: `${orphanedProducts.length} product(s) affected: ${shown.join(', ')}${remainder > 0 ? `, and ${remainder} more` : ''}. Products in collections are easier to discover.`,
-            citations: [],
-            model: 'shopify-admin-audit-v1',
-            provider: 'shopify-admin',
+            org_id: orgId, intent_id: intentId, category: 'pricing',
+            severity: leakTotal >= 10000 ? 'high' : 'medium',
+            title: `Revenue Leak List — ~$${leakTotal.toLocaleString()}/yr recoverable (estimated)`,
+            body: `Ranked by estimated annual recoverable revenue:\n${top}${leakList.length > 5 ? `\n+ ${leakList.length - 5} more` : ''}\n\nEstimates use ${audit.shopCurrency} prices/margins${audit.salesSummary ? ' and real order data (AOV + order volume)' : ' and documented assumptions (read_orders not granted)'}.`,
+            citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
             generated_at: new Date().toISOString(),
           });
-          insightCount++;
         }
-        
-        // Check for variants missing weight
-        const missingWeight: string[] = [];
-        for (const edge of products) {
-          const node = edge.node;
-          const variants = (node.variants as { edges: Array<{ node: { title: string; weight: number | null } }> } | undefined)?.edges ?? [];
-          for (const varEdge of variants) {
-            if (!varEdge.node.weight || varEdge.node.weight <= 0) {
-              missingWeight.push(`${String(node.title ?? 'Unknown')} - ${String(varEdge.node.title ?? 'Default')}`);
-              break;
-            }
-          }
-        }
-        
-        if (missingWeight.length > 0) {
-          const shown = missingWeight.slice(0, 10);
-          const remainder = missingWeight.length - shown.length;
-          await supabase.from('insights').insert({
-            org_id: orgId,
-            intent_id: intentId,
-            category: 'inventory',
-            severity: 'high',
-            title: 'Variants missing weight (blocks international shipping)',
-            body: `${missingWeight.length} variant(s) affected: ${shown.join(', ')}${remainder > 0 ? `, and ${remainder} more` : ''}. Weight is required for accurate shipping calculations.`,
-            citations: [],
-            model: 'shopify-admin-audit-v1',
-            provider: 'shopify-admin',
-            generated_at: new Date().toISOString(),
-          });
-          insightCount++;
-        }
-        
-        // Fetch Printify costs if available and check margins
-        if (printifyToken && shop?.currencyCode) {
-          try {
-            // Get Printify shops
-            const printifyShopsRes = await fetch('https://api.printify.com/v1/shops.json', {
-              headers: { 'Authorization': `Bearer ${printifyToken}` },
-            });
-            
-            if (printifyShopsRes.ok) {
-              const printifyShops = await printifyShopsRes.json() as Array<{ id: string; title: string }>;
-              if (printifyShops.length > 0) {
-                const shopId = printifyShops[0].id;
-                
-                // Fetch Printify products
-                const printifyProductsRes = await fetch(`https://api.printify.com/v1/shops/${shopId}/products.json`, {
-                  headers: { 'Authorization': `Bearer ${printifyToken}` },
-                });
-                
-                if (printifyProductsRes.ok) {
-                  const printifyProducts = await printifyProductsRes.json() as Array<{
-                    id: string;
-                    title: string;
-                    variants: Array<{ id: string; cost: number; currency: string }>;
-                  }>;
-                  
-                  // Build cost lookup by title match
-                  const costByTitle = new Map<string, number>();
-                  for (const pp of printifyProducts) {
-                    const variant = pp.variants[0];
-                    if (variant) {
-                      costByTitle.set(pp.title.toLowerCase(), variant.cost);
-                    }
-                  }
-                  
-                  // Check for unlinked costs
-                  const unlinkedCostProducts: string[] = [];
-                  for (const edge of products) {
-                    const node = edge.node;
-                    const title = String(node.title ?? '').toLowerCase();
-                    if (!costByTitle.has(title)) {
-                      unlinkedCostProducts.push(String(node.title ?? 'Unknown'));
-                    }
-                  }
-                  
-                  if (unlinkedCostProducts.length > 0) {
-                    const shown = unlinkedCostProducts.slice(0, 10);
-                    const remainder = unlinkedCostProducts.length - shown.length;
-                    await supabase.from('insights').insert({
-                      org_id: orgId,
-                      intent_id: intentId,
-                      category: 'pricing',
-                      severity: 'medium',
-                      title: 'Products with no matched Printify cost',
-                      body: `${unlinkedCostProducts.length} product(s) affected: ${shown.join(', ')}${remainder > 0 ? `, and ${remainder} more` : ''}. Connect these products to Printify for cost tracking.`,
-                      citations: [],
-                      model: 'shopify-admin-audit-v1',
-                      provider: 'shopify-admin',
-                      generated_at: new Date().toISOString(),
-                    });
-                    insightCount++;
-                  }
-                }
-              }
-            }
-          } catch (err) {
-            // Printify fetch failed — continue without cost data
-            console.warn(`Printify fetch failed: ${String(err)}`);
-          }
-        }
-        
+
         // Summary insight
         await supabase.from('insights').insert({
           org_id: orgId,
           intent_id: intentId,
           category: 'positioning',
           severity: 'low',
-          title: `Shopify catalog audit complete`,
-          body: `Analyzed ${products.length} products from ${shop?.name ?? shopDomain}. Found ${insightCount} issue categories requiring attention. Currency: ${shop?.currencyCode ?? 'USD'}.`,
+          title: `Shopify catalog audit complete (score ${score}/100)`,
+          body: `Analyzed ${audit.totalProducts} products from ${audit.shop.name ?? url}. Found ${byFlag.size} finding categories. Currency: ${audit.shopCurrency}.`,
           citations: [],
-          model: 'shopify-admin-audit-v1',
+          model: 'shopify-admin-audit-v2',
           provider: 'shopify-admin',
           generated_at: new Date().toISOString(),
         });
-        
+
         // Mark intent succeeded
         await supabase.from('intents').update({
           status: 'succeeded',
           updated_at: new Date().toISOString(),
         }).eq('id', intentId);
-        
+
         // Audit
         await supabase.from('audit_log').insert({
           org_id: orgId, user_id: userId,
           action: 'analyze.shopify_catalog', outcome: 'success',
           input_hash: await sha256Hex(url), provider: 'shopify-admin',
           duration_ms: Date.now() - startMs,
-          metadata: { totalProducts: products.length, shopName: shop?.name ?? shopDomain },
+          metadata: { totalProducts: audit.totalProducts, shopName: audit.shop.name ?? url, score },
         });
-        
+
         // Archive the message
         await supabase.rpc('archive_message', {
           p_queue_name: 'q:scrape',
           p_msg_id: (msg as { msg_id: number }).msg_id,
         });
-        
+
         return new Response('ok', { status: 200 });
       }
     }
-    
+
     // No Shopify Admin key — fall back to Firecrawl scraping
     const result = await scrapeWithFirecrawl(supabase, orgId, url);
     const urlHash = await sha256Hex(url);

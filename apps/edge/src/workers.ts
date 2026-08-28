@@ -10,7 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@steadyflow/db';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { runCatalogAudit, computeAuditScore, buildProductFinding, buildLeakList, totalEstimatedImpact, analyzeStorefrontHtml, type FlagCode } from '@steadyflow/shopify-admin';
+import { runCatalogAudit, computeAuditScore, buildProductFinding, buildLeakList, totalEstimatedImpact, analyzeStorefrontHtml, FLAG_CATEGORY, FLAG_TITLE, FLAG_SEVERITY, type FlagCode } from '@steadyflow/shopify-admin';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -332,84 +332,6 @@ export const proxyLlm = async (
 };
 
 // ── Real Shopify Admin + Printify catalog analysis ─────────────────────────
-
-const FLAG_CATEGORY: Record<FlagCode, string> = {
-  low_margin: 'pricing',
-  margin_negative: 'pricing',
-  price_spread: 'pricing',
-  on_sale: 'pricing',
-  unlinked_cost: 'pricing',
-  missing_alt_text: 'seo',
-  no_alt_text_on_any_image: 'seo',
-  missing_seo_title: 'seo',
-  missing_seo_description: 'seo',
-  seo_title_too_short: 'seo',
-  seo_description_too_short: 'seo',
-  short_description: 'conversion',
-  only_one_image: 'conversion',
-  missing_type_or_tags: 'seo',
-  missing_weight: 'inventory',
-  out_of_stock: 'inventory',
-  orphaned: 'product_mix',
-  no_vendor: 'product_mix',
-  fx_fallback: 'trend',
-  // Phase A3 — new audit modules
-  mix_undifferentiated: 'product_mix',
-  mix_lopsided: 'product_mix',
-  mix_single_collection: 'product_mix',
-  conversion_no_barcode: 'conversion',
-  conversion_no_sku: 'conversion',
-  conversion_long_title: 'conversion',
-  conversion_high_price_no_compare_at: 'conversion',
-  inventory_low_stock: 'inventory',
-  inventory_overselling: 'inventory',
-  inventory_continue_when_out: 'inventory',
-  marketing_no_tags: 'marketing',
-  marketing_no_description: 'marketing',
-  marketing_never_published: 'marketing',
-  marketing_no_compare_at_range: 'marketing',
-};
-
-const FLAG_TITLE: Record<FlagCode, string> = {
-  low_margin: 'Products with thin margins (<35%)',
-  margin_negative: 'Products with negative margins',
-  missing_alt_text: 'Product images missing alt text',
-  short_description: 'Product descriptions are too short',
-  missing_type_or_tags: 'Products missing type or tags',
-  missing_weight: 'Variants missing weight (blocks international shipping)',
-  orphaned: 'Products not in any collection',
-  unlinked_cost: 'Products with no matched Printify cost',
-  price_spread: 'Wide price spread across variants',
-  fx_fallback: 'FX rate fetch failed during this audit',
-  missing_seo_title: 'Products with no SEO title',
-  missing_seo_description: 'Products with no SEO meta description',
-  seo_title_too_short: 'SEO titles too short (<30 chars)',
-  seo_description_too_short: 'SEO meta descriptions too short (<100 chars)',
-  only_one_image: 'Products with only one image',
-  no_alt_text_on_any_image: 'Products with zero alt text on any image',
-  out_of_stock: 'Products that are out of stock',
-  on_sale: 'Products currently on sale (compare-at pricing)',
-  no_vendor: 'Products with no vendor/brand',
-  mix_undifferentiated: 'Near-duplicate products (cannibalization)',
-  mix_lopsided: 'Catalog dominated by one product type',
-  mix_single_collection: 'All products in one collection',
-  conversion_no_barcode: 'No barcode on any variant',
-  conversion_no_sku: 'No SKU on any variant',
-  conversion_long_title: 'Product title too long',
-  conversion_high_price_no_compare_at: 'High price with no compare-at anchor',
-  inventory_low_stock: 'Inventory low (≤5 units)',
-  inventory_overselling: 'Tracking disabled but variants at 0 stock',
-  inventory_continue_when_out: 'Inventory policy CONTINUE with 0 stock',
-  marketing_no_tags: 'Products with no tags',
-  marketing_no_description: 'Products with empty or very short descriptions',
-  marketing_never_published: 'Active products never published',
-  marketing_no_compare_at_range: 'No compare-at price range',
-};
-
-const FLAG_SEVERITY: Record<'red' | 'yellow', 'high' | 'medium'> = {
-  red: 'high',
-  yellow: 'medium',
-};
 
 interface PageSeoSignals {
   hasMetaDescription: boolean;
@@ -916,9 +838,9 @@ const analyzeShopifyCatalog = async (
       if (storefront.imagesWithoutDimensions > 0) parts.push(`${storefront.imagesWithoutDimensions}/${storefront.totalImages} image(s) without width/height`);
       await ctx.supabase.from('insights').insert({
         org_id: ctx.orgId, intent_id: intentId, category: 'conversion',
-        severity: storefront.lcpRisk === 'high' ? 'high' : 'medium',
+        severity: storefront.renderBlockingRisk === 'high' ? 'high' : 'medium',
         title: `Speed & friction: ${storefront.inefficiencyScore}/100 friction score`,
-        body: `${parts.join('; ')}. LCP risk: ${storefront.lcpRisk}, CLS risk: ${storefront.clsRisk}. These are static proxies for Core Web Vitals — render-blocking JS and undimensioned images are the most common causes of slow LCP and layout shift.`,
+        body: `${parts.join('; ')}. Render-blocking risk: ${storefront.renderBlockingRisk}, layout-shift risk: ${storefront.layoutShiftRisk}. These are static proxies for Core Web Vitals — render-blocking JS and undimensioned images are the most common causes of slow LCP and layout shift.`,
         citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
         generated_at: new Date().toISOString(),
       });

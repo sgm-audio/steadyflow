@@ -48,7 +48,7 @@ describe('analyzeStorefrontHtml', () => {
     expect(a.totalImages).toBe(2);
     expect(a.imagesWithoutDimensions).toBe(1);
     expect(a.hasPreload).toBe(false);
-    expect(a.lcpRisk).toBe('high'); // missing preload
+    expect(a.renderBlockingRisk).toBe('high'); // missing preload
   });
 
   it('detects preload and sets lower LCP risk', () => {
@@ -59,13 +59,13 @@ describe('analyzeStorefrontHtml', () => {
     `;
     const a = analyzeStorefrontHtml(html, STORE);
     expect(a.hasPreload).toBe(true);
-    expect(a.lcpRisk).toBe('low');
+    expect(a.renderBlockingRisk).toBe('low');
   });
 
   it('raises CLS risk when most images lack dimensions', () => {
     const html = `<html><head></head><body><img src="a.jpg"><img src="b.jpg"></body></html>`;
     const a = analyzeStorefrontHtml(html, STORE);
-    expect(a.clsRisk).toBe('high');
+    expect(a.layoutShiftRisk).toBe('high');
     expect(a.inefficiencyScore).toBeGreaterThan(0);
   });
 

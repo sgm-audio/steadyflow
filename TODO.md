@@ -31,10 +31,21 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 ## Workstreams
 
 ### Phase A — SteadyFlow trim
-- [x] ~~A1. Collapse worktrees~~ → **BLOCKED**: `steadyflow-pr-a…e` are untracked copies, not worktrees. Needs user diff + decision before removal.
-- [ ] A2. Dead-code trim (commerce adapters + stubbed mutations) — **Agent S7**
-- [ ] A3. Contract drift fix (category enum → 12, `findingCount` derived) — **Agent S2**
-- [ ] A4. Docs hygiene (Drizzle claim, Hunter.io refs, package paths, @experimental labels) — **Agent S1**
+- [ ] A1. Collapse worktrees → **BLOCKED**: `steadyflow-pr-a…e` are now committed (d733c8e) but still need user diff + decision before removal.
+- [x] A2. Dead-code trim (commerce adapters + stubbed mutations) — done, `689e3c9`
+- [x] A3. Contract drift fix (category enum → 12, `findingCount` derived) — done, `689e3c9`
+- [x] A4. Docs hygiene (Drizzle claim, Hunter.io refs, package paths, @experimental labels) — verified clean; fixed stale `@steadyflow/contracts` comment in `procedures.ts`
+
+### Phase A+ — CEO-review engineering locks (this session)
+- [x] S7 Integrity — CWV proxy fields renamed (`renderBlockingRisk`/`layoutShiftRisk`); orphaned `jest.config.js` deleted
+- [x] S4 Named LLM errors — `LlmEmptyResponseError`/`LlmMalformedJsonError`/`LlmRefusalError` + tests
+- [x] S2 200-pt rubric — `packages/shopify-admin/src/audit/rubric.ts` (12 categories, grade bands, critical-cap)
+- [x] S3 Rubric-as-source — `impact.ts` LeakItem gains `rubricCategory`; `computeAuditScore` delegates to rubric
+- [x] S5 SSRF guard — `packages/core/src/net/ssrf.ts` `assertSafeFetchUrl` + tests
+- [x] S8 Runbook — `docs/runbooks/audit-pipeline.md`
+- [x] S1 Deno parity — vendor mechanism (`pnpm vendor:shopify-admin`), `findings.ts` single-source, `workers-scrape` imports shared engine, `core-shim` SHA-256 fix. **Verified** via `functions serve --no-verify-jwt` (bundles + runs, HTTP 200). Remaining mirror (non-core): `store_profiles`/`product_findings`/homepage-SEO/storefront still Node-only.
+- [ ] S6 Recurring-audit diff — persist/version leak list (needs `score_history` migration, B5)
+- [ ] S10 Delight — copy-leak-list, per-leak time-to-fix chip, Printify-cost headline (UI)
 
 ### Phase B — SteadyFlow audit-gap closes (7 additions)
 - [ ] B1. PSI/CrUX field-data fetcher — **Agent S3**

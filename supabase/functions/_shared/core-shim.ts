@@ -50,17 +50,45 @@ export interface BuildAuditEventInput {
   metadata?: Record<string, unknown>;
 }
 
-/** Simple synchronous 64-char hex hash for audit_log constraint.
- *  Not cryptographically secure — just needs to be 64 hex chars. */
-const simpleHash = (input: string): string => {
-  const arr = new TextEncoder().encode(input);
-  const h = Array.from(arr).reduce((acc, b, i) => ((acc << 5) - acc + b) ^ (i * 0x9e3779b9), 0x6c62272e);
-  const pad = Math.abs(h).toString(16).padStart(16, '0');
-  return (pad + pad + pad + pad).slice(0, 64);
+/**
+ * SHA-256 of a redacted input, matching @steadyflow/core's `hashObject`
+ * (SHA-256 over stable-sorted-key JSON of redacted input). Web Crypto is
+ * available in both Deno and Node, so the Deno audit_log `input_hash` stays
+ * identical to the Node worker's — no drift.
+ */
+const sha256Hex = async (input: string): Promise<string> => {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 };
 
-export const buildAuditEvent = (input: BuildAuditEventInput) => {
-  const inputHash = simpleHash(JSON.stringify(input, Object.keys(input).sort()));
+/** Stable JSON serialization with sorted keys (matches core `stableStringify`). */
+const stableStringify = (value: unknown): string => {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`;
+};
+
+const SECRET_KEY_PATTERNS = [
+  /^api[_-]?key$/i, /^key$/i, /^token$/i, /^secret$/i, /^password$/i, /^pass$/i,
+  /^authorization$/i, /^bearer$/i, /^cookie$/i, /^session[_-]?id$/i, /^private[_-]?key$/i,
+];
+const REDACTED = '[REDACTED]';
+
+const redactSecrets = <T>(value: T): T => {
+  if (value === null || value === undefined || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((v) => redactSecrets(v)) as T;
+  const obj = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    out[k] = SECRET_KEY_PATTERNS.some((re) => re.test(k)) ? REDACTED : redactSecrets(v);
+  }
+  return out as T;
+};
+
+export const buildAuditEvent = async (input: BuildAuditEventInput) => {
+  const inputHash = await sha256Hex(stableStringify(redactSecrets(input.input)));
   return {
     id: crypto.randomUUID(),
     orgId: input.orgId,
