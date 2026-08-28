@@ -14,6 +14,8 @@ import { evaluateMixFlags } from './audit/mix.js';
 import { evaluateConversionFlags } from './audit/conversion.js';
 import { evaluateInventoryFlags } from './audit/inventory.js';
 import { evaluateMarketingFlags } from './audit/marketing.js';
+import { aggregateFlags } from './audit/impact.js';
+import { scoreRubric, RUBRIC_TOTAL_POINTS } from './audit/rubric.js';
 import { formatError } from './util/redact.js';
 
 export interface CatalogAuditOptions {
@@ -172,18 +174,18 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
   };
 }
 
-/** Compute a 0-100 audit score from the rows. */
+/**
+ * Compute a 0-100 audit score from the rows.
+ *
+ * Single scoring model: the score is the 200-pt rubric normalized to 0-100.
+ * There is no separate ad-hoc penalty — the rubric is the one source of truth
+ * for how a store is graded, and the dashboard score is derived from it.
+ */
 export function computeAuditScore(rows: AuditRow[]): number {
   if (rows.length === 0) return 100;
-  let penalty = 0;
-  const maxPenalty = rows.length * 10;
-  for (const row of rows) {
-    const reds = row.flags.filter((f) => f.severity === 'red').length;
-    const yellows = row.flags.filter((f) => f.severity === 'yellow').length;
-    penalty += reds * 3 + yellows;
-  }
-  const raw = Math.max(0, 100 - Math.round((penalty / maxPenalty) * 100));
-  return raw;
+  const aggregated = aggregateFlags(rows.map((r) => ({ flags: r.flags })), []);
+  const rubric = scoreRubric(aggregated, rows.length);
+  return Math.round((rubric.totalScore / RUBRIC_TOTAL_POINTS) * 100);
 }
 
 /** Build a per-product findings object suitable for the product_findings table. */
@@ -253,6 +255,20 @@ export {
   TARGET_MARGIN_PCT,
 } from './audit/impact.js';
 export type { LeakContext, LeakItem } from './audit/impact.js';
+export {
+  scoreRubric,
+  gradeFor,
+  FLAG_TO_RUBRIC,
+  RUBRIC_CATEGORIES,
+  RUBRIC_TOTAL_POINTS,
+} from './audit/rubric.js';
+export type {
+  RubricCategoryId,
+  RubricCategory,
+  RubricResult,
+  CategoryScore,
+  Grade,
+} from './audit/rubric.js';
 export { analyzeStorefrontHtml } from './storefront.js';
 export type { StorefrontAnalysis, HostSummary } from './storefront.js';
 export type {

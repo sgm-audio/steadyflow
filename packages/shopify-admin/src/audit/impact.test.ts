@@ -89,8 +89,8 @@ describe('buildLeakList', () => {
 describe('totalEstimatedImpact', () => {
   it('sums the leak list', () => {
     const items = [
-      { code: 'low_margin' as const, title: 't', severity: 'high' as const, affectedCount: 1, estimatedAnnualImpact: 100, basis: '' },
-      { code: 'missing_alt_text' as const, title: 't', severity: 'medium' as const, affectedCount: 1, estimatedAnnualImpact: 50, basis: '' },
+      { code: 'low_margin' as const, title: 't', severity: 'high' as const, affectedCount: 1, rubricCategory: 'cost_margin' as const, estimatedAnnualImpact: 100, basis: '' },
+      { code: 'missing_alt_text' as const, title: 't', severity: 'medium' as const, affectedCount: 1, rubricCategory: 'technical_seo' as const, estimatedAnnualImpact: 50, basis: '' },
     ];
     expect(totalEstimatedImpact(items)).toBe(150);
   });

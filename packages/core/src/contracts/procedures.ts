@@ -4,8 +4,8 @@ import { z } from 'zod';
  * tRPC-style procedure definitions.
  *
  * These are the canonical contracts between clients (web, desktop, extension)
- * and the Edge Function BFF. The OpenAPI generator in @steadyflow/contracts
- * reads these to produce the SDK.
+ * and the Edge Function BFF. They are the single source of truth for the API
+ * surface; the internal typed client in apps/web consumes them directly.
  *
  * Every input/output is a Zod schema. Every procedure declares its auth
  * requirement and rate-limit class.

@@ -1,4 +1,5 @@
 import type { Flag, FlagCode } from './flags.js';
+import { FLAG_TO_RUBRIC, type RubricCategoryId } from './rubric.js';
 
 /**
  * Deterministic revenue-impact estimation for the "Revenue Leak Audit".
@@ -41,6 +42,8 @@ export interface LeakItem {
   title: string;
   severity: 'high' | 'medium';
   affectedCount: number;
+  /** Rubric category this flag belongs to (single source: `rubric.ts`). */
+  rubricCategory: RubricCategoryId;
   /** Estimated recoverable annual revenue in the store currency (integer). */
   estimatedAnnualImpact: number;
   /** Human-readable explanation of the estimate's inputs and assumptions. */
@@ -200,6 +203,7 @@ export const buildLeakList = (
       title: FLAG_TITLE[code],
       severity,
       affectedCount,
+      rubricCategory: FLAG_TO_RUBRIC[code],
       estimatedAnnualImpact,
       basis: `Baseline: $${context.averageOrderValue.toFixed(2)} AOV × ${context.monthlyOrders} orders/month (${sourceNote}) = $${Math.round(annualBaseline).toLocaleString()}/yr. Applies a ${(coefficient * 100).toFixed(1)}% recoverable-revenue share across ${affectedCount}/${context.productCount} affected products.`,
     });

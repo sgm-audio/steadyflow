@@ -916,9 +916,9 @@ const analyzeShopifyCatalog = async (
       if (storefront.imagesWithoutDimensions > 0) parts.push(`${storefront.imagesWithoutDimensions}/${storefront.totalImages} image(s) without width/height`);
       await ctx.supabase.from('insights').insert({
         org_id: ctx.orgId, intent_id: intentId, category: 'conversion',
-        severity: storefront.lcpRisk === 'high' ? 'high' : 'medium',
+        severity: storefront.renderBlockingRisk === 'high' ? 'high' : 'medium',
         title: `Speed & friction: ${storefront.inefficiencyScore}/100 friction score`,
-        body: `${parts.join('; ')}. LCP risk: ${storefront.lcpRisk}, CLS risk: ${storefront.clsRisk}. These are static proxies for Core Web Vitals — render-blocking JS and undimensioned images are the most common causes of slow LCP and layout shift.`,
+        body: `${parts.join('; ')}. Render-blocking risk: ${storefront.renderBlockingRisk}, layout-shift risk: ${storefront.layoutShiftRisk}. These are static proxies for Core Web Vitals — render-blocking JS and undimensioned images are the most common causes of slow LCP and layout shift.`,
         citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
         generated_at: new Date().toISOString(),
       });

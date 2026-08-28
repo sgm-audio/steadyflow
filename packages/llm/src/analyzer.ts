@@ -7,6 +7,11 @@
 
 import type { LlmAdapter } from './adapter.js';
 import type { Insight } from './insight-types.js';
+import {
+  LlmEmptyResponseError,
+  LlmMalformedJsonError,
+  LlmRefusalError,
+} from './errors.js';
 
 export interface AnalyzeRequest {
   /** The scraped markdown content of the shop page. */
@@ -68,14 +73,22 @@ export const analyzeShop = async (
     { jsonMode: true, temperature: 0.3, maxTokens: 4096 },
   );
 
-  // Parse the structured response
+  const content = response.content.trim();
+  if (content.length === 0) {
+    throw new LlmEmptyResponseError();
+  }
+  if (response.finishReason === 'error') {
+    throw new LlmRefusalError();
+  }
+
+  // Parse the structured response — a malformed/refused body is a named failure,
+  // not a silent empty result.
   let rawInsights: unknown[];
   try {
-    const parsed = JSON.parse(response.content) as { insights?: unknown[] };
+    const parsed = JSON.parse(content) as { insights?: unknown[] };
     rawInsights = parsed.insights ?? [];
   } catch {
-    // If JSON parse fails, return empty — the worker will create a fallback
-    rawInsights = [];
+    throw isRefusal(content) ? new LlmRefusalError() : new LlmMalformedJsonError();
   }
 
   // Map to typed Insight objects
@@ -113,6 +126,22 @@ const validCategory = (c: string): string => {
   const categories = ['pricing', 'positioning', 'product_mix', 'marketing', 'seo', 'conversion', 'inventory', 'trend'];
   return categories.includes(c) ? c : 'positioning';
 };
+
+/**
+ * Detect a safety/policy refusal in a non-JSON response body. Applied only
+ * after JSON parsing fails, so a legitimate JSON payload is never misread.
+ */
+const isRefusal = (content: string): boolean =>
+  REFUSAL_PATTERNS.some((re) => re.test(content));
+
+const REFUSAL_PATTERNS: readonly RegExp[] = [
+  /I cannot/i,
+  /I can't/i,
+  /I am not able/i,
+  /as an AI/i,
+  /I'm sorry, but I/i,
+  /against my (?:content|safety|policy) /i,
+];
 
 const validSeverity = (s: string): Insight['severity'] => {
   const severities: Insight['severity'][] = ['low', 'medium', 'high'];

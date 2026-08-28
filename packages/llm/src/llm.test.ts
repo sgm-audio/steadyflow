@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { DeepseekAdapter } from './adapters/deepseek.js';
 import { analyzeShop, computeConfidence } from './analyzer.js';
+import {
+  LlmEmptyResponseError,
+  LlmMalformedJsonError,
+  LlmRefusalError,
+} from './errors.js';
 import type { LlmAdapter } from './adapter.js';
 
 // Mock adapter that returns predictable responses
@@ -60,19 +65,60 @@ describe('analyzeShop', () => {
     expect(result.provider).toBe('mock');
   });
 
-  it('handles empty LLM response', async () => {
-    const emptyAdapter: LlmAdapter = {
-      provider: 'empty',
+  it('throws LlmMalformedJsonError on non-JSON response', async () => {
+    const badAdapter: LlmAdapter = {
+      provider: 'bad',
       chat: () => Promise.resolve({
         content: 'not json',
         model: 'test', inputTokens: 0, outputTokens: 0, finishReason: 'stop',
       }),
     };
 
-    const result = await analyzeShop(emptyAdapter, {
+    await expect(analyzeShop(badAdapter, {
       content: 'x', url: 'x', sourceId: 'x', platform: 'shopify',
-    });
-    expect(result.insights).toHaveLength(0);
+    })).rejects.toBeInstanceOf(LlmMalformedJsonError);
+  });
+
+  it('throws LlmEmptyResponseError on empty content', async () => {
+    const emptyAdapter: LlmAdapter = {
+      provider: 'empty',
+      chat: () => Promise.resolve({
+        content: '   ',
+        model: 'test', inputTokens: 0, outputTokens: 0, finishReason: 'stop',
+      }),
+    };
+
+    await expect(analyzeShop(emptyAdapter, {
+      content: 'x', url: 'x', sourceId: 'x', platform: 'shopify',
+    })).rejects.toBeInstanceOf(LlmEmptyResponseError);
+  });
+
+  it('throws LlmRefusalError on refusal text', async () => {
+    const refusalAdapter: LlmAdapter = {
+      provider: 'refusal',
+      chat: () => Promise.resolve({
+        content: "I'm sorry, but I cannot analyze this store.",
+        model: 'test', inputTokens: 0, outputTokens: 0, finishReason: 'stop',
+      }),
+    };
+
+    await expect(analyzeShop(refusalAdapter, {
+      content: 'x', url: 'x', sourceId: 'x', platform: 'shopify',
+    })).rejects.toBeInstanceOf(LlmRefusalError);
+  });
+
+  it('throws LlmRefusalError on finishReason=error', async () => {
+    const errorAdapter: LlmAdapter = {
+      provider: 'error',
+      chat: () => Promise.resolve({
+        content: JSON.stringify({ insights: [] }),
+        model: 'test', inputTokens: 0, outputTokens: 0, finishReason: 'error',
+      }),
+    };
+
+    await expect(analyzeShop(errorAdapter, {
+      content: 'x', url: 'x', sourceId: 'x', platform: 'shopify',
+    })).rejects.toBeInstanceOf(LlmRefusalError);
   });
 
   it('caps insights at 5', async () => {
