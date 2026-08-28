@@ -1,3 +1,0 @@
-{
-  "*.{js,ts,tsx,jsx,mjs,cjs,json,yml,yaml,md,sql}": ["prettier --write"]
-}
