@@ -84,3 +84,8 @@ htmlcov/
 
 graphify-out/
 apps/web/test-results/
+
+# Git worktree / parallel-agent snapshots — never commit into main
+steadyflow-pr-*/
+# Agent scratch / writing-block session files
+writing-block*.md
