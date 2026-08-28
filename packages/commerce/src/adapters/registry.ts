@@ -7,13 +7,6 @@ import type {
 import type { DistributorAdapter, FulfillmentAdapter, SellingPlatformAdapter } from './types.js';
 import { createShopifySellingAdapter } from './shopify/selling.js';
 import { createPrintifyFulfillmentAdapter } from './printify/fulfillment.js';
-import { createAmazonSellingAdapter } from './amazon/selling.js';
-import {
-  AmazonFbaFulfillmentAdapter,
-  AmazonFbmFulfillmentAdapter,
-} from './amazon/fulfillment.js';
-import { createAlibabaDistributorAdapter } from './alibaba/distributor.js';
-import { createWooCommerceSellingAdapter } from './woocommerce/selling.js';
 
 export interface CommerceCredentials {
   'shopify-admin'?: string | undefined;
@@ -68,28 +61,12 @@ export function createCommerceRegistry(opts: CreateCommerceRegistryOptions): Com
         }
         break;
       }
-      case 'amazon': {
-        const adapter = createAmazonSellingAdapter({
-          ...(channel.region ? { region: channel.region } : {}),
-          ...(credentials['amazon-sp-api']
-            ? { refreshToken: credentials['amazon-sp-api'] }
-            : {}),
-        });
-        selling.set('amazon', adapter);
-        stubAdapters.push('amazon');
-        break;
-      }
-      case 'woocommerce': {
-        const adapter = createWooCommerceSellingAdapter({
-          ...(channel.storeUrl ? { storeUrl: channel.storeUrl } : {}),
-        });
-        selling.set('woocommerce', adapter);
-        stubAdapters.push('woocommerce');
-        break;
-      }
+      case 'amazon':
+      case 'woocommerce':
       case 'etsy': {
-        // Etsy Open API not yet scaffolded — register nothing until stub lands.
-        stubAdapters.push('etsy');
+        // v0.x trim: experimental selling platforms not instantiated.
+        // Keep config validation but do not construct stub adapters.
+        stubAdapters.push(channel.platform);
         break;
       }
       default: {
@@ -120,18 +97,11 @@ export function createCommerceRegistry(opts: CreateCommerceRegistryOptions): Com
         }
         break;
       }
-      case 'amazon-fba': {
-        fulfillment.set('amazon-fba', new AmazonFbaFulfillmentAdapter());
-        stubAdapters.push('amazon-fba');
-        break;
-      }
-      case 'amazon-fbm': {
-        fulfillment.set('amazon-fbm', new AmazonFbmFulfillmentAdapter());
-        stubAdapters.push('amazon-fbm');
-        break;
-      }
+      case 'amazon-fba':
+      case 'amazon-fbm':
       case 'manual': {
-        stubAdapters.push('manual');
+        // v0.x trim: experimental fulfillment not instantiated.
+        stubAdapters.push(channel.provider);
         break;
       }
       default: {
@@ -145,21 +115,10 @@ export function createCommerceRegistry(opts: CreateCommerceRegistryOptions): Com
     if (!channel.enabled) continue;
 
     switch (channel.provider) {
-      case 'alibaba': {
-        distributors.set(
-          'alibaba',
-          createAlibabaDistributorAdapter({
-            ...(channel.preferredCurrency
-              ? { preferredCurrency: channel.preferredCurrency }
-              : {}),
-          }),
-        );
-        stubAdapters.push('alibaba');
-        break;
-      }
+      case 'alibaba':
       case 'printify': {
-        // Cost catalog remains in shopify-admin; distributor role reserved for PO handoff.
-        stubAdapters.push('printify-distributor');
+        // v0.x trim: distributors not instantiated (Printify cost lives in shopify-admin).
+        stubAdapters.push(channel.provider === 'printify' ? 'printify-distributor' : channel.provider);
         break;
       }
       default: {
