@@ -1,32 +1,11 @@
 # SteadyFlow
 
-Private pilot, auditable Shopify revenue-optimization platform.
+An auditable, multi-platform **Shopify revenue-optimization platform**.
 
-**Primary platforms:** Shopify + Printify (fulfillment)
-**Status:** Active development — v0.x internal pilot (not yet public v1.0.0)
-**Validation account:** Making Madi
-
-Multi-platform adapters live in `packages/commerce`. **Experimental adapters** (Amazon, WooCommerce, Alibaba, Etsy) are not yet production-ready. Scaffold storefronts/themes with:
-
-```bash
-pnpm scaffold:shopify-theme ./themes/my-theme
-pnpm scaffold:shopify-app ./apps/my-shopify-app
-pnpm scaffold:wp-plugin ./wp/plugins/sf-bridge
-pnpm scaffold:wp-theme ./wp/themes/sf-store
-```
-
-## Non-negotiable constraints
-
-- TypeScript strict mode + Zod validation on every boundary
-- Supabase (Postgres + RLS + Edge Functions) as single source of truth
-- BYOK for all LLM calls (encrypted key envelopes, never plaintext at rest)
-- Firecrawl primary, Playwright secondary (authenticated flows only)
-- Tavily for enrichment (Hunter.io removed — see migration 20260712000004)
-- Chrome MV3 extension (experimental) + web dashboard sharing a common core package
-  (Tauri v2 desktop shell is experimental — see `apps/desktop`)
-- Security: OS keychain, RLS, audit logs, proxy support
-  (rate limiting: `rate_limit_take` RPC called from provider handlers in `_shared/rateLimit.ts`)
-- Code must be auditable: every external action logged with user_id, timestamp, input hash, outcome
+- **Primary platforms:** Shopify + Printify (fulfillment)
+- **Status:** v0.x internal pilot (not yet public v1.0.0)
+- **Validation account:** Making Madi
+- **Single source of truth:** Supabase (Postgres + RLS + Edge Functions)
 
 ## Architecture
 
@@ -37,22 +16,17 @@ pnpm scaffold:wp-theme ./wp/themes/sf-store
 └────────┬────────┘  └────────┬────────┘
          │                   │
          └─── @steadyflow/core (TS, shared) ──┘
-                              │
-                              ▼
-                    Supabase (single source of truth)
-                    ├── Postgres + RLS (every table)
-                    ├── Auth (Supabase Auth)
-                    ├── Storage (scraped artifacts)
-                    ├── pgmq (queues)
-                    └── Edge Functions (BFF + workers)
-                              │
-            ┌─────────────────┼─────────────────┐
-            ▼                 ▼                 ▼
-       Firecrawl          Tavily           LLM
-       (BYOK proxy)       (BYOK proxy)     (BYOK proxy)
+                          │
+                          ▼
+                Supabase (single source of truth)
+                ├── Postgres + RLS (every table)
+                ├── Auth · Storage · pgmq (queues)
+                └── Edge Functions (BFF + workers)
+                          │
+        ┌─────────────────┼─────────────────┐
+        ▼                 ▼                 ▼
+   Firecrawl          Tavily           LLM (BYOK)
 ```
-
-**Experimental surfaces** (not in v0.x scope): Tauri v2 desktop shell, Amazon SP-API, WooCommerce, Alibaba, Etsy adapters.
 
 ## Repo layout
 
@@ -61,90 +35,68 @@ steadyflow/
 ├── apps/
 │   ├── edge/          # Supabase Edge Functions (BFF + workers)
 │   ├── web/           # Next.js dashboard
-│   ├── desktop/       # Tauri v2 shell — EXPERIMENTAL, not in v0.x scope
+│   ├── desktop/       # Tauri v2 shell — EXPERIMENTAL
 │   └── extension/     # Chrome MV3 capture — EXPERIMENTAL
 ├── packages/
-│   ├── core/          # Zod schemas, audit hashing, crypto helpers, contracts
-│   ├── db/            # Generated Supabase types (Drizzle ORM not implemented)
-│   ├── llm/           # LLM adapter pattern (OpenAI-compatible providers)
+│   ├── core/          # Zod schemas, audit hashing, crypto, contract definitions ← START HERE
+│   ├── db/            # Generated Supabase types
+│   ├── llm/           # LLM adapter pattern (OpenAI-compatible)
 │   ├── shopify-admin/ # Shopify Admin GraphQL + Printify cost audit
-│   └── commerce/      # Multi-platform adapters (Shopify/Printify live; others experimental)
-├── supabase/
-│   ├── migrations/    # Database migrations
-│   ├── functions/     # Edge Functions (Deno)
-│   └── scripts/       # Database scripts
-├── tooling/
-│   └── devkit/        # Shopify + WordPress scaffolding CLI
+│   └── commerce/      # Multi-platform adapters (Shopify/Printify live)
+├── supabase/          # migrations, functions (Deno), scripts
+├── tooling/devkit/    # Shopify + WordPress scaffolding CLI
 └── turbo.json
 ```
 
-**Note:** The following do NOT exist and should not be referenced:
-- `packages/crypto/` — crypto lives in `packages/core/src/crypto/`
-- `packages/sdk/` — removed (internal client only, not public)
-- `packages/contracts/` — removed (contracts live in `packages/core/src/contracts/`)
-- `infra/supabase/` — Supabase config lives under `supabase/`
+> Removed and not to be referenced: `packages/crypto/` (→ `core/src/crypto/`), `packages/sdk/`, `packages/contracts/` (→ `core/src/contracts/`).
 
-## Daily workflow
+## Contracts (the API surface)
 
-Works the same on **Windows (PowerShell)**, macOS, and Linux.
+Procedure definitions live in `packages/core/src/contracts/procedures.ts`. The `Router` type in `router.ts` is the single source of truth — 11 procedures: `intel.analyzeShop`, `insights.list`, `audit.query`, `keys.set`, `keys.list`, `keys.test`, `org.llmConfig.get`, `org.llmConfig.set`, `intent.cancel`, `intent.list`, `report.generate`.
 
-### Once (machine setup)
+Every procedure declares `auth`, `rateLimit`, `idempotent`. Every input/output is `z.strictObject` / `.strict()` — unknown keys are rejected.
 
-1. Install [Node 20+](https://nodejs.org), [pnpm 9](https://pnpm.io/installation) (`corepack enable`), [Docker Desktop](https://www.docker.com/products/docker-desktop/), and the [Supabase CLI](https://supabase.com/docs/guides/cli) (`npm install -g supabase` on Windows).
-2. Clone and bootstrap:
+## Setup
+
+Requires Node 20+, pnpm 9, Docker Desktop, Supabase CLI.
 
 ```bash
-git clone https://github.com/SGM-Studios/steadyflow.git
+git clone https://github.com/sgm-audio/steadyflow.git
 cd steadyflow
-pnpm setup
+pnpm setup      # install deps, create .env.local, run doctor
+pnpm dev        # Supabase + workers + web (http://127.0.0.1:3000)
+pnpm stop       # stop local Supabase
 ```
 
-`pnpm setup` installs deps, creates `.env.local` from the example, and runs `pnpm doctor`.
-
-### Every day
-
-```bash
-pnpm doctor   # optional sanity check
-pnpm dev      # Supabase + workers + web (http://127.0.0.1:3000)
-# …work…
-# Ctrl+C stops web + workers
-pnpm stop     # stop local Supabase when you are done
-```
-
-| Command | What it does |
-|---------|----------------|
+| Command | Purpose |
+|---------|---------|
 | `pnpm setup` | First-time (or repair) bootstrap |
-| `pnpm doctor` | Check Node, pnpm, Docker, Supabase CLI, `.env.local` |
-| `pnpm dev` | Start local stack for the day |
-| `pnpm stop` | Stop local Supabase |
-| `pnpm check` | `typecheck` + `lint` + `test` before a PR |
+| `pnpm doctor` | Verify Node / pnpm / Docker / Supabase CLI |
+| `pnpm dev` / `pnpm stop` | Start / stop local stack |
+| `pnpm check` | Pre-PR gate: typecheck + lint + test |
+| `pnpm typecheck` / `pnpm lint` / `pnpm test` | Individual checks |
+| `pnpm build` | Turbo build (all packages) |
+| `pnpm scaffold:shopify-theme ./path` | Scaffold Online Store 2.0 theme |
+| `pnpm scaffold:shopify-app ./path` | Scaffold Shopify app |
+| `pnpm scaffold:wp-plugin ./path` / `:wp-theme ./path` | Scaffold WordPress |
 
-**Login (local seed):** `dev@steadyflow.local` / `admin`  
-**Studio:** http://127.0.0.1:54323
+Local seed login: `dev@steadyflow.local` / `admin`. Studio: http://127.0.0.1:54323.
 
-Local Supabase is its own project (`supabase/config.toml` → `project_id =
-"steadyflow"`), independent of any other Supabase project on this machine.
-It is never linked to a remote project by default — running `supabase link`
-or `supabase db push` requires explicitly naming the target project first.
+## Testing
 
-## BYOK
+- Vitest, node environment, tests co-located as `*.test.ts`
+- Coverage thresholds: **90%** statements/functions/lines, **85%** branches
+- Single package: `pnpm --filter @steadyflow/core test` · single file: `npx vitest run packages/core/src/result.test.ts`
 
-All provider keys (Firecrawl, Tavily, LLM) are wrapped with a per-org
-DEK derived from a passphrase via Argon2id. Wrapped blobs sync to Supabase.
-Server unwraps per-request via `pgsodium` and zeroes buffers after use.
+## Security & audit
 
-**SteadyFlow never stores plaintext provider keys at rest.** Encrypted key envelopes are stored in Supabase and decrypted only for authorized provider requests.
+- **BYOK** — provider keys wrapped with a per-org DEK (Argon2id), unwrapped per-request via `pgsodium`, buffers zeroed. Plaintext keys are never stored at rest.
+- **Audit** — every external action writes to append-only `audit_log` (`user_id`, `timestamp`, SHA-256 input hash, `outcome`, `provider`, `action`, `duration_ms`). UPDATE/DELETE blocked except by `service_role`.
+- **RLS** on every table · OS keychain · Firecrawl primary, Playwright secondary · Tavily for enrichment (Hunter.io removed).
 
-## Audit
+## Commit convention
 
-Every external action writes to `audit_log` with:
-- `user_id`
-- `timestamp`
-- `input_hash` (SHA-256 of redacted input)
-- `outcome` (success | error | rate_limited)
-- `provider`, `action`, `duration_ms`
-
-`audit_log` is append-only (trigger blocks UPDATE/DELETE except by `service_role`).
+Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `ci:`). Branch from `main` as `feat/<scope>`.
 
 ## License
 
