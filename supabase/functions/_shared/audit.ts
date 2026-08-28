@@ -18,23 +18,31 @@ export const writeAudit = async (
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> => {
-  const event = await buildAuditEvent(args);
-  const { error } = await supabase.from('audit_log').insert({
-    id: event.id,
-    org_id: event.orgId,
-    user_id: event.userId,
-    action: event.action,
-    outcome: event.outcome,
-    input_hash: event.inputHash,
-    provider: event.provider ?? null,
-    duration_ms: event.durationMs,
-    error_code: event.errorCode ?? null,
-    idempotency_key: event.idempotencyKey ?? null,
-    metadata: event.metadata,
-    created_at: event.createdAt,
-  });
-  if (error) {
+  try {
+    const event = await buildAuditEvent(args);
+    const { error } = await supabase.from('audit_log').insert({
+      id: event.id,
+      org_id: event.orgId,
+      user_id: event.userId,
+      action: event.action,
+      outcome: event.outcome,
+      input_hash: event.inputHash,
+      provider: event.provider ?? null,
+      duration_ms: event.durationMs,
+      error_code: event.errorCode ?? null,
+      idempotency_key: event.idempotencyKey ?? null,
+      metadata: event.metadata,
+      created_at: event.createdAt,
+    });
+    if (error) {
+      // Audit failures must be visible but never block the request.
+      console.error('audit_log insert failed', { action: args.action, error: error.message });
+    }
+  } catch (error) {
     // Audit failures must be visible but never block the request.
-    console.error('audit_log insert failed', { action: args.action, error: error.message });
+    console.error('audit_log write failed', {
+      action: args.action,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 };
