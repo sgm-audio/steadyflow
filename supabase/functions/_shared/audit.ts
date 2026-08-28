@@ -18,7 +18,7 @@ export const writeAudit = async (
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> => {
-  const event = buildAuditEvent(args);
+  const event = await buildAuditEvent(args);
   const { error } = await supabase.from('audit_log').insert({
     id: event.id,
     org_id: event.orgId,

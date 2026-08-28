@@ -85,6 +85,9 @@ htmlcov/
 graphify-out/
 apps/web/test-results/
 
+# Vendored workspace package — regenerate via `pnpm vendor:shopify-admin`
+supabase/functions/_shared/shopify-admin/
+
 # Git worktree / parallel-agent snapshots — never commit into main
 steadyflow-pr-*/
 # Agent scratch / writing-block session files

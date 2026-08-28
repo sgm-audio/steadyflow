@@ -269,6 +269,13 @@ export type {
   CategoryScore,
   Grade,
 } from './audit/rubric.js';
+export {
+  FLAG_CATEGORY,
+  FLAG_TITLE,
+  FLAG_SEVERITY,
+  describeFlag,
+} from './audit/findings.js';
+export type { FlagInsight } from './audit/findings.js';
 export { analyzeStorefrontHtml } from './storefront.js';
 export type { StorefrontAnalysis, HostSummary } from './storefront.js';
 export type {

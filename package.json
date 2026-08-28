@@ -28,6 +28,7 @@
     "db:push": "supabase db push",
     "functions:serve": "supabase functions serve",
     "functions:deploy": "supabase functions deploy",
+    "vendor:shopify-admin": "node scripts/vendor-shopify-admin.mjs",
     "prepare": "husky || true",
     "scaffold": "pnpm --filter @steadyflow/devkit scaffold",
     "scaffold:shopify-theme": "pnpm --filter @steadyflow/devkit scaffold shopify-theme",

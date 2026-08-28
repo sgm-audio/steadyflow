@@ -43,7 +43,7 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 - [x] S3 Rubric-as-source — `impact.ts` LeakItem gains `rubricCategory`; `computeAuditScore` delegates to rubric
 - [x] S5 SSRF guard — `packages/core/src/net/ssrf.ts` `assertSafeFetchUrl` + tests
 - [x] S8 Runbook — `docs/runbooks/audit-pipeline.md`
-- [ ] S1 Deno parity — make `@steadyflow/shopify-admin` Deno-importable; `workers-scrape` imports it (unblocks B1–B7)
+- [~] S1 Deno parity — vendor mechanism (`pnpm vendor:shopify-admin`), `findings.ts` single-source, `workers-scrape` imports shared engine, `core-shim` SHA-256 fix. **Remaining:** verify via `pnpm functions:serve` (Docker/Deno); `store_profiles`/`product_findings`/homepage-SEO/storefront still Node-only.
 - [ ] S6 Recurring-audit diff — persist/version leak list (needs `score_history` migration, B5)
 - [ ] S10 Delight — copy-leak-list, per-leak time-to-fix chip, Printify-cost headline (UI)
 
