@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  buildFirstSalePlaybook,
   computeAiReadiness,
   computeFirstSaleMath,
-  buildFirstSalePlaybook,
   type PageSeoSignals,
 } from './playbook.js';
 
@@ -41,12 +41,22 @@ describe('computeAiReadiness', () => {
   });
 
   it('awards the documented per-signal points', () => {
-    expect(computeAiReadiness(baseSignals({ hasProductSchema: true }), { totalProducts: 1 }).score).toBe(65);
+    expect(
+      computeAiReadiness(baseSignals({ hasProductSchema: true }), { totalProducts: 1 }).score,
+    ).toBe(65);
     expect(computeAiReadiness(baseSignals({ hasGtin: true }), { totalProducts: 1 }).score).toBe(60);
-    expect(computeAiReadiness(baseSignals({ allowsOaiSearchBot: true }), { totalProducts: 1 }).score).toBe(60);
-    expect(computeAiReadiness(baseSignals({ allowsPerplexityBot: true }), { totalProducts: 1 }).score).toBe(55);
-    expect(computeAiReadiness(baseSignals({ hasSitemap: true }), { totalProducts: 1 }).score).toBe(55);
-    expect(computeAiReadiness(baseSignals({ hasMetaDescription: true }), { totalProducts: 1 }).score).toBe(55);
+    expect(
+      computeAiReadiness(baseSignals({ allowsOaiSearchBot: true }), { totalProducts: 1 }).score,
+    ).toBe(60);
+    expect(
+      computeAiReadiness(baseSignals({ allowsPerplexityBot: true }), { totalProducts: 1 }).score,
+    ).toBe(55);
+    expect(computeAiReadiness(baseSignals({ hasSitemap: true }), { totalProducts: 1 }).score).toBe(
+      55,
+    );
+    expect(
+      computeAiReadiness(baseSignals({ hasMetaDescription: true }), { totalProducts: 1 }).score,
+    ).toBe(55);
   });
 
   it('flags Shopify stores as auto-integrated with Shop Pay', () => {
@@ -99,7 +109,9 @@ describe('computeFirstSaleMath', () => {
 });
 
 describe('buildFirstSalePlaybook', () => {
-  const readiness = computeAiReadiness(baseSignals({ hasProductSchema: true }), { totalProducts: 1 });
+  const readiness = computeAiReadiness(baseSignals({ hasProductSchema: true }), {
+    totalProducts: 1,
+  });
 
   it('always emits day-1, week-1, week-2, and month-1 actions', () => {
     const playbook = buildFirstSalePlaybook(readiness, null, 'Test Store');

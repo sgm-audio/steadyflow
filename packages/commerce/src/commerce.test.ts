@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import type { ShopifyProduct } from '@steadyflow/shopify-admin';
+import { describe, expect, it } from 'vitest';
+import { createAlibabaDistributorAdapter } from './adapters/alibaba/distributor.js';
+import { createAmazonSellingAdapter } from './adapters/amazon/selling.js';
+import { AdapterNotImplementedError } from './adapters/types.js';
 import {
   CommerceConfigSchema,
   CommerceProduct,
   createCommerceRegistry,
   mapShopifyProduct,
 } from './index.js';
-import { AdapterNotImplementedError } from './adapters/types.js';
-import { createAmazonSellingAdapter } from './adapters/amazon/selling.js';
-import { createAlibabaDistributorAdapter } from './adapters/alibaba/distributor.js';
-import type { ShopifyProduct } from '@steadyflow/shopify-admin';
 
 const orgId = '11111111-1111-1111-1111-111111111111';
 

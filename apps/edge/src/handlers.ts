@@ -14,10 +14,10 @@
  * The Deno serve wrapper is a thin adapter around these handlers.
  */
 
-import { z } from 'zod';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { hashObject, redactSecrets } from '@steadyflow/core';
 import type { Database } from '@steadyflow/db';
-import { redactSecrets, hashObject } from '@steadyflow/core';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -55,10 +55,18 @@ export const AnalyzeShopInput = z.object({
 });
 
 export const ListQuery = z.object({
-  category: z.enum([
-    'pricing', 'positioning', 'product_mix', 'marketing',
-    'seo', 'conversion', 'inventory', 'trend',
-  ]).optional(),
+  category: z
+    .enum([
+      'pricing',
+      'positioning',
+      'product_mix',
+      'marketing',
+      'seo',
+      'conversion',
+      'inventory',
+      'trend',
+    ])
+    .optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().optional(),
 });
@@ -72,8 +80,16 @@ export const AuditQuery = z.object({
 
 export const KeysSetInput = z.object({
   provider: z.enum([
-    'firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible',
-    'shopify-admin','printify','amazon-sp-api','alibaba',
+    'firecrawl',
+    'tavily',
+    'deepseek',
+    'nvidia-nim',
+    'groq',
+    'openai-compatible',
+    'shopify-admin',
+    'printify',
+    'amazon-sp-api',
+    'alibaba',
   ]),
   rawKey: z.string().min(1),
 });
@@ -83,8 +99,16 @@ const textToBytea = (s: string): string => '\\x' + Buffer.from(s, 'utf8').toStri
 
 export const KeysTestInput = z.object({
   provider: z.enum([
-    'firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible',
-    'shopify-admin','printify','amazon-sp-api','alibaba',
+    'firecrawl',
+    'tavily',
+    'deepseek',
+    'nvidia-nim',
+    'groq',
+    'openai-compatible',
+    'shopify-admin',
+    'printify',
+    'amazon-sp-api',
+    'alibaba',
   ]),
 });
 
@@ -99,8 +123,12 @@ export const IntentCancelInput = z.object({
 });
 
 export const IntentListQuery = z.object({
-  kind: z.enum(['analyze_shop','analyze_product','enrich_contact','monitor_competitor']).optional(),
-  status: z.enum(['queued','running','succeeded','failed','cancelled','rate_limited']).optional(),
+  kind: z
+    .enum(['analyze_shop', 'analyze_product', 'enrich_contact', 'monitor_competitor'])
+    .optional(),
+  status: z
+    .enum(['queued', 'running', 'succeeded', 'failed', 'cancelled', 'rate_limited'])
+    .optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().optional(),
 });
@@ -119,7 +147,10 @@ export const handleCors = (req: Request): Response | null => {
 };
 
 export const json = (data: unknown, status = 200): Response =>
-  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', ...corsHeaders } });
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json', ...corsHeaders },
+  });
 
 export const badRequest = (msg: string): Response =>
   json({ error: { code: 'VALIDATION_FAILED', message: msg } }, 400);
@@ -183,7 +214,10 @@ export const analyzeShop = async (ctx: HandlerCtx): Promise<Response> => {
   });
 
   if (qError) {
-    await ctx.supabase.from('intents').update({ status: 'failed', error_code: 'QUEUE_FAILED', error_message: qError.message }).eq('id', intent.id);
+    await ctx.supabase
+      .from('intents')
+      .update({ status: 'failed', error_code: 'QUEUE_FAILED', error_message: qError.message })
+      .eq('id', intent.id);
     return internal('Failed to queue analysis job');
   }
 
@@ -273,23 +307,30 @@ export const keysSet = async (ctx: HandlerCtx): Promise<Response> => {
 
   const { data, error } = await ctx.supabase
     .from('keys_envelopes')
-    .upsert({
-      org_id: ctx.orgId,
-      user_id: ctx.userId,
-      provider: input.provider,
-      wrapped_key: wrappedKey,
-      created_at: new Date().toISOString(),
-    }, { onConflict: 'org_id, provider' })
+    .upsert(
+      {
+        org_id: ctx.orgId,
+        user_id: ctx.userId,
+        provider: input.provider,
+        wrapped_key: wrappedKey,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: 'org_id, provider' },
+    )
     .select('provider, created_at')
     .single();
 
   if (error) return internal(`Failed to store key: ${error.message}`);
 
   auditInsert(ctx.supabase, {
-    org_id: ctx.orgId, user_id: ctx.userId,
-    action: 'keys.set', outcome: 'success',
-    input_hash: inputHash, duration_ms: 0,
-    provider: input.provider, metadata: {},
+    org_id: ctx.orgId,
+    user_id: ctx.userId,
+    action: 'keys.set',
+    outcome: 'success',
+    input_hash: inputHash,
+    duration_ms: 0,
+    provider: input.provider,
+    metadata: {},
   });
 
   return json(data);
@@ -327,10 +368,14 @@ export const keysTest = async (ctx: HandlerCtx): Promise<Response> => {
   const latencyMs = Date.now() - start;
 
   auditInsert(ctx.supabase, {
-    org_id: ctx.orgId, user_id: ctx.userId,
-    action: 'keys.test', outcome: 'success',
+    org_id: ctx.orgId,
+    user_id: ctx.userId,
+    action: 'keys.test',
+    outcome: 'success',
     input_hash: hashInput({ provider }),
-    duration_ms: latencyMs, provider, metadata: {},
+    duration_ms: latencyMs,
+    provider,
+    metadata: {},
   });
 
   return json({ provider, ok: true, latencyMs });
@@ -373,10 +418,13 @@ export const orgLlmConfigSet = async (ctx: HandlerCtx): Promise<Response> => {
   if (error) return internal(error.message);
 
   auditInsert(ctx.supabase, {
-    org_id: ctx.orgId, user_id: ctx.userId,
-    action: 'org_llm_config.set', outcome: 'success',
+    org_id: ctx.orgId,
+    user_id: ctx.userId,
+    action: 'org_llm_config.set',
+    outcome: 'success',
     input_hash: hashInput({ provider }),
-    duration_ms: 0, metadata: {},
+    duration_ms: 0,
+    metadata: {},
   });
 
   return json({
@@ -435,10 +483,13 @@ export const intentCancel = async (ctx: HandlerCtx): Promise<Response> => {
   }
 
   auditInsert(ctx.supabase, {
-    org_id: ctx.orgId, user_id: ctx.userId,
-    action: 'intent.cancel', outcome: 'success',
+    org_id: ctx.orgId,
+    user_id: ctx.userId,
+    action: 'intent.cancel',
+    outcome: 'success',
     input_hash: hashInput({ intentId }),
-    duration_ms: 0, metadata: {},
+    duration_ms: 0,
+    metadata: {},
   });
 
   return json({ intentId: data.id, status: data.status });

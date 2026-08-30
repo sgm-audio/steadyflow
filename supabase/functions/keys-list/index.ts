@@ -4,12 +4,7 @@
  * GET /keys/list
  * Auth: required
  */
-import {
-  handleCors,
-  createContext,
-  ok,
-  internalError,
-} from '../_shared/context.ts';
+import { createContext, handleCors, internalError, ok } from '../_shared/context.ts';
 
 Deno.serve(async (req: Request) => {
   const cors = handleCors(req);

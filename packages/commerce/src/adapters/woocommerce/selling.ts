@@ -1,6 +1,6 @@
-import type { CommerceCatalog, CommerceProduct } from '../../schemas/product.js';
-import type { CommerceOrder } from '../../schemas/order.js';
 import type { CommerceInventoryLevel } from '../../schemas/inventory.js';
+import type { CommerceOrder } from '../../schemas/order.js';
+import type { CommerceCatalog, CommerceProduct } from '../../schemas/product.js';
 import { AdapterNotImplementedError, type SellingPlatformAdapter } from '../types.js';
 
 /**
@@ -12,7 +12,13 @@ export class WooCommerceSellingAdapter implements SellingPlatformAdapter {
     id: 'woocommerce' as const,
     role: 'selling' as const,
     stub: true,
-    capabilities: ['list_catalog', 'get_product', 'list_orders', 'list_inventory', 'push_inventory'] as const,
+    capabilities: [
+      'list_catalog',
+      'get_product',
+      'list_orders',
+      'list_inventory',
+      'push_inventory',
+    ] as const,
   };
 
   readonly options: { storeUrl?: string | undefined };

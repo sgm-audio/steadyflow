@@ -11,15 +11,15 @@
  * Auth: none (called internally via pgmq, uses service_role)
  */
 
-import { createServiceRoleClient } from '../_shared/supabase.ts';
 import { z } from 'npm:zod@3';
 import {
-  runCatalogAudit,
   buildLeakList,
-  totalEstimatedImpact,
   computeAuditScore,
   describeFlag,
+  runCatalogAudit,
+  totalEstimatedImpact,
 } from '../_shared/shopify-admin/index.js';
+import { createServiceRoleClient } from '../_shared/supabase.ts';
 
 const ScrapeMessage = z.object({
   intentId: z.string(),
@@ -31,7 +31,9 @@ const ScrapeMessage = z.object({
 /** Simple synchronous 64-char hex hash for audit_log constraint. */
 const sha256Hex = async (input: string): Promise<string> => {
   const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 };
 
 /** Try to unwrap a provider key. Returns null if key is missing or invalid. */
@@ -49,12 +51,15 @@ const tryUnwrapKey = async (
       .single();
     if (envErr) return null;
 
-    const { data: raw, error: unwrapErr } = await supabase.rpc('unwrap_dek', { p_wrapped: env.wrapped_key }).single();
+    const { data: raw, error: unwrapErr } = await supabase
+      .rpc('unwrap_dek', { p_wrapped: env.wrapped_key })
+      .single();
     if (unwrapErr) return null;
 
-    const hex2bytes = (h: string): Uint8Array => new Uint8Array(
-      (h.replace(/^\\x/, '').match(/.{1,2}/g) ?? []).map((b) => Number.parseInt(b, 16)),
-    );
+    const hex2bytes = (h: string): Uint8Array =>
+      new Uint8Array(
+        (h.replace(/^\\x/, '').match(/.{1,2}/g) ?? []).map((b) => Number.parseInt(b, 16)),
+      );
     const rawBytes = hex2bytes(typeof raw === 'string' ? raw : String(raw));
     const key = new TextDecoder().decode(rawBytes);
     rawBytes.fill(0);
@@ -103,7 +108,9 @@ const assertPublicHttpUrl = async (rawUrl: string): Promise<void> => {
 };
 
 /** Fetch a URL directly and extract readable text content (no Firecrawl key needed). */
-const directScrape = async (url: string): Promise<{ markdown: string; metadata: Record<string, unknown> }> => {
+const directScrape = async (
+  url: string,
+): Promise<{ markdown: string; metadata: Record<string, unknown> }> => {
   await assertPublicHttpUrl(url);
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
@@ -146,7 +153,9 @@ const scrapeWithFirecrawl = async (
       body: JSON.stringify({ url, formats: ['markdown'] }),
     });
     if (res.ok) {
-      const data = (await res.json()) as { data?: { markdown?: string; metadata?: Record<string, unknown> } };
+      const data = (await res.json()) as {
+        data?: { markdown?: string; metadata?: Record<string, unknown> };
+      };
       return {
         markdown: data.data?.markdown ?? '',
         metadata: data.data?.metadata ?? { url, scrapedAt: new Date().toISOString() },
@@ -216,7 +225,12 @@ Deno.serve(async (_req: Request) => {
           },
         );
         const leakTotal = totalEstimatedImpact(leakList);
-        const leakImpactByCode = new Map(leakList.map((l: { code: string; estimatedAnnualImpact: number }) => [l.code, l.estimatedAnnualImpact]));
+        const leakImpactByCode = new Map(
+          leakList.map((l: { code: string; estimatedAnnualImpact: number }) => [
+            l.code,
+            l.estimatedAnnualImpact,
+          ]),
+        );
         const score = computeAuditScore(audit.rows);
 
         // Aggregate flags by code → one insight per finding type.
@@ -232,7 +246,8 @@ Deno.serve(async (_req: Request) => {
         for (const [code, { severity, products }] of byFlag) {
           const desc = describeFlag(code, severity);
           const impact = leakImpactByCode.get(code);
-          const impactSuffix = impact !== undefined && impact > 0 ? ` ~$${impact.toLocaleString()}/yr` : '';
+          const impactSuffix =
+            impact !== undefined && impact > 0 ? ` ~$${impact.toLocaleString()}/yr` : '';
           const shown = products.slice(0, 3);
           const remainder = products.length - shown.length;
           await supabase.from('insights').insert({
@@ -268,13 +283,23 @@ Deno.serve(async (_req: Request) => {
 
         // Ranked Leak List summary
         if (leakList.length > 0) {
-          const top = leakList.slice(0, 5).map((l: { title: string; estimatedAnnualImpact: number }, i: number) => `${i + 1}. ${l.title} — ~$${l.estimatedAnnualImpact.toLocaleString()}/yr`).join('\n');
+          const top = leakList
+            .slice(0, 5)
+            .map(
+              (l: { title: string; estimatedAnnualImpact: number }, i: number) =>
+                `${i + 1}. ${l.title} — ~$${l.estimatedAnnualImpact.toLocaleString()}/yr`,
+            )
+            .join('\n');
           await supabase.from('insights').insert({
-            org_id: orgId, intent_id: intentId, category: 'pricing',
+            org_id: orgId,
+            intent_id: intentId,
+            category: 'pricing',
             severity: leakTotal >= 10000 ? 'high' : 'medium',
             title: `Revenue Leak List — ~$${leakTotal.toLocaleString()}/yr recoverable (estimated)`,
             body: `Ranked by estimated annual recoverable revenue:\n${top}${leakList.length > 5 ? `\n+ ${leakList.length - 5} more` : ''}\n\nEstimates use ${audit.shopCurrency} prices/margins${audit.salesSummary ? ' and real order data (AOV + order volume)' : ' and documented assumptions (read_orders not granted)'}.`,
-            citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+            citations: [],
+            model: 'shopify-admin-audit-v2',
+            provider: 'shopify-admin',
             generated_at: new Date().toISOString(),
           });
         }
@@ -294,16 +319,22 @@ Deno.serve(async (_req: Request) => {
         });
 
         // Mark intent succeeded
-        await supabase.from('intents').update({
-          status: 'succeeded',
-          updated_at: new Date().toISOString(),
-        }).eq('id', intentId);
+        await supabase
+          .from('intents')
+          .update({
+            status: 'succeeded',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', intentId);
 
         // Audit
         await supabase.from('audit_log').insert({
-          org_id: orgId, user_id: userId,
-          action: 'analyze.shopify_catalog', outcome: 'success',
-          input_hash: await sha256Hex(url), provider: 'shopify-admin',
+          org_id: orgId,
+          user_id: userId,
+          action: 'analyze.shopify_catalog',
+          outcome: 'success',
+          input_hash: await sha256Hex(url),
+          provider: 'shopify-admin',
           duration_ms: Date.now() - startMs,
           metadata: { totalProducts: audit.totalProducts, shopName: audit.shop.name ?? url, score },
         });
@@ -352,10 +383,14 @@ Deno.serve(async (_req: Request) => {
 
     // Audit
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: userId,
-      action: 'scrape.firecrawl', outcome: 'success',
-      input_hash: urlHash, provider: 'firecrawl',
-      duration_ms: Date.now() - startMs, metadata: {},
+      org_id: orgId,
+      user_id: userId,
+      action: 'scrape.firecrawl',
+      outcome: 'success',
+      input_hash: urlHash,
+      provider: 'firecrawl',
+      duration_ms: Date.now() - startMs,
+      metadata: {},
     });
 
     // Archive the message
@@ -364,18 +399,28 @@ Deno.serve(async (_req: Request) => {
       p_msg_id: (msg as { msg_id: number }).msg_id,
     });
   } catch (err) {
-    await supabase.from('intents').update({
-      status: 'failed',
-      error_code: attemptedProvider === 'shopify-admin' ? 'SHOPIFY_CATALOG_ANALYZE_FAILED' : 'SCRAPE_FAILED',
-      error_message: String(err),
-      updated_at: new Date().toISOString(),
-    }).eq('id', intentId);
+    await supabase
+      .from('intents')
+      .update({
+        status: 'failed',
+        error_code:
+          attemptedProvider === 'shopify-admin'
+            ? 'SHOPIFY_CATALOG_ANALYZE_FAILED'
+            : 'SCRAPE_FAILED',
+        error_message: String(err),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', intentId);
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: userId,
-      action: attemptedProvider === 'shopify-admin' ? 'analyze.shopify_catalog' : 'scrape.firecrawl',
+      org_id: orgId,
+      user_id: userId,
+      action:
+        attemptedProvider === 'shopify-admin' ? 'analyze.shopify_catalog' : 'scrape.firecrawl',
       outcome: 'error',
-      input_hash: await sha256Hex(url), provider: attemptedProvider,
-      duration_ms: Date.now() - startMs, metadata: {},
+      input_hash: await sha256Hex(url),
+      provider: attemptedProvider,
+      duration_ms: Date.now() - startMs,
+      metadata: {},
     });
   }
 

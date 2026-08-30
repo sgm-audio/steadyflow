@@ -2,20 +2,20 @@
  * Shopify Admin + Printify catalog audit — v2 library entry point.
  */
 
-import { ShopifyClient } from './shopify/client.js';
-import type { SalesSummary } from './shopify/client.js';
-import type { ShopifyProduct, ShopifyAllCollection, ShopifyShop } from './shopify/schema.js';
-import { PrintifyClient } from './printify/client.js';
-import { buildCostLookup, type CostLookup } from './printify/catalog.js';
-import { getUsdToCadRate } from './util/fx.js';
-import { calcMargin, type Currency, type ProductMargin } from './audit/margin.js';
-import { evaluateFlags, summarizeFlags, type Flag } from './audit/flags.js';
-import { evaluateMixFlags } from './audit/mix.js';
 import { evaluateConversionFlags } from './audit/conversion.js';
-import { evaluateInventoryFlags } from './audit/inventory.js';
-import { evaluateMarketingFlags } from './audit/marketing.js';
+import { evaluateFlags, summarizeFlags, type Flag } from './audit/flags.js';
 import { aggregateFlags } from './audit/impact.js';
-import { scoreRubric, RUBRIC_TOTAL_POINTS } from './audit/rubric.js';
+import { evaluateInventoryFlags } from './audit/inventory.js';
+import { calcMargin, type Currency, type ProductMargin } from './audit/margin.js';
+import { evaluateMarketingFlags } from './audit/marketing.js';
+import { evaluateMixFlags } from './audit/mix.js';
+import { RUBRIC_TOTAL_POINTS, scoreRubric } from './audit/rubric.js';
+import { buildCostLookup, type CostLookup } from './printify/catalog.js';
+import { PrintifyClient } from './printify/client.js';
+import type { SalesSummary } from './shopify/client.js';
+import { ShopifyClient } from './shopify/client.js';
+import type { ShopifyAllCollection, ShopifyProduct, ShopifyShop } from './shopify/schema.js';
+import { getUsdToCadRate } from './util/fx.js';
 import { formatError } from './util/redact.js';
 
 export interface CatalogAuditOptions {
@@ -77,7 +77,10 @@ function toNumber(amount: string): number {
 }
 
 function countWords(html: string): number {
-  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const text = html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   return text.length > 0 ? text.split(' ').length : 0;
 }
 
@@ -183,7 +186,10 @@ export async function runCatalogAudit(opts: CatalogAuditOptions): Promise<Catalo
  */
 export function computeAuditScore(rows: AuditRow[]): number {
   if (rows.length === 0) return 100;
-  const aggregated = aggregateFlags(rows.map((r) => ({ flags: r.flags })), []);
+  const aggregated = aggregateFlags(
+    rows.map((r) => ({ flags: r.flags })),
+    [],
+  );
   const rubric = scoreRubric(aggregated, rows.length);
   return Math.round((rubric.totalScore / RUBRIC_TOTAL_POINTS) * 100);
 }
@@ -208,7 +214,9 @@ export function buildProductFinding(row: AuditRow) {
     tags: product.tags,
     tag_count: product.tags.length,
     price: primaryVariant ? toNumber(primaryVariant.price) : null,
-    compare_at_price: primaryVariant?.compareAtPrice ? toNumber(primaryVariant.compareAtPrice) : null,
+    compare_at_price: primaryVariant?.compareAtPrice
+      ? toNumber(primaryVariant.compareAtPrice)
+      : null,
     margin_pct: row.margin.marginPct,
     margin_cad: row.margin.marginAvg$,
     cost_cad: row.margin.costMinCAD,
@@ -243,46 +251,45 @@ export function buildProductFinding(row: AuditRow) {
 
 export type ProductFinding = ReturnType<typeof buildProductFinding>;
 
-export { summarizeFlags };
+export { describeFlag, FLAG_CATEGORY, FLAG_SEVERITY, FLAG_TITLE } from './audit/findings.js';
+export type { FlagInsight } from './audit/findings.js';
 export type { Flag, FlagCode, FlagSeverity } from './audit/flags.js';
-export type { ProductMargin, Currency } from './audit/margin.js';
 export {
-  buildLeakList,
-  deriveLeakContext,
   aggregateFlags,
-  totalEstimatedImpact,
+  buildLeakList,
   DEFAULT_MONTHLY_ORDERS,
+  deriveLeakContext,
   TARGET_MARGIN_PCT,
+  totalEstimatedImpact,
 } from './audit/impact.js';
 export type { LeakContext, LeakItem } from './audit/impact.js';
+export type { Currency, ProductMargin } from './audit/margin.js';
 export {
-  scoreRubric,
-  gradeFor,
   FLAG_TO_RUBRIC,
+  gradeFor,
   RUBRIC_CATEGORIES,
   RUBRIC_TOTAL_POINTS,
+  scoreRubric,
 } from './audit/rubric.js';
 export type {
-  RubricCategoryId,
-  RubricCategory,
-  RubricResult,
   CategoryScore,
   Grade,
+  RubricCategory,
+  RubricCategoryId,
+  RubricResult,
 } from './audit/rubric.js';
-export {
-  FLAG_CATEGORY,
-  FLAG_TITLE,
-  FLAG_SEVERITY,
-  describeFlag,
-} from './audit/findings.js';
-export type { FlagInsight } from './audit/findings.js';
-export { analyzeStorefrontHtml } from './storefront.js';
-export type { StorefrontAnalysis, HostSummary } from './storefront.js';
-export type {
-  ShopifyProduct, ShopifyVariant, ShopifyImage,
-  ShopifyCollection, ShopifyAllCollection, ShopifyShop,
-} from './shopify/schema.js';
+export { PrintifyClient } from './printify/client.js';
 export type { PrintifyShop, PrintifyVariant } from './printify/schema.js';
 export { ShopifyClient } from './shopify/client.js';
 export type { SalesSummary } from './shopify/client.js';
-export { PrintifyClient } from './printify/client.js';
+export type {
+  ShopifyAllCollection,
+  ShopifyCollection,
+  ShopifyImage,
+  ShopifyProduct,
+  ShopifyShop,
+  ShopifyVariant,
+} from './shopify/schema.js';
+export { analyzeStorefrontHtml } from './storefront.js';
+export type { HostSummary, StorefrontAnalysis } from './storefront.js';
+export { summarizeFlags };

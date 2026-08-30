@@ -1,13 +1,13 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
  * SteadyFlow v0.x Primary Workflow Test
- * 
+ *
  * This test covers the core revenue audit workflow:
- * Login → Configure provider keys → Create Shopify audit intent → 
- * Worker processes real store data → Findings appear as insights → 
+ * Login → Configure provider keys → Create Shopify audit intent →
+ * Worker processes real store data → Findings appear as insights →
  * Audit events are visible → Report is generated
- * 
+ *
  * Target: Making Madi validation account
  */
 
@@ -15,8 +15,9 @@ test.describe('SteadyFlow Primary Workflow', () => {
   // Test configuration - update these for your environment
   const baseURL = process.env.STEADYFLOW_BASE_URL || 'http://localhost:3000';
   const testEmail = process.env.STEADYFLOW_TEST_EMAIL || 'dev@steadyflow.local';
-  const testPassword = process.env.STEADYFLOW_TEST_PASSWORD || 'password123';
-  const shopifyStoreUrl = process.env.STEADYFLOW_SHOPIFY_STORE_URL || 'https://makingmadi.myshopify.com';
+  const testPassword = process.env.STEADYFLOW_TEST_PASSWORD || 'admin';
+  const shopifyStoreUrl =
+    process.env.STEADYFLOW_SHOPIFY_STORE_URL || 'https://makingmadi.myshopify.com';
 
   test.beforeEach(async ({ page }) => {
     await page.goto(`${baseURL}/login`);
@@ -28,7 +29,7 @@ test.describe('SteadyFlow Primary Workflow', () => {
       await page.fill('input[type="email"]', testEmail);
       await page.fill('input[type="password"]', testPassword);
       await page.click('button[type="submit"]');
-      
+
       // Wait for navigation to dashboard
       await expect(page).toHaveURL(`${baseURL}/dashboard`);
       await expect(page.getByText('Good', { exact: false })).toBeVisible();
@@ -54,14 +55,14 @@ test.describe('SteadyFlow Primary Workflow', () => {
     await test.step('Create new Shopify audit intent', async () => {
       await page.click('a[href="/intents"]');
       await expect(page).toHaveURL(`${baseURL}/intents`);
-      
+
       // Fill out the intent form
       await page.selectOption('select[name="platform"]', 'shopify');
       await page.fill('input[name="url"]', shopifyStoreUrl);
-      
+
       // Submit the form
       await page.click('button[type="submit"]');
-      
+
       // Should redirect to intent detail page
       await expect(page).toHaveURL(`${baseURL}/intents/*`);
     });
@@ -83,15 +84,16 @@ test.describe('SteadyFlow Primary Workflow', () => {
     await test.step('Verify insights page handles various states', async () => {
       // Page should load without error
       await expect(page.getByText('Insights')).toBeVisible();
-      
+
       // Either show "no insights yet" message or list of insights
       const noInsights = page.getByText(/no insights yet/i);
-      const insightsList = page.locator('div').filter({ hasText: /severity|category/i }).first();
-      
+      const insightsList = page
+        .locator('div')
+        .filter({ hasText: /severity|category/i })
+        .first();
+
       // At least one of these should be visible
-      await expect(
-        noInsights.or(insightsList)
-      ).toBeVisible();
+      await expect(noInsights.or(insightsList)).toBeVisible();
     });
 
     // Step 8: Navigate to Audit Log
@@ -99,7 +101,7 @@ test.describe('SteadyFlow Primary Workflow', () => {
       await page.click('a[href="/audit"]');
       await expect(page).toHaveURL(`${baseURL}/audit`);
       await expect(page.getByText('Audit Log')).toBeVisible();
-      
+
       // Table should exist even if empty
       await expect(page.locator('table')).toBeVisible();
     });
@@ -108,7 +110,7 @@ test.describe('SteadyFlow Primary Workflow', () => {
     await test.step('Return to dashboard and verify summary', async () => {
       await page.click('a[href="/dashboard"]');
       await expect(page).toHaveURL(`${baseURL}/dashboard`);
-      
+
       // Dashboard cards should be visible
       await expect(page.getByText('Latest insights')).toBeVisible();
       await expect(page.getByText('Provider keys')).toBeVisible();
@@ -121,10 +123,10 @@ test.describe('SteadyFlow Primary Workflow', () => {
       await page.fill('input[type="email"]', 'invalid@example.com');
       await page.fill('input[type="password"]', 'wrongpassword');
       await page.click('button[type="submit"]');
-      
+
       // Should show error message
       await expect(page.getByText(/login failed|invalid/i)).toBeVisible();
-      
+
       // Should stay on login page
       await expect(page).toHaveURL(`${baseURL}/login`);
     });
@@ -147,7 +149,7 @@ test.describe('SteadyFlow Primary Workflow', () => {
       await page.click('a[href="/insights"]');
       await expect(page.getByText(/no insights yet/i)).toBeVisible();
 
-      // Check intents empty state  
+      // Check intents empty state
       await page.click('a[href="/intents"]');
       await expect(page.getByText(/no intents yet/i)).toBeVisible();
 
@@ -163,7 +165,7 @@ test.describe('SteadyFlow Primary Workflow', () => {
       await page.fill('input[type="password"]', testPassword);
       await page.click('button[type="submit"]');
       await expect(page).toHaveURL(`${baseURL}/dashboard`);
-      
+
       await page.click('a[href="/keys"]');
       await expect(page).toHaveURL(`${baseURL}/keys`);
     });
@@ -172,7 +174,7 @@ test.describe('SteadyFlow Primary Workflow', () => {
       // Click on a provider that's not configured (or update existing)
       const addLink = page.getByRole('link', { name: /add|update/i }).first();
       await addLink.click();
-      
+
       // Should be on key configuration page
       await expect(page).toHaveURL(`${baseURL}/keys/*`);
     });
@@ -192,20 +194,13 @@ test.describe('SteadyFlow Primary Workflow', () => {
     await expect(page).toHaveURL(`${baseURL}/dashboard`);
 
     // Test all required routes from the scope document
-    const requiredRoutes = [
-      '/dashboard',
-      '/intents',
-      '/insights',
-      '/audit',
-      '/keys',
-      '/settings',
-    ];
+    const requiredRoutes = ['/dashboard', '/intents', '/insights', '/audit', '/keys', '/settings'];
 
     for (const route of requiredRoutes) {
       await test.step(`Navigate to ${route}`, async () => {
         await page.goto(`${baseURL}${route}`);
         await expect(page).toHaveURL(`${baseURL}${route}`);
-        
+
         // Each page should load without 404 or error
         await expect(page.locator('body')).not.toContainText('404');
         await expect(page.locator('body')).not.toContainText('Error:');

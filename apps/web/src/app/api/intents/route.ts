@@ -7,11 +7,11 @@
  * here didn't have.
  */
 
-import { createClient } from '../../../lib/supabase-server';
-import { createApiClient } from '../../../lib/api-client';
-import { NextResponse } from 'next/server';
 import { redirect } from 'next/navigation';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { createApiClient } from '../../../lib/api-client';
+import { createClient } from '../../../lib/supabase-server';
 
 export function GET() {
   redirect('/intents');
@@ -27,7 +27,9 @@ const SupportedPlatform = z.enum(['shopify', 'etsy', 'amazon']);
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const form = await request.formData();
@@ -35,14 +37,25 @@ export async function POST(request: Request) {
   const url = formString(form.get('url'), '');
   const idempotencyKey = formString(form.get('idempotencyKey'), `web-${Date.now()}`);
 
-  if (!platformParsed.success) return NextResponse.json({ error: 'Unsupported platform' }, { status: 400 });
+  if (!platformParsed.success)
+    return NextResponse.json({ error: 'Unsupported platform' }, { status: 400 });
   if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 });
 
   const api = createApiClient(session.access_token);
-  const result = await api.analyzeShop({ platform: platformParsed.data, url, idempotencyKey, requiresAuth: false });
+  const result = await api.analyzeShop({
+    platform: platformParsed.data,
+    url,
+    idempotencyKey,
+    requiresAuth: false,
+  });
 
   if (!result.ok) {
-    const status = result.error.code === 'RATE_LIMITED' ? 429 : result.error.code === 'VALIDATION_FAILED' ? 400 : 500;
+    const status =
+      result.error.code === 'RATE_LIMITED'
+        ? 429
+        : result.error.code === 'VALIDATION_FAILED'
+          ? 400
+          : 500;
     return NextResponse.json({ error: result.error.message }, { status });
   }
 

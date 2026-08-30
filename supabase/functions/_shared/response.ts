@@ -35,8 +35,7 @@ export const ok = <T>(data: T): Response => json(data, { status: 200 });
 
 export const created = <T>(data: T): Response => json(data, { status: 201 });
 
-export const noContent = (): Response =>
-  new Response(null, { status: 204, headers: corsHeaders });
+export const noContent = (): Response => new Response(null, { status: 204, headers: corsHeaders });
 
 export const badRequest = (message: string): Response =>
   jsonError(sfError('VALIDATION_FAILED', message), 400);
@@ -51,17 +50,14 @@ export const notFound = (resource: string): Response =>
   jsonError(sfError('NOT_FOUND', `${resource} not found`), 404);
 
 export const rateLimited = (retryAfterSeconds: number): Response =>
-  new Response(
-    JSON.stringify({ error: sfError('RATE_LIMITED', 'Too many requests') }),
-    {
-      status: 429,
-      headers: {
-        'content-type': 'application/json',
-        'retry-after': String(retryAfterSeconds),
-        ...corsHeaders,
-      },
+  new Response(JSON.stringify({ error: sfError('RATE_LIMITED', 'Too many requests') }), {
+    status: 429,
+    headers: {
+      'content-type': 'application/json',
+      'retry-after': String(retryAfterSeconds),
+      ...corsHeaders,
     },
-  );
+  });
 
 export const internalError = (message: string): Response =>
   jsonError(sfError('INTERNAL', message), 500);

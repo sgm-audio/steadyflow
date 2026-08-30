@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState, type FormEvent } from 'react';
 import { z } from 'zod';
 
 const LoginErrorResponse = z.object({
@@ -39,30 +39,63 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
       <div style={{ width: '100%', maxWidth: 400, padding: '2rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem', textAlign: 'center' }}>
+        <h1
+          style={{
+            fontSize: '1.5rem',
+            fontWeight: 700,
+            marginBottom: '1.5rem',
+            textAlign: 'center',
+          }}
+        >
           SteadyFlow
         </h1>
-        <form onSubmit={(e) => { void handleSubmit(e); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e);
+          }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        >
           <div>
-            <label htmlFor="email" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Email</label>
+            <label
+              htmlFor="email"
+              style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}
+            >
+              Email
+            </label>
             <input
               id="email"
               type="email"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); }}
+              onChange={(e) => {
+                setEmail(e.target.value);
+              }}
               required
               style={{ width: '100%' }}
             />
           </div>
           <div>
-            <label htmlFor="password" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Password</label>
+            <label
+              htmlFor="password"
+              style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}
+            >
+              Password
+            </label>
             <input
               id="password"
               type="password"
               value={password}
-              onChange={(e) => { setPassword(e.target.value); }}
+              onChange={(e) => {
+                setPassword(e.target.value);
+              }}
               required
               style={{ width: '100%' }}
             />

@@ -4,9 +4,9 @@ import type {
   FulfillmentProviderId,
   SellingPlatformId,
 } from '../schemas/roles.js';
-import type { DistributorAdapter, FulfillmentAdapter, SellingPlatformAdapter } from './types.js';
-import { createShopifySellingAdapter } from './shopify/selling.js';
 import { createPrintifyFulfillmentAdapter } from './printify/fulfillment.js';
+import { createShopifySellingAdapter } from './shopify/selling.js';
+import type { DistributorAdapter, FulfillmentAdapter, SellingPlatformAdapter } from './types.js';
 
 export interface CommerceCredentials {
   'shopify-admin'?: string | undefined;
@@ -118,7 +118,9 @@ export function createCommerceRegistry(opts: CreateCommerceRegistryOptions): Com
       case 'alibaba':
       case 'printify': {
         // v0.x trim: distributors not instantiated (Printify cost lives in shopify-admin).
-        stubAdapters.push(channel.provider === 'printify' ? 'printify-distributor' : channel.provider);
+        stubAdapters.push(
+          channel.provider === 'printify' ? 'printify-distributor' : channel.provider,
+        );
         break;
       }
       default: {

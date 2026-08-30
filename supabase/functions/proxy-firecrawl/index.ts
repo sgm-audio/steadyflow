@@ -7,16 +7,16 @@
  */
 import { z } from 'npm:zod@3';
 import {
-  handleCors,
-  createContext,
-  parseInput,
-  checkRateLimit,
-  writeAudit,
-  unwrapProviderKey,
-  ok,
   badRequest,
+  checkRateLimit,
+  createContext,
+  handleCors,
   internalError,
+  ok,
+  parseInput,
   rateLimited,
+  unwrapProviderKey,
+  writeAudit,
 } from '../_shared/context.ts';
 
 const FirecrawlInput = z.object({
@@ -32,8 +32,11 @@ Deno.serve(async (req: Request) => {
   if (ctx instanceof Response) return ctx;
 
   let body: unknown;
-  try { body = await req.json(); }
-  catch { return badRequest('Invalid JSON body'); }
+  try {
+    body = await req.json();
+  } catch {
+    return badRequest('Invalid JSON body');
+  }
 
   const parsed = parseInput(FirecrawlInput, body);
   if (!parsed.ok) return badRequest(parsed.error.message);
@@ -64,9 +67,12 @@ Deno.serve(async (req: Request) => {
     const result = await res.json();
 
     writeAudit(ctx.supabase, {
-      orgId: ctx.orgId, userId: ctx.userId,
-      action: 'scrape.firecrawl', outcome: 'success',
-      input: { url }, provider: 'firecrawl',
+      orgId: ctx.orgId,
+      userId: ctx.userId,
+      action: 'scrape.firecrawl',
+      outcome: 'success',
+      input: { url },
+      provider: 'firecrawl',
       durationMs: Date.now() - startMs,
     }).catch(() => {});
 

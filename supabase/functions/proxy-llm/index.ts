@@ -7,16 +7,16 @@
  */
 import { z } from 'npm:zod@3';
 import {
-  handleCors,
-  createContext,
-  parseInput,
-  checkRateLimit,
-  writeAudit,
-  unwrapProviderKey,
-  ok,
   badRequest,
+  checkRateLimit,
+  createContext,
+  handleCors,
   internalError,
+  ok,
+  parseInput,
   rateLimited,
+  unwrapProviderKey,
+  writeAudit,
 } from '../_shared/context.ts';
 
 const LlmInput = z.object({
@@ -41,8 +41,11 @@ Deno.serve(async (req: Request) => {
   if (ctx instanceof Response) return ctx;
 
   let body: unknown;
-  try { body = await req.json(); }
-  catch { return badRequest('Invalid JSON body'); }
+  try {
+    body = await req.json();
+  } catch {
+    return badRequest('Invalid JSON body');
+  }
 
   const parsed = parseInput(LlmInput, body);
   if (!parsed.ok) return badRequest(parsed.error.message);
@@ -95,8 +98,10 @@ Deno.serve(async (req: Request) => {
     const result = await res.json();
 
     writeAudit(ctx.supabase, {
-      orgId: ctx.orgId, userId: ctx.userId,
-      action: 'llm.chat', outcome: 'success',
+      orgId: ctx.orgId,
+      userId: ctx.userId,
+      action: 'llm.chat',
+      outcome: 'success',
       input: { model: usedModel },
       provider,
       durationMs: Date.now() - startMs,

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function CancelIntentButton({ intentId }: { intentId: string }) {
   const router = useRouter();
@@ -28,7 +28,9 @@ export default function CancelIntentButton({ intentId }: { intentId: string }) {
   return (
     <button
       type="button"
-      onClick={() => { void handleCancel(); }}
+      onClick={() => {
+        void handleCancel();
+      }}
       disabled={busy}
       style={{
         fontSize: '0.875rem',

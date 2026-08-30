@@ -1,5 +1,5 @@
-import type { Flag } from './flags.js';
 import type { ShopifyProduct } from '../shopify/schema.js';
+import type { Flag } from './flags.js';
 
 /**
  * Inventory & fulfillment audit.
@@ -11,9 +11,7 @@ import type { ShopifyProduct } from '../shopify/schema.js';
  */
 
 export type InventoryFlagCode =
-  | 'inventory_low_stock'
-  | 'inventory_overselling'
-  | 'inventory_continue_when_out';
+  'inventory_low_stock' | 'inventory_overselling' | 'inventory_continue_when_out';
 
 export const LOW_STOCK_THRESHOLD = 5;
 
@@ -27,7 +25,8 @@ export function evaluateInventoryFlags(ctx: InventoryContext): Flag[] {
   const variants = product.variants.edges.map((e) => e.node);
 
   // Low stock — total inventory ≤ threshold and not 0 (out_of_stock flag covers 0)
-  const totalStock = product.totalInventory ?? variants.reduce((sum, v) => sum + (v.inventoryQuantity ?? 0), 0);
+  const totalStock =
+    product.totalInventory ?? variants.reduce((sum, v) => sum + (v.inventoryQuantity ?? 0), 0);
   if (totalStock > 0 && totalStock <= LOW_STOCK_THRESHOLD && variants.length > 0) {
     flags.push({
       code: 'inventory_low_stock',
@@ -38,23 +37,29 @@ export function evaluateInventoryFlags(ctx: InventoryContext): Flag[] {
 
   // Overselling: tracksInventory=false but inventoryQuantity=0 means Shopify will keep selling
   const overselling = variants.find(
-    (v) => product.tracksInventory === false && (v.inventoryQuantity === 0 || v.availableForSale === false),
+    (v) =>
+      product.tracksInventory === false &&
+      (v.inventoryQuantity === 0 || v.availableForSale === false),
   );
   if (overselling) {
     flags.push({
       code: 'inventory_overselling',
       severity: 'red',
-      message: 'Tracking disabled but variants show 0 stock — POD/sync products often oversell this way.',
+      message:
+        'Tracking disabled but variants show 0 stock — POD/sync products often oversell this way.',
     });
   }
 
   // inventoryPolicy=CONTINUE with 0 stock → Shopify keeps selling after stockout (overselling)
-  const continues = variants.find((v) => v.inventoryPolicy === 'CONTINUE' && (v.inventoryQuantity === 0));
+  const continues = variants.find(
+    (v) => v.inventoryPolicy === 'CONTINUE' && v.inventoryQuantity === 0,
+  );
   if (continues) {
     flags.push({
       code: 'inventory_continue_when_out',
       severity: 'yellow',
-      message: 'Inventory policy is CONTINUE with 0 stock — Shopify will accept orders you cannot fulfill.',
+      message:
+        'Inventory policy is CONTINUE with 0 stock — Shopify will accept orders you cannot fulfill.',
     });
   }
 

@@ -5,7 +5,7 @@
  * max-length strings, unicode, SQL injection, nested objects, unexpected types.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // Inline schemas (mirrored from @steadyflow/core for fuzz isolation)
 import { z } from 'zod';
@@ -18,7 +18,18 @@ const PlatformUrl = z.object({
 });
 
 const KeysSetInput = z.object({
-  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify','amazon-sp-api','alibaba']),
+  provider: z.enum([
+    'firecrawl',
+    'tavily',
+    'deepseek',
+    'nvidia-nim',
+    'groq',
+    'openai-compatible',
+    'shopify-admin',
+    'printify',
+    'amazon-sp-api',
+    'alibaba',
+  ]),
   rawKey: z.string().min(1),
 });
 
@@ -41,39 +52,51 @@ describe('Zod Input Fuzz', () => {
     });
 
     it('rejects max-length URL overflow', () => {
-      expect(PlatformUrl.safeParse({
-        platform: 'shopify',
-        url: 'https://x.com/' + 'a'.repeat(3000),
-        idempotencyKey: 'k1',
-      }).success).toBe(false);
+      expect(
+        PlatformUrl.safeParse({
+          platform: 'shopify',
+          url: 'https://x.com/' + 'a'.repeat(3000),
+          idempotencyKey: 'k1',
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects empty idempotencyKey', () => {
-      expect(PlatformUrl.safeParse({
-        platform: 'shopify',
-        url: 'https://x.com',
-        idempotencyKey: '',
-      }).success).toBe(false);
+      expect(
+        PlatformUrl.safeParse({
+          platform: 'shopify',
+          url: 'https://x.com',
+          idempotencyKey: '',
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects invalid platform', () => {
-      expect(PlatformUrl.safeParse({
-        platform: 'invalid',
-        url: 'https://x.com',
-        idempotencyKey: 'k1',
-      }).success).toBe(false);
+      expect(
+        PlatformUrl.safeParse({
+          platform: 'invalid',
+          url: 'https://x.com',
+          idempotencyKey: 'k1',
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects non-string URL', () => {
-      expect(PlatformUrl.safeParse({
-        platform: 'shopify',
-        url: 12345,
-        idempotencyKey: 'k1',
-      }).success).toBe(false);
+      expect(
+        PlatformUrl.safeParse({
+          platform: 'shopify',
+          url: 12345,
+          idempotencyKey: 'k1',
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects nested object bombs', () => {
-      const bomb: Record<string, unknown> = { platform: 'shopify', url: 'https://x.com', idempotencyKey: 'k1' };
+      const bomb: Record<string, unknown> = {
+        platform: 'shopify',
+        url: 'https://x.com',
+        idempotencyKey: 'k1',
+      };
       bomb.__proto__ = { evil: true };
       const r = PlatformUrl.safeParse(bomb);
       expect(r.success).toBe(true); // Zod ignores prototype pollution
@@ -82,48 +105,60 @@ describe('Zod Input Fuzz', () => {
 
   describe('KeysSetInput', () => {
     it('rejects an empty raw key', () => {
-      expect(KeysSetInput.safeParse({
-        provider: 'firecrawl',
-        rawKey: '',
-      }).success).toBe(false);
+      expect(
+        KeysSetInput.safeParse({
+          provider: 'firecrawl',
+          rawKey: '',
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects an unknown provider', () => {
-      expect(KeysSetInput.safeParse({
-        provider: 'not-a-real-provider',
-        rawKey: 'sk-test',
-      }).success).toBe(false);
+      expect(
+        KeysSetInput.safeParse({
+          provider: 'not-a-real-provider',
+          rawKey: 'sk-test',
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects a non-string raw key', () => {
-      expect(KeysSetInput.safeParse({
-        provider: 'firecrawl',
-        rawKey: 12345,
-      }).success).toBe(false);
+      expect(
+        KeysSetInput.safeParse({
+          provider: 'firecrawl',
+          rawKey: 12345,
+        }).success,
+      ).toBe(false);
     });
   });
 
   describe('LlmConfigInput', () => {
     it('rejects empty model name', () => {
-      expect(LlmConfigInput.safeParse({
-        provider: 'deepseek',
-        defaultModel: '',
-      }).success).toBe(false);
+      expect(
+        LlmConfigInput.safeParse({
+          provider: 'deepseek',
+          defaultModel: '',
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects model name over 200 chars', () => {
-      expect(LlmConfigInput.safeParse({
-        provider: 'deepseek',
-        defaultModel: 'x'.repeat(201),
-      }).success).toBe(false);
+      expect(
+        LlmConfigInput.safeParse({
+          provider: 'deepseek',
+          defaultModel: 'x'.repeat(201),
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects invalid URL in baseUrl', () => {
-      expect(LlmConfigInput.safeParse({
-        provider: 'deepseek',
-        defaultModel: 'test',
-        baseUrl: 'not-a-url',
-      }).success).toBe(false);
+      expect(
+        LlmConfigInput.safeParse({
+          provider: 'deepseek',
+          defaultModel: 'test',
+          baseUrl: 'not-a-url',
+        }).success,
+      ).toBe(false);
     });
   });
 

@@ -1,6 +1,6 @@
-import { requireOrgSession } from '../../lib/session';
-import { classifyError } from '../../lib/api-client';
 import { StateBanner } from '../../components/StateBanner';
+import { classifyError } from '../../lib/api-client';
+import { requireOrgSession } from '../../lib/session';
 
 export default async function InsightsPage() {
   const { orgId, api } = await requireOrgSession();
@@ -32,7 +32,14 @@ export default async function InsightsPage() {
               borderRadius: '0.5rem',
             }}
           >
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.5rem',
+                alignItems: 'center',
+                marginBottom: '0.5rem',
+              }}
+            >
               <span
                 style={{
                   padding: '0.125rem 0.5rem',
@@ -68,4 +75,5 @@ export default async function InsightsPage() {
   );
 }
 
-const severityColor = (s: string) => ({ low: '#34d399', medium: '#fbbf24', high: '#f87171' })[s] ?? '#a1a1aa';
+const severityColor = (s: string) =>
+  ({ low: '#34d399', medium: '#fbbf24', high: '#f87171' })[s] ?? '#a1a1aa';

@@ -7,8 +7,8 @@
  * failures that aren't "not found". Fixed below.
  */
 
-import { requireOrgSession } from '../../../lib/session';
 import { notFound } from 'next/navigation';
+import { requireOrgSession } from '../../../lib/session';
 import CancelIntentButton from '../CancelIntentButton';
 
 const CANCELLABLE = new Set(['queued', 'running']);
@@ -21,11 +21,7 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const { supabase } = await requireOrgSession();
 
-  const { data: intent, error } = await supabase
-    .from('intents')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data: intent, error } = await supabase.from('intents').select('*').eq('id', id).single();
 
   if (error) {
     // PGRST116 = "no rows" from .single() — an actual not-found. Anything
@@ -34,7 +30,15 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
     return (
       <div style={{ padding: '2rem' }}>
         <a href="/intents">← Back to Intents</a>
-        <div style={{ marginTop: '1rem', padding: '1rem', background: '#18181b', border: '1px solid #f8717155', borderRadius: '0.5rem' }}>
+        <div
+          style={{
+            marginTop: '1rem',
+            padding: '1rem',
+            background: '#18181b',
+            border: '1px solid #f8717155',
+            borderRadius: '0.5rem',
+          }}
+        >
           <p style={{ color: '#f87171', fontWeight: 600 }}>Failed to load intent</p>
           <p style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>{error.message}</p>
         </div>
@@ -42,17 +46,22 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
     );
   }
 
-  const { data: insights } = await supabase
-    .from('insights')
-    .select('*')
-    .eq('intent_id', id);
+  const { data: insights } = await supabase.from('insights').select('*').eq('intent_id', id);
 
   const isPartial = PARTIAL.has(intent.status);
-  const isProviderAuthFailure = intent.status === 'failed' && looksLikeProviderAuthFailure(intent.error_message);
+  const isProviderAuthFailure =
+    intent.status === 'failed' && looksLikeProviderAuthFailure(intent.error_message);
 
   return (
     <div style={{ padding: '2rem' }}>
-      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <header
+        style={{
+          marginBottom: '2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}
+      >
         <div>
           <a href="/intents">← Back to Intents</a>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.5rem' }}>
@@ -62,7 +71,14 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
         {intent.status === 'succeeded' && (
           <a
             href={`/intents/${intent.id}/report`}
-            style={{ padding: '0.5rem 1rem', background: '#818cf8', color: '#fff', borderRadius: '0.375rem', fontSize: '0.875rem', fontWeight: 600 }}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#818cf8',
+              color: '#fff',
+              borderRadius: '0.375rem',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+            }}
           >
             View Report
           </a>
@@ -70,21 +86,40 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
       </header>
 
       {isPartial && (
-        <div style={{ padding: '1rem', marginBottom: '1rem', background: '#18181b', border: '1px solid #fbbf2455', borderRadius: '0.5rem' }}>
+        <div
+          style={{
+            padding: '1rem',
+            marginBottom: '1rem',
+            background: '#18181b',
+            border: '1px solid #fbbf2455',
+            borderRadius: '0.5rem',
+          }}
+        >
           <p style={{ color: '#fbbf24', fontWeight: 600 }}>Still processing</p>
           <p style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>
-            This intent hasn&apos;t finished yet — refresh to check for updates. Partial results, if any, are shown below.
+            This intent hasn&apos;t finished yet — refresh to check for updates. Partial results, if
+            any, are shown below.
           </p>
         </div>
       )}
 
       {isProviderAuthFailure && (
-        <div style={{ padding: '1rem', marginBottom: '1rem', background: '#18181b', border: '1px solid #f8717155', borderRadius: '0.5rem' }}>
+        <div
+          style={{
+            padding: '1rem',
+            marginBottom: '1rem',
+            background: '#18181b',
+            border: '1px solid #f8717155',
+            borderRadius: '0.5rem',
+          }}
+        >
           <p style={{ color: '#f87171', fontWeight: 600 }}>Provider authentication failed</p>
           <p style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>
             This looks like a missing or invalid provider key rather than a general failure.
           </p>
-          <a href="/keys" style={{ fontSize: '0.875rem', color: '#818cf8' }}>Manage provider keys →</a>
+          <a href="/keys" style={{ fontSize: '0.875rem', color: '#818cf8' }}>
+            Manage provider keys →
+          </a>
         </div>
       )}
 
@@ -107,12 +142,20 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
 
       {insights && insights.length > 0 && (
         <div style={{ marginTop: '2rem' }}>
-          <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>Insights ({insights.length})</h2>
+          <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
+            Insights ({insights.length})
+          </h2>
           {insights.map((ins) => (
-            <div key={ins.id} style={{
-              padding: '1rem', marginBottom: '1rem',
-              background: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem',
-            }}>
+            <div
+              key={ins.id}
+              style={{
+                padding: '1rem',
+                marginBottom: '1rem',
+                background: '#18181b',
+                border: '1px solid #27272a',
+                borderRadius: '0.5rem',
+              }}
+            >
               <h3 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{ins.title}</h3>
               <p style={{ fontSize: '0.875rem', color: '#a1a1aa' }}>{ins.body.slice(0, 200)}...</p>
             </div>
@@ -123,9 +166,25 @@ export default async function IntentDetailPage({ params }: { params: Promise<{ i
   );
 }
 
-function DetailRow({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }) {
+function DetailRow({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value?: string;
+  children?: React.ReactNode;
+}) {
   return (
-    <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid #27272a', paddingBottom: '0.5rem', alignItems: 'center' }}>
+    <div
+      style={{
+        display: 'flex',
+        gap: '1rem',
+        borderBottom: '1px solid #27272a',
+        paddingBottom: '0.5rem',
+        alignItems: 'center',
+      }}
+    >
       <span style={{ width: 120, color: '#a1a1aa', fontSize: '0.875rem' }}>{label}</span>
       <span>{value}</span>
       {children}
@@ -135,14 +194,25 @@ function DetailRow({ label, value, children }: { label: string; value?: string; 
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    queued: '#a1a1aa', running: '#fbbf24', succeeded: '#34d399',
-    failed: '#f87171', cancelled: '#6b7280', rate_limited: '#f59e0b',
+    queued: '#a1a1aa',
+    running: '#fbbf24',
+    succeeded: '#34d399',
+    failed: '#f87171',
+    cancelled: '#6b7280',
+    rate_limited: '#f59e0b',
   };
   return (
-    <span style={{
-      display: 'inline-block', padding: '0.125rem 0.5rem', borderRadius: '0.25rem',
-      background: colors[status] ?? '#a1a1aa', color: '#000', fontSize: '0.75rem', fontWeight: 600,
-    }}>
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '0.125rem 0.5rem',
+        borderRadius: '0.25rem',
+        background: colors[status] ?? '#a1a1aa',
+        color: '#000',
+        fontSize: '0.75rem',
+        fontWeight: 600,
+      }}
+    >
       {status}
     </span>
   );

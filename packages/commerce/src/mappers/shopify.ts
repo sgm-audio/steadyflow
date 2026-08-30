@@ -1,6 +1,6 @@
 import type { CatalogAuditResult, ShopifyProduct } from '@steadyflow/shopify-admin';
-import type { CommerceCatalog, CommerceProduct, CommerceVariant } from '../schemas/product.js';
 import type { Money } from '../schemas/money.js';
+import type { CommerceCatalog, CommerceProduct, CommerceVariant } from '../schemas/product.js';
 
 function money(amount: number, currency: string): Money {
   return { amount, currency };
@@ -45,7 +45,11 @@ function mapStatus(status: string): CommerceProduct['status'] {
 /**
  * Map a Shopify Admin product node into the unified CommerceProduct shape.
  */
-export function mapShopifyProduct(product: ShopifyProduct, currency: string, syncedAt: string): CommerceProduct {
+export function mapShopifyProduct(
+  product: ShopifyProduct,
+  currency: string,
+  syncedAt: string,
+): CommerceProduct {
   const variants = product.variants.edges.map((e) => mapVariant(e.node, currency));
   const images = product.images.edges.map((e) => {
     const img: { url: string; altText?: string } = { url: e.node.url };
@@ -73,8 +77,13 @@ export function mapShopifyProduct(product: ShopifyProduct, currency: string, syn
 /**
  * Convert a full `@steadyflow/shopify-admin` catalog audit into CommerceCatalog.
  */
-export function mapShopifyAuditToCatalog(audit: CatalogAuditResult, fetchedAt = new Date().toISOString()): CommerceCatalog {
-  const products = audit.rows.map((row) => mapShopifyProduct(row.product, audit.shopCurrency, fetchedAt));
+export function mapShopifyAuditToCatalog(
+  audit: CatalogAuditResult,
+  fetchedAt = new Date().toISOString(),
+): CommerceCatalog {
+  const products = audit.rows.map((row) =>
+    mapShopifyProduct(row.product, audit.shopCurrency, fetchedAt),
+  );
   return {
     platform: 'shopify',
     currency: audit.shopCurrency,

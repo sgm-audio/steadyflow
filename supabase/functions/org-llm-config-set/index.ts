@@ -8,8 +8,13 @@
 
 import { z } from 'npm:zod@3';
 import {
-  handleCors, createContext, parseInput,
-  writeAudit, ok, badRequest, internalError,
+  badRequest,
+  createContext,
+  handleCors,
+  internalError,
+  ok,
+  parseInput,
+  writeAudit,
 } from '../_shared/context.ts';
 
 const ConfigInput = z.object({
@@ -27,8 +32,11 @@ Deno.serve(async (req: Request) => {
   if (ctx instanceof Response) return ctx;
 
   let body: unknown;
-  try { body = await req.json(); }
-  catch { return badRequest('Invalid JSON body'); }
+  try {
+    body = await req.json();
+  } catch {
+    return badRequest('Invalid JSON body');
+  }
 
   const parsed = parseInput(ConfigInput, body);
   if (!parsed.ok) return badRequest(parsed.error.message);
@@ -50,8 +58,10 @@ Deno.serve(async (req: Request) => {
   if (error) return internalError(`Failed to update LLM config: ${error.message}`);
 
   writeAudit(ctx.supabase, {
-    orgId: ctx.orgId, userId: ctx.userId,
-    action: 'org.llmConfig.set', outcome: 'success',
+    orgId: ctx.orgId,
+    userId: ctx.userId,
+    action: 'org.llmConfig.set',
+    outcome: 'success',
     input: { provider },
     durationMs: Date.now() - startMs,
   }).catch(() => {});

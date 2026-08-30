@@ -18,13 +18,24 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
         partnerDevelopment
         shopifyPlus
       }
-      primaryDomain { url host }
+      primaryDomain {
+        url
+        host
+      }
       timezoneAbbreviation
-      billingAddress { country city province zip }
+      billingAddress {
+        country
+        city
+        province
+        zip
+      }
       ianaTimezone
     }
     products(first: 50, after: $cursor) {
-      pageInfo { hasNextPage endCursor }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       edges {
         node {
           id
@@ -37,16 +48,41 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
           descriptionHtml
           description
           priceRangeV2 {
-            minVariantPrice { amount currencyCode }
-            maxVariantPrice { amount currencyCode }
+            minVariantPrice {
+              amount
+              currencyCode
+            }
+            maxVariantPrice {
+              amount
+              currencyCode
+            }
           }
           compareAtPriceRange {
-            minVariantCompareAtPrice { amount currencyCode }
-            maxVariantCompareAtPrice { amount currencyCode }
+            minVariantCompareAtPrice {
+              amount
+              currencyCode
+            }
+            maxVariantCompareAtPrice {
+              amount
+              currencyCode
+            }
           }
-          seo { title description }
-          featuredImage { url altText width height }
-          options { id name position values }
+          seo {
+            title
+            description
+          }
+          featuredImage {
+            url
+            altText
+            width
+            height
+          }
+          options {
+            id
+            name
+            position
+            values
+          }
           variants(first: 100) {
             edges {
               node {
@@ -55,22 +91,37 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
                 title
                 price
                 compareAtPrice
-                selectedOptions { name value }
+                selectedOptions {
+                  name
+                  value
+                }
               }
             }
           }
           images(first: 50) {
             edges {
-              node { id altText url width height }
+              node {
+                id
+                altText
+                url
+                width
+                height
+              }
             }
           }
           collections(first: 100) {
             edges {
-              node { id title handle }
+              node {
+                id
+                title
+                handle
+              }
             }
           }
           hasOnlyDefaultVariant
-          mediaCount { count }
+          mediaCount {
+            count
+          }
           tracksInventory
           isGiftCard
           onlineStoreUrl
@@ -88,8 +139,15 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
           handle
           descriptionHtml
           description
-          image { url altText width height }
-          productsCount { count }
+          image {
+            url
+            altText
+            width
+            height
+          }
+          productsCount {
+            count
+          }
           updatedAt
           sortOrder
         }
@@ -109,11 +167,18 @@ export const CATALOG_QUERY = CATALOG_PAGE_QUERY;
 export const SALES_SUMMARY_QUERY = /* GraphQL */ `
   query SalesSummary {
     orders(first: 250, sortKey: CREATED_AT, reverse: true) {
-      pageInfo { hasNextPage }
+      pageInfo {
+        hasNextPage
+      }
       edges {
         node {
           createdAt
-          totalPriceSet { shopMoney { amount currencyCode } }
+          totalPriceSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
         }
       }
     }

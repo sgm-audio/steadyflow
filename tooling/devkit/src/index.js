@@ -1,1 +1,1 @@
-export { scaffold, SCAFFOLD_KINDS, toSlug, toPhpClass } from './scaffold.js';
+export { SCAFFOLD_KINDS, scaffold, toPhpClass, toSlug } from './scaffold.js';

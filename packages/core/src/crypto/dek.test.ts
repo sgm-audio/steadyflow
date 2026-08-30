@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { deriveDekPbkdf2, randomSalt, DEFAULT_KDF_PARAMS } from './dek.js';
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_KDF_PARAMS, deriveDekPbkdf2, randomSalt } from './dek.js';
 
 describe('randomSalt', () => {
   it('produces a salt of the requested length', () => {

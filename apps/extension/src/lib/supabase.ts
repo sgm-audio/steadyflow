@@ -1,6 +1,6 @@
 /**
  * Supabase auth client for Chrome Extension.
- * 
+ *
  * Uses the chrome.identity API for OAuth PKCE flow.
  * Stores session in chrome.storage.local for persistence.
  */
@@ -33,7 +33,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 export const getSession = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return session;
 };
 

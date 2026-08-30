@@ -1,10 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import {
-  assertSafeFetchUrl,
-  SsrfBlockedError,
-  isBlockedIpv4,
-  isBlockedIpv6,
-} from './ssrf.js';
+import { describe, expect, it } from 'vitest';
+import { assertSafeFetchUrl, isBlockedIpv4, isBlockedIpv6, SsrfBlockedError } from './ssrf.js';
 
 const allow = ['example.com', 'myshopify.com', 'cdn.shopify.com'];
 

@@ -99,7 +99,10 @@ const extractHost = (src: string, storeHost: string): string => {
   }
 };
 
-const classifyHost = (host: string, storeHost: string): { isFirstParty: boolean; appName?: string } => {
+const classifyHost = (
+  host: string,
+  storeHost: string,
+): { isFirstParty: boolean; appName?: string } => {
   if (host === storeHost || SHOPIFY_FIRST_PARTY.has(host)) {
     return { isFirstParty: true };
   }
@@ -111,7 +114,10 @@ const classifyHost = (host: string, storeHost: string): { isFirstParty: boolean;
 export const analyzeStorefrontHtml = (html: string, storeHost: string): StorefrontAnalysis => {
   const head = HEAD_RE.exec(html)?.[1] ?? '';
 
-  const scriptHosts = new Map<string, { count: number; appName?: string | undefined; renderBlocking: number }>();
+  const scriptHosts = new Map<
+    string,
+    { count: number; appName?: string | undefined; renderBlocking: number }
+  >();
   let totalScripts = 0;
 
   for (const match of html.matchAll(SCRIPT_SRC_RE)) {
@@ -159,18 +165,28 @@ export const analyzeStorefrontHtml = (html: string, storeHost: string): Storefro
   const hasPreload = PRELOAD_RE.test(head);
 
   const renderBlockingRisk =
-    renderBlockingScripts >= 3 || !hasPreload ? 'high' :
-    renderBlockingScripts >= 1 ? 'medium' : 'low';
+    renderBlockingScripts >= 3 || !hasPreload
+      ? 'high'
+      : renderBlockingScripts >= 1
+        ? 'medium'
+        : 'low';
 
   const layoutShiftRisk =
-    totalImages > 0 && imagesWithoutDimensions / totalImages >= 0.5 ? 'high' :
-    imagesWithoutDimensions > 0 || thirdPartyHosts.length >= 3 ? 'medium' : 'low';
+    totalImages > 0 && imagesWithoutDimensions / totalImages >= 0.5
+      ? 'high'
+      : imagesWithoutDimensions > 0 || thirdPartyHosts.length >= 3
+        ? 'medium'
+        : 'low';
 
   // 0-100: reward a clean storefront, penalize scripts, undimensioned images, and widget count.
   const inefficiencyScore = Math.min(
     100,
-    totalScripts * 4 + thirdPartyHosts.length * 5 + appHosts.length * 4 +
-    renderBlockingScripts * 3 + imagesWithoutDimensions * 2 + (hasPreload ? 0 : 8),
+    totalScripts * 4 +
+      thirdPartyHosts.length * 5 +
+      appHosts.length * 4 +
+      renderBlockingScripts * 3 +
+      imagesWithoutDimensions * 2 +
+      (hasPreload ? 0 : 8),
   );
 
   return {

@@ -1,6 +1,6 @@
+import { FLAG_TITLE } from './findings.js';
 import type { Flag, FlagCode } from './flags.js';
 import { FLAG_TO_RUBRIC, type RubricCategoryId } from './rubric.js';
-import { FLAG_TITLE } from './findings.js';
 
 /**
  * Deterministic revenue-impact estimation for the "Revenue Leak Audit".
@@ -103,9 +103,10 @@ export const deriveLeakContext = (
   opts?: { monthlyOrders?: number; sales?: SalesSignal },
 ): LeakContext => {
   const priced = rows.filter((r) => r.priceMinCAD > 0).map((r) => r.priceMinCAD);
-  const catalogAov = priced.length > 0
-    ? priced.reduce((a, b) => a + b, 0) / priced.length
-    : DEFAULT_AVERAGE_ORDER_VALUE;
+  const catalogAov =
+    priced.length > 0
+      ? priced.reduce((a, b) => a + b, 0) / priced.length
+      : DEFAULT_AVERAGE_ORDER_VALUE;
   const source = opts?.sales ? 'real' : 'assumed';
   return {
     currency,
@@ -154,9 +155,8 @@ export const buildLeakList = (
   const context = deriveLeakContext(rows, currency, opts);
   const byFlag = aggregateFlags(rows, opts?.catalogFlags ?? []);
   const annualBaseline = context.averageOrderValue * context.monthlyOrders * 12;
-  const sourceNote = context.source === 'real'
-    ? 'real order data'
-    : `assumed ${context.monthlyOrders} orders/month`;
+  const sourceNote =
+    context.source === 'real' ? 'real order data' : `assumed ${context.monthlyOrders} orders/month`;
 
   const items: LeakItem[] = [];
   for (const [code, { severity, affectedCount }] of byFlag) {

@@ -1,12 +1,20 @@
 'use client';
 
+import { useParams, useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { useRouter, useParams } from 'next/navigation';
 import { z } from 'zod';
 
 const PROVIDERS = [
-  'firecrawl', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible',
-  'shopify-admin', 'printify', 'amazon-sp-api', 'alibaba',
+  'firecrawl',
+  'tavily',
+  'deepseek',
+  'nvidia-nim',
+  'groq',
+  'openai-compatible',
+  'shopify-admin',
+  'printify',
+  'amazon-sp-api',
+  'alibaba',
 ] as const;
 const Provider = z.enum(PROVIDERS);
 
@@ -42,32 +50,40 @@ export default function KeySetPage() {
   const provider = providerResult.data;
 
   if (provider === 'shopify-admin') {
-    const oauthErrorParam = typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('error')
-      : null;
-    const oauthError = oauthErrorParam ? OAUTH_ERRORS[oauthErrorParam] ?? oauthErrorParam : '';
+    const oauthErrorParam =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('error')
+        : null;
+    const oauthError = oauthErrorParam ? (OAUTH_ERRORS[oauthErrorParam] ?? oauthErrorParam) : '';
 
     return (
       <div style={{ padding: '2rem' }}>
         <header style={{ marginBottom: '2rem' }}>
           <a href="/keys">← Keys</a>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.5rem' }}>Shopify Admin</h1>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.5rem' }}>
+            Shopify Admin
+          </h1>
         </header>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 480 }}>
           <p style={{ fontSize: '0.875rem', color: '#a1a1aa' }}>
-            Shopify retired static custom-app tokens (<code>shpat_</code>) — connect via OAuth instead.
-            You&apos;ll be redirected to Shopify to approve access, then back here.
+            Shopify retired static custom-app tokens (<code>shpat_</code>) — connect via OAuth
+            instead. You&apos;ll be redirected to Shopify to approve access, then back here.
           </p>
           <div>
-            <label htmlFor="shopDomain" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>
+            <label
+              htmlFor="shopDomain"
+              style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}
+            >
               Store domain
             </label>
             <input
               id="shopDomain"
               type="text"
               value={shopDomain}
-              onChange={(e) => { setShopDomain(e.target.value); }}
+              onChange={(e) => {
+                setShopDomain(e.target.value);
+              }}
               placeholder="makingmadi.myshopify.com"
               style={{ width: '100%' }}
             />
@@ -121,18 +137,34 @@ export default function KeySetPage() {
     <div style={{ padding: '2rem' }}>
       <header style={{ marginBottom: '2rem' }}>
         <a href="/keys">← Keys</a>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.5rem', textTransform: 'capitalize' }}>
+        <h1
+          style={{
+            fontSize: '1.5rem',
+            fontWeight: 700,
+            marginTop: '0.5rem',
+            textTransform: 'capitalize',
+          }}
+        >
           {provider}
         </h1>
       </header>
 
-      <form onSubmit={(e) => { void handleSubmit(e); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 480 }}>
+      <form
+        onSubmit={(e) => {
+          void handleSubmit(e);
+        }}
+        style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 480 }}
+      >
         <div>
-          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>API key</label>
+          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>
+            API key
+          </label>
           <input
             type="password"
             value={rawKey}
-            onChange={(e) => { setRawKey(e.target.value); }}
+            onChange={(e) => {
+              setRawKey(e.target.value);
+            }}
             required
             autoComplete="off"
             style={{ width: '100%' }}

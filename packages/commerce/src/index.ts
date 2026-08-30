@@ -7,10 +7,17 @@
  * `import { createAmazonSellingAdapter } from '@steadyflow/commerce/src/adapters/amazon/selling.js'`
  */
 
-export * from './schemas/index.js';
-export * from './adapters/types.js';
+export {
+  PrintifyFulfillmentAdapter,
+  createPrintifyFulfillmentAdapter,
+} from './adapters/printify/fulfillment.js';
 export { createCommerceRegistry } from './adapters/registry.js';
-export type { CommerceCredentials, CommerceRegistry, CreateCommerceRegistryOptions } from './adapters/registry.js';
-export { createShopifySellingAdapter, ShopifySellingAdapter } from './adapters/shopify/selling.js';
-export { createPrintifyFulfillmentAdapter, PrintifyFulfillmentAdapter } from './adapters/printify/fulfillment.js';
+export type {
+  CommerceCredentials,
+  CommerceRegistry,
+  CreateCommerceRegistryOptions,
+} from './adapters/registry.js';
+export { ShopifySellingAdapter, createShopifySellingAdapter } from './adapters/shopify/selling.js';
+export * from './adapters/types.js';
 export { mapShopifyAuditToCatalog, mapShopifyProduct } from './mappers/shopify.js';
+export * from './schemas/index.js';

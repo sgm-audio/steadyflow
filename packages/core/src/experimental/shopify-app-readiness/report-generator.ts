@@ -1,10 +1,10 @@
-import type { ReadinessCheckResult } from './checks';
-import { generateMarkdownChecklist, generateChecklistItems } from './manual-review';
-import type { ManualReviewItem, ManualReviewChecklistItem } from './manual-review';
-import { getShopifyAppRequirements } from './registry';
-import type { ShopifyAppRequirement } from './schema';
 import { hashObject } from '../../audit/hash.js';
 import { redactSecrets } from '../../audit/redact.js';
+import type { ReadinessCheckResult } from './checks';
+import type { ManualReviewChecklistItem, ManualReviewItem } from './manual-review';
+import { generateChecklistItems, generateMarkdownChecklist } from './manual-review';
+import { getShopifyAppRequirements } from './registry';
+import type { ShopifyAppRequirement } from './schema';
 
 export interface AppMetadata {
   name: string;
@@ -78,12 +78,14 @@ export function computeReportHash(report: ReadinessReport): string {
 
 export function calculateStaleWarnings(
   requirements: Pick<ShopifyAppRequirement, 'id' | 'title' | 'verifiedAt'>[],
-  scannedAt: Date
+  scannedAt: Date,
 ): StaleRequirementWarning[] {
   const warnings: StaleRequirementWarning[] = [];
   for (const req of requirements) {
     const verified = new Date(req.verifiedAt);
-    const daysSince = Math.floor((scannedAt.getTime() - verified.getTime()) / (1000 * 60 * 60 * 24));
+    const daysSince = Math.floor(
+      (scannedAt.getTime() - verified.getTime()) / (1000 * 60 * 60 * 24),
+    );
     if (daysSince > STALE_THRESHOLD_DAYS) {
       warnings.push({
         requirementId: req.id,
@@ -99,38 +101,41 @@ export function calculateStaleWarnings(
 
 export function computeOverallStatus(
   staticChecks: ReadinessCheckResult[],
-  manualReviews: ManualReviewItem[]
+  manualReviews: ManualReviewItem[],
 ): 'ready' | 'not_ready' | 'needs_review' {
-  const hasFailures = staticChecks.some(c => c.status === 'fail');
-  const hasUnknown = staticChecks.some(c => c.status === 'unknown');
+  const hasFailures = staticChecks.some((c) => c.status === 'fail');
+  const hasUnknown = staticChecks.some((c) => c.status === 'unknown');
 
   // A `manual_review` check that lacks any matching review is unresolved.
-  const manualReviewIds = staticChecks.filter(c => c.status === 'manual_review').map(c => c.requirementId);
-  const hasUnresolvedManual = manualReviewIds.some(id => !manualReviews.some(r => r.requirementId === id));
+  const manualReviewIds = staticChecks
+    .filter((c) => c.status === 'manual_review')
+    .map((c) => c.requirementId);
+  const hasUnresolvedManual = manualReviewIds.some(
+    (id) => !manualReviews.some((r) => r.requirementId === id),
+  );
 
-  const hasPendingManual = manualReviews.some(r => r.decision === 'deferred');
-  const hasConditional = manualReviews.some(r => r.decision === 'conditional');
+  const hasPendingManual = manualReviews.some((r) => r.decision === 'deferred');
+  const hasConditional = manualReviews.some((r) => r.decision === 'conditional');
 
   if (hasFailures) return 'not_ready';
-  if (hasUnknown || hasUnresolvedManual || hasPendingManual || hasConditional) return 'needs_review';
+  if (hasUnknown || hasUnresolvedManual || hasPendingManual || hasConditional)
+    return 'needs_review';
   return 'ready';
 }
 
-export function generateReadinessReport(
-  config: {
-    appMetadata: AppMetadata;
-    scanMetadata: ScanMetadata;
-    staticCheckResults: ReadinessCheckResult[];
-    manualReviewResults: ManualReviewItem[];
-  }
-): ReadinessReport {
+export function generateReadinessReport(config: {
+  appMetadata: AppMetadata;
+  scanMetadata: ScanMetadata;
+  staticCheckResults: ReadinessCheckResult[];
+  manualReviewResults: ManualReviewItem[];
+}): ReadinessReport {
   const requirements = getShopifyAppRequirements();
   const scannedAt = new Date(config.scanMetadata.scanTimestamp);
 
   const staleWarnings = calculateStaleWarnings(requirements, scannedAt);
 
   const checklistItems = generateChecklistItems(
-    requirements.map(r => ({
+    requirements.map((r) => ({
       id: r.id,
       title: r.title,
       description: r.description,
@@ -139,12 +144,12 @@ export function generateReadinessReport(
       validationMode: r.validationMode,
       officialSourceUrl: r.officialSourceUrl,
       officialSourceTitle: r.officialSourceTitle,
-    }))
+    })),
   );
 
   // Merge manual review status into checklist items
-  const checklistWithReviews: ManualReviewChecklistItem[] = checklistItems.map(item => {
-    const review = config.manualReviewResults.find(r => r.requirementId === item.requirementId);
+  const checklistWithReviews: ManualReviewChecklistItem[] = checklistItems.map((item) => {
+    const review = config.manualReviewResults.find((r) => r.requirementId === item.requirementId);
     if (review) {
       return {
         ...item,
@@ -161,19 +166,19 @@ export function generateReadinessReport(
     generatedAt: new Date().toISOString(),
     generatedBy: config.scanMetadata.scannedBy,
     totalItems: checklistItems.length,
-    completedItems: checklistWithReviews.filter(i => i.status === 'completed').length,
+    completedItems: checklistWithReviews.filter((i) => i.status === 'completed').length,
   });
 
   const staticChecks = config.staticCheckResults;
   const manualReviews = config.manualReviewResults;
 
   const statusCounts = {
-    passed: staticChecks.filter(c => c.status === 'pass').length,
-    failed: staticChecks.filter(c => c.status === 'fail').length,
-    warnings: staticChecks.filter(c => c.status === 'warning').length,
-    manualReview: staticChecks.filter(c => c.status === 'manual_review').length,
-    notApplicable: staticChecks.filter(c => c.status === 'not_applicable').length,
-    unknown: staticChecks.filter(c => c.status === 'unknown').length,
+    passed: staticChecks.filter((c) => c.status === 'pass').length,
+    failed: staticChecks.filter((c) => c.status === 'fail').length,
+    warnings: staticChecks.filter((c) => c.status === 'warning').length,
+    manualReview: staticChecks.filter((c) => c.status === 'manual_review').length,
+    notApplicable: staticChecks.filter((c) => c.status === 'not_applicable').length,
+    unknown: staticChecks.filter((c) => c.status === 'unknown').length,
   };
 
   let overallStatus = computeOverallStatus(staticChecks, manualReviews);
@@ -217,7 +222,9 @@ export function reportToMarkdown(report: ReadinessReport): string {
   lines.push(`# Shopify App Readiness Report`);
   lines.push('');
   lines.push(`**App:** ${report.metadata.app.name} v${report.metadata.app.version}`);
-  lines.push(`**Scan:** ${report.metadata.scan.scanTimestamp} (${report.metadata.scan.commitSha.slice(0, 7)})`);
+  lines.push(
+    `**Scan:** ${report.metadata.scan.scanTimestamp} (${report.metadata.scan.commitSha.slice(0, 7)})`,
+  );
   lines.push(`**Registry:** v${report.metadata.registryVersion}`);
   lines.push(`**Generated:** ${report.metadata.generatedAt}`);
   lines.push('');
@@ -240,7 +247,9 @@ export function reportToMarkdown(report: ReadinessReport): string {
     lines.push(`## ⚠️ Stale Requirements (verified >${STALE_THRESHOLD_DAYS} days ago)`);
     lines.push('');
     for (const w of report.staleWarnings) {
-      lines.push(`- **${w.requirementTitle}** (${w.requirementId}): verified ${w.daysSinceVerification} days ago`);
+      lines.push(
+        `- **${w.requirementTitle}** (${w.requirementId}): verified ${w.daysSinceVerification} days ago`,
+      );
     }
     lines.push('');
   }
@@ -248,11 +257,18 @@ export function reportToMarkdown(report: ReadinessReport): string {
   lines.push(`## Static Check Results`);
   lines.push('');
   for (const check of report.staticChecks) {
-    const icon = check.status === 'pass' ? '✅' :
-                 check.status === 'fail' ? '❌' :
-                 check.status === 'warning' ? '⚠️' :
-                 check.status === 'manual_review' ? '🔍' :
-                 check.status === 'not_applicable' ? '➖' : '❓';
+    const icon =
+      check.status === 'pass'
+        ? '✅'
+        : check.status === 'fail'
+          ? '❌'
+          : check.status === 'warning'
+            ? '⚠️'
+            : check.status === 'manual_review'
+              ? '🔍'
+              : check.status === 'not_applicable'
+                ? '➖'
+                : '❓';
     lines.push(`### ${icon} ${check.requirementId} — ${check.status.toUpperCase()}`);
     lines.push(`> ${check.message}`);
     if (check.evidence) {
@@ -267,17 +283,25 @@ export function reportToMarkdown(report: ReadinessReport): string {
     lines.push(`## Manual Review Results`);
     lines.push('');
     for (const review of report.manualReviews) {
-      const decisionIcon = review.decision === 'approved' ? '✅' :
-                           review.decision === 'rejected' ? '❌' :
-                           review.decision === 'conditional' ? '⚠️' : '⏳';
+      const decisionIcon =
+        review.decision === 'approved'
+          ? '✅'
+          : review.decision === 'rejected'
+            ? '❌'
+            : review.decision === 'conditional'
+              ? '⚠️'
+              : '⏳';
       lines.push(`### ${decisionIcon} ${review.requirementId} — ${review.decision.toUpperCase()}`);
       lines.push(`- **Reviewer:** ${review.reviewerName} (${review.reviewerId})`);
       lines.push(`- **Reviewed:** ${review.reviewedAt}`);
       lines.push(`- **Applicability:** ${review.applicabilityDecision}`);
       if (review.applicabilityReason) lines.push(`- **Reason:** ${review.applicabilityReason}`);
-      if (review.waiver) lines.push(`- **Waiver:** ${review.waiver.id} (granted by ${review.waiver.grantedBy})`);
+      if (review.waiver)
+        lines.push(`- **Waiver:** ${review.waiver.id} (granted by ${review.waiver.grantedBy})`);
       if (review.evidence.length) {
-        lines.push(`- **Evidence:** ${review.evidence.map(e => `${e.type}: ${e.description}`).join(', ')}`);
+        lines.push(
+          `- **Evidence:** ${review.evidence.map((e) => `${e.type}: ${e.description}`).join(', ')}`,
+        );
       }
       if (review.notes) lines.push(`- **Notes:** ${review.notes}`);
       lines.push('');
@@ -285,8 +309,10 @@ export function reportToMarkdown(report: ReadinessReport): string {
   }
 
   lines.push(`---`);
-  lines.push(`*Report generated by SteadyFlow Shopify App Readiness Module — not a compliance guarantee*`);
-  
+  lines.push(
+    `*Report generated by SteadyFlow Shopify App Readiness Module — not a compliance guarantee*`,
+  );
+
   return lines.join('\n');
 }
 
@@ -313,10 +339,10 @@ export function reportToHtml(report: ReadinessReport): string {
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/`(.*?)`/g, '<code>$1</code>')
     .replace(/\n/g, '<br>');
-  
+
   // Handle tables (basic)
   html = html.replace(/\|([^|]+)\|([^|]+)\|/g, '<tr><td>$1</td><td>$2</td></tr>');
-  
+
   return `<!DOCTYPE html>
 <html>
 <head>

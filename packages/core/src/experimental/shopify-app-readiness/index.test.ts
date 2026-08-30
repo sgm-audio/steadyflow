@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { getShopifyAppRequirements } from './registry';
 
 describe('Shopify App Requirement Registry', () => {
@@ -7,7 +7,7 @@ describe('Shopify App Requirement Registry', () => {
     expect(requirements).toBeDefined();
     expect(requirements.length).toBeGreaterThan(0);
 
-    const oauthReq = requirements.find(req => req.id === 'oauth-installation');
+    const oauthReq = requirements.find((req) => req.id === 'oauth-installation');
     expect(oauthReq).toBeDefined();
     expect(oauthReq?.category).toBe('authentication');
     expect(oauthReq?.severity).toBe('blocker');

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
-import { createClient } from './supabase-server';
 import { createApiClient } from './api-client';
+import { createClient } from './supabase-server';
 
 /**
  * Resolves the signed-in session + org for a page, redirecting to /login

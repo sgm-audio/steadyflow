@@ -32,7 +32,10 @@
       "sourceVersion": "2026-08",
       "thirdPartyReference": "creativehubspace/shopify-app-store-requirements#api-scopes",
       "notes": "Only request scopes that are necessary for your app's functionality",
-      "evidenceExpectations": ["Scopes declared in shopify.app.toml", "Requested scopes match actual API usage"]
+      "evidenceExpectations": [
+        "Scopes declared in shopify.app.toml",
+        "Requested scopes match actual API usage"
+      ]
     },
     {
       "id": "deprecated-api",
@@ -64,7 +67,11 @@
       "sourceVersion": "2026-08",
       "thirdPartyReference": "creativehubspace/shopify-app-store-requirements#authentication",
       "notes": "OAuth is required for all public apps",
-      "evidenceExpectations": ["OAuth redirect URI matches registered URI", "Authorization code is properly handled", "Access token is securely stored"]
+      "evidenceExpectations": [
+        "OAuth redirect URI matches registered URI",
+        "Authorization code is properly handled",
+        "Access token is securely stored"
+      ]
     },
     {
       "id": "embedded-app",
@@ -80,7 +87,10 @@
       "sourceVersion": "2026-08",
       "thirdPartyReference": "creativehubspace/shopify-app-store-requirements#embedded-app",
       "notes": "Verify App Bridge usage manually",
-      "evidenceExpectations": ["App Bridge loaded in embedded context", "Navigation works correctly"]
+      "evidenceExpectations": [
+        "App Bridge loaded in embedded context",
+        "Navigation works correctly"
+      ]
     },
     {
       "id": "theme-extension",
@@ -96,7 +106,10 @@
       "sourceVersion": "2026-08",
       "thirdPartyReference": "creativehubspace/shopify-app-store-requirements#theme",
       "notes": "Use official theme app extension mechanisms",
-      "evidenceExpectations": ["Uses official theme app extension API", "Follows Shopify's extension manifest format"]
+      "evidenceExpectations": [
+        "Uses official theme app extension API",
+        "Follows Shopify's extension manifest format"
+      ]
     },
     {
       "id": "direct-mutations",
@@ -176,7 +189,11 @@
       "sourceVersion": "2026-08",
       "thirdPartyReference": "creativehubspace/shopify-app-store-requirements#secrets",
       "notes": "Secrets must be stored in environment variables or secret managers",
-      "evidenceExpectations": ["No API keys in config", "No tokens in code", "Secrets managed externally"]
+      "evidenceExpectations": [
+        "No API keys in config",
+        "No tokens in code",
+        "Secrets managed externally"
+      ]
     },
     {
       "id": "webhook-identification",

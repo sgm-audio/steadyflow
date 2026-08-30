@@ -8,8 +8,8 @@
  * Automatically excluded when Supabase is not available locally.
  */
 
-import { describe, it, expect } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
+import { describe, expect, it } from 'vitest';
 
 const URL = 'http://127.0.0.1:54321';
 

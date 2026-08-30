@@ -9,8 +9,8 @@ default_branch: main
 ignore: []
 install_hook: false
 languages:
-- python
-- typescript
-- javascript
+  - python
+  - typescript
+  - javascript
 register_mcp: false
 version: 1

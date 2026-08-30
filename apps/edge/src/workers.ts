@@ -5,13 +5,29 @@
  * Worker functions: pgmq consumers that drive the analysis pipeline.
  */
 
-import { z } from 'zod';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@steadyflow/db';
+import {
+  analyzeStorefrontHtml,
+  buildLeakList,
+  buildProductFinding,
+  computeAuditScore,
+  FLAG_CATEGORY,
+  FLAG_SEVERITY,
+  FLAG_TITLE,
+  runCatalogAudit,
+  totalEstimatedImpact,
+  type FlagCode,
+} from '@steadyflow/shopify-admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { runCatalogAudit, computeAuditScore, buildProductFinding, buildLeakList, totalEstimatedImpact, analyzeStorefrontHtml, FLAG_CATEGORY, FLAG_TITLE, FLAG_SEVERITY, type FlagCode } from '@steadyflow/shopify-admin';
-import { computeFirstSaleMath, computeAiReadiness, buildFirstSalePlaybook, type PageSeoSignals } from './analysis/playbook.js';
+import { z } from 'zod';
+import {
+  buildFirstSalePlaybook,
+  computeAiReadiness,
+  computeFirstSaleMath,
+  type PageSeoSignals,
+} from './analysis/playbook.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -34,7 +50,11 @@ const sha256 = async (input: string): Promise<string> => {
  * the audit row. Intents already record the user who created them; look
  * that up instead of guessing.
  */
-const resolveIntentUserId = async (supabase: SupabaseClient<Database>, intentId: string, fallback: string): Promise<string> => {
+const resolveIntentUserId = async (
+  supabase: SupabaseClient<Database>,
+  intentId: string,
+  fallback: string,
+): Promise<string> => {
   const { data } = await supabase.from('intents').select('user_id').eq('id', intentId).single();
   return data?.user_id ?? fallback;
 };
@@ -42,7 +62,14 @@ const resolveIntentUserId = async (supabase: SupabaseClient<Database>, intentId:
 // Matches the generated `Json` type — lets Zod prove a value is safe to
 // write into a jsonb column instead of `as Json` casting past the compiler.
 const JsonValue: z.ZodType<Json> = z.lazy(() =>
-  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(JsonValue), z.record(z.string(), JsonValue)]),
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValue),
+    z.record(z.string(), JsonValue),
+  ]),
 );
 
 // `dequeue_message` is declared `returns jsonb` in Postgres, so Supabase
@@ -98,12 +125,15 @@ const tryUnwrapKey = async (
       .single();
     if (envErr) return null;
 
-    const { data: raw, error: unwrapErr } = await supabase.rpc('unwrap_dek', { p_wrapped: env.wrapped_key }).single();
+    const { data: raw, error: unwrapErr } = await supabase
+      .rpc('unwrap_dek', { p_wrapped: env.wrapped_key })
+      .single();
     if (unwrapErr) return null;
 
-    const hex2bytes = (h: string): Uint8Array => new Uint8Array(
-      (h.replace(/^\\x/, '').match(/.{1,2}/g) ?? []).map((b) => Number.parseInt(b, 16)),
-    );
+    const hex2bytes = (h: string): Uint8Array =>
+      new Uint8Array(
+        (h.replace(/^\\x/, '').match(/.{1,2}/g) ?? []).map((b) => Number.parseInt(b, 16)),
+      );
     const rawBytes = hex2bytes(typeof raw === 'string' ? raw : String(raw));
     const key = new TextDecoder().decode(rawBytes);
     rawBytes.fill(0);
@@ -237,18 +267,30 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
 const heuristicAnalysis = (content: string, url: string): string => {
   const text = content.toLowerCase();
   let storeName = url;
-  try { storeName = new URL(url).hostname.replace('www.', ''); } catch { /* keep url */ }
+  try {
+    storeName = new URL(url).hostname.replace('www.', '');
+  } catch {
+    /* keep url */
+  }
   // Count products mentioned (pricing patterns)
   const priceMatches = text.match(/\$\d+(?:\.\d{2})?/g) ?? [];
-  const prices = priceMatches.map((p) => Number(p.replace('$', ''))).filter((n) => n > 0 && n < 10000);
-  const avgPrice = prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0;
-  const productCount = (text.match(/(?:add\s+to\s+(?:cart|bag)|buy\s+now|product|item)/g) ?? []).length;
+  const prices = priceMatches
+    .map((p) => Number(p.replace('$', '')))
+    .filter((n) => n > 0 && n < 10000);
+  const avgPrice =
+    prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0;
+  const productCount = (text.match(/(?:add\s+to\s+(?:cart|bag)|buy\s+now|product|item)/g) ?? [])
+    .length;
   // SEO check
   const hasTitle = text.length > 0;
   const hasMetaDesc = content.length > 50;
-  const hasH1 = ((/<h1[^>]*>/i.exec(content)) ?? []).length > 0;
+  const hasH1 = (/<h1[^>]*>/i.exec(content) ?? []).length > 0;
   // Platform detection
-  const isShopify = text.includes('shopify') || text.includes('myshopify') || text.includes('/products/') || text.includes('/collections/');
+  const isShopify =
+    text.includes('shopify') ||
+    text.includes('myshopify') ||
+    text.includes('/products/') ||
+    text.includes('/collections/');
   const insights = [
     {
       category: 'positioning',
@@ -262,12 +304,16 @@ const heuristicAnalysis = (content: string, url: string): string => {
       title: `SEO ${hasTitle && hasH1 ? 'OK' : 'Improvements Needed'}`,
       body: `Page title: ${hasTitle ? 'present' : 'missing'}. H1 tags: ${hasH1 ? 'found' : 'not found'}. Meta description: ${hasMetaDesc ? 'present' : 'short or missing'}.`,
     },
-    ...(prices.length > 0 ? [{
-      category: 'pricing',
-      severity: 'medium',
-      title: `Price Range: $${Math.min(...prices)} – $${Math.max(...prices)}`,
-      body: `Found ${prices.length} price points across the store. Average price: $${avgPrice}. This suggests a ${avgPrice < 50 ? 'budget' : avgPrice < 200 ? 'mid-range' : 'premium'} positioning strategy.`,
-    }] : []),
+    ...(prices.length > 0
+      ? [
+          {
+            category: 'pricing',
+            severity: 'medium',
+            title: `Price Range: $${Math.min(...prices)} – $${Math.max(...prices)}`,
+            body: `Found ${prices.length} price points across the store. Average price: $${avgPrice}. This suggests a ${avgPrice < 50 ? 'budget' : avgPrice < 200 ? 'mid-range' : 'premium'} positioning strategy.`,
+          },
+        ]
+      : []),
     {
       category: 'conversion',
       severity: 'medium',
@@ -354,15 +400,21 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
   let robotsText = '';
   try {
     await assertPublicHttpUrl(base);
-    const res = await fetch(base, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+    const res = await fetch(base, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+    });
     if (res.ok) {
       const html = await res.text();
-      const descMatch = /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i.exec(html);
+      const descMatch = /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i.exec(
+        html,
+      );
       metaDescriptionLength = descMatch?.[1]?.trim().length ?? 0;
       hasMetaDescription = metaDescriptionLength > 0;
       hasStructuredData = /<script[^>]+type=["']application\/ld\+json["']/i.test(html);
 
-      const ldJsonMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ?? [];
+      const ldJsonMatches =
+        html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ??
+        [];
       for (const match of ldJsonMatches) {
         try {
           const jsonStr = match.replace(/<[^>]+>/g, '').trim();
@@ -379,7 +431,9 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
             hasProductSchema = true;
             if (ld.gtin || ld.sku || ld.mpn) hasGtin = true;
           }
-        } catch { /* malformed JSON-LD */ }
+        } catch {
+          /* malformed JSON-LD */
+        }
       }
     }
   } catch {
@@ -390,20 +444,33 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
   try {
     const robotsUrl = `${base}/robots.txt`;
     await assertPublicHttpUrl(robotsUrl);
-    const robotsRes = await fetch(robotsUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+    const robotsRes = await fetch(robotsUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+    });
     if (robotsRes.ok) {
       robotsText = await robotsRes.text();
-      allowsOaiSearchBot = robotsText.includes('OAI-SearchBot') && !robotsText.includes('Disallow: /\nUser-agent: OAI-SearchBot');
-      allowsOaiSearchBot = /User-agent:\s*OAI-SearchBot/i.test(robotsText) && !/User-agent:\s*\*\s*\n\s*Disallow:\s*\/\s*$/.test(robotsText) && !/User-agent:\s*OAI-SearchBot[\s\S]*Disallow:\s*\//im.test(robotsText);
-      allowsPerplexityBot = /User-agent:\s*PerplexityBot/i.test(robotsText) && !/User-agent:\s*PerplexityBot[\s\S]*Disallow:\s*\//im.test(robotsText);
+      allowsOaiSearchBot =
+        robotsText.includes('OAI-SearchBot') &&
+        !robotsText.includes('Disallow: /\nUser-agent: OAI-SearchBot');
+      allowsOaiSearchBot =
+        /User-agent:\s*OAI-SearchBot/i.test(robotsText) &&
+        !/User-agent:\s*\*\s*\n\s*Disallow:\s*\/\s*$/.test(robotsText) &&
+        !/User-agent:\s*OAI-SearchBot[\s\S]*Disallow:\s*\//im.test(robotsText);
+      allowsPerplexityBot =
+        /User-agent:\s*PerplexityBot/i.test(robotsText) &&
+        !/User-agent:\s*PerplexityBot[\s\S]*Disallow:\s*\//im.test(robotsText);
     }
-  } catch { /* robots.txt unreachable */ }
+  } catch {
+    /* robots.txt unreachable */
+  }
 
   const checkExists = async (path: string): Promise<boolean> => {
     try {
       const url = `${base}${path}`;
       await assertPublicHttpUrl(url);
-      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+      });
       return res.ok;
     } catch {
       return false;
@@ -415,7 +482,17 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
     checkExists('/robots.txt'),
   ]);
 
-  return { hasMetaDescription, metaDescriptionLength, hasStructuredData, hasSitemap, hasRobotsTxt, allowsOaiSearchBot, allowsPerplexityBot, hasProductSchema, hasGtin };
+  return {
+    hasMetaDescription,
+    metaDescriptionLength,
+    hasStructuredData,
+    hasSitemap,
+    hasRobotsTxt,
+    allowsOaiSearchBot,
+    allowsPerplexityBot,
+    hasProductSchema,
+    hasGtin,
+  };
 };
 
 /**
@@ -423,11 +500,15 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
  * homepage (SSRF-guarded) and runs the deterministic HTML analyzer. Best
  * effort: any failure reads as "no data" rather than aborting the audit.
  */
-const checkStorefrontSignals = async (storeUrl: string): Promise<ReturnType<typeof analyzeStorefrontHtml> | null> => {
+const checkStorefrontSignals = async (
+  storeUrl: string,
+): Promise<ReturnType<typeof analyzeStorefrontHtml> | null> => {
   const base = storeUrl.replace(/\/+$/, '');
   try {
     await assertPublicHttpUrl(base);
-    const res = await fetch(base, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+    const res = await fetch(base, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+    });
     if (!res.ok) return null;
     const html = await res.text();
     return analyzeStorefrontHtml(html, new URL(base).hostname);
@@ -458,7 +539,11 @@ const analyzeShopifyCatalog = async (
   let clientSecret: string | undefined;
   let shopDomain: string | undefined;
   try {
-    const parsed = JSON.parse(shopifyKey) as { clientId?: unknown; clientSecret?: unknown; shop?: unknown };
+    const parsed = JSON.parse(shopifyKey) as {
+      clientId?: unknown;
+      clientSecret?: unknown;
+      shop?: unknown;
+    };
     if (typeof parsed.clientId === 'string' && typeof parsed.clientSecret === 'string') {
       clientId = parsed.clientId;
       clientSecret = parsed.clientSecret;
@@ -470,7 +555,14 @@ const analyzeShopifyCatalog = async (
     adminToken = shopifyKey;
   }
 
-  const audit = await runCatalogAudit({ storeUrl, adminToken, clientId, clientSecret, shopDomain, printifyToken });
+  const audit = await runCatalogAudit({
+    storeUrl,
+    adminToken,
+    clientId,
+    clientSecret,
+    shopDomain,
+    printifyToken,
+  });
   const seoSignals = await checkPageSeoSignals(storeUrl);
   const score = computeAuditScore(audit.rows);
   // Matches intents.input_hash (SHA-256 of JSON {platform,url}) set by the
@@ -485,19 +577,22 @@ const analyzeShopifyCatalog = async (
   });
 
   // ── Upsert store profile ──
-  await ctx.supabase.from('store_profiles').upsert({
-    org_id: ctx.orgId,
-    url: storeUrl,
-    url_hash: urlHash,
-    store_name: audit.shop.name,
-    currency: audit.shopCurrency,
-    product_count: audit.totalProducts,
-    collection_count: audit.totalCollections,
-    latest_intent_id: intentId,
-    latest_score: score,
-    last_analyzed_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'org_id, url_hash' });
+  await ctx.supabase.from('store_profiles').upsert(
+    {
+      org_id: ctx.orgId,
+      url: storeUrl,
+      url_hash: urlHash,
+      store_name: audit.shop.name,
+      currency: audit.shopCurrency,
+      product_count: audit.totalProducts,
+      collection_count: audit.totalCollections,
+      latest_intent_id: intentId,
+      latest_score: score,
+      last_analyzed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'org_id, url_hash' },
+  );
 
   // ── Persist per-product findings ──
   for (const row of audit.rows) {
@@ -544,9 +639,8 @@ const analyzeShopifyCatalog = async (
     const shown = products.slice(0, 3);
     const remainder = products.length - shown.length;
     const impact = leakImpactByCode.get(code);
-    const impactSuffix = impact !== undefined && impact > 0
-      ? ` ~$${impact.toLocaleString()}/yr`
-      : '';
+    const impactSuffix =
+      impact !== undefined && impact > 0 ? ` ~$${impact.toLocaleString()}/yr` : '';
     const body = `${products.length} product${products.length === 1 ? '' : 's'} out of stock${remainder > 0 ? ` (${shown.join(', ')} + ${remainder} more)` : ''}${impactSuffix}`;
     await ctx.supabase.from('insights').insert({
       org_id: ctx.orgId,
@@ -580,13 +674,20 @@ const analyzeShopifyCatalog = async (
 
   // ── Ranked Leak List summary ──
   if (leakList.length > 0) {
-    const top = leakList.slice(0, 5).map((l, i) => `${i + 1}. ${l.title} — ~$${l.estimatedAnnualImpact.toLocaleString()}/yr`).join('\n');
+    const top = leakList
+      .slice(0, 5)
+      .map((l, i) => `${i + 1}. ${l.title} — ~$${l.estimatedAnnualImpact.toLocaleString()}/yr`)
+      .join('\n');
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId, intent_id: intentId, category: 'pricing',
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'pricing',
       severity: leakTotal >= 10000 ? 'high' : 'medium',
       title: `Revenue Leak List — ~$${leakTotal.toLocaleString()}/yr recoverable (estimated)`,
       body: `Ranked by estimated annual recoverable revenue:\n${top}${leakList.length > 5 ? `\n+ ${leakList.length - 5} more` : ''}\n\nEstimates use ${audit.shopCurrency} prices/margins${audit.salesSummary ? ' and real order data (AOV + order volume)' : ' and documented assumptions (read_orders not granted)'}.`,
-      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      citations: [],
+      model: 'shopify-admin-audit-v2',
+      provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
@@ -594,33 +695,51 @@ const analyzeShopifyCatalog = async (
   // ── Homepage SEO signals ──
   if (!seoSignals.hasMetaDescription || seoSignals.metaDescriptionLength < 50) {
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId, intent_id: intentId, category: 'seo',
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
       severity: seoSignals.hasMetaDescription ? 'medium' : 'high',
-      title: seoSignals.hasMetaDescription ? 'Meta description is too short' : 'Homepage missing a meta description',
+      title: seoSignals.hasMetaDescription
+        ? 'Meta description is too short'
+        : 'Homepage missing a meta description',
       body: seoSignals.hasMetaDescription
         ? `Homepage meta description is ${seoSignals.metaDescriptionLength} characters; aim for 120-160.`
         : 'The homepage has no <meta name="description"> tag.',
-      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      citations: [],
+      model: 'shopify-admin-audit-v2',
+      provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
   if (!seoSignals.hasStructuredData) {
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId, intent_id: intentId, category: 'seo', severity: 'medium',
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
+      severity: 'medium',
       title: 'No structured data on homepage',
       body: 'No schema.org JSON-LD found. Structured data helps search engines show rich results.',
-      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      citations: [],
+      model: 'shopify-admin-audit-v2',
+      provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
   if (!seoSignals.hasSitemap || !seoSignals.hasRobotsTxt) {
-    const missing = [!seoSignals.hasSitemap && 'sitemap.xml', !seoSignals.hasRobotsTxt && 'robots.txt']
-      .filter((v): v is string => Boolean(v));
+    const missing = [
+      !seoSignals.hasSitemap && 'sitemap.xml',
+      !seoSignals.hasRobotsTxt && 'robots.txt',
+    ].filter((v): v is string => Boolean(v));
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId, intent_id: intentId, category: 'seo', severity: 'high',
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'seo',
+      severity: 'high',
       title: `${missing.join(' and ')} not found`,
       body: `${missing.join(' and ')} returned a non-OK response. Both should be reachable for search engines.`,
-      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      citations: [],
+      model: 'shopify-admin-audit-v2',
+      provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
@@ -631,25 +750,44 @@ const analyzeShopifyCatalog = async (
     if (storefront.appHosts.length > 0) {
       const apps = storefront.appHosts.map((h) => h.appName ?? h.host).join(', ');
       await ctx.supabase.from('insights').insert({
-        org_id: ctx.orgId, intent_id: intentId, category: 'conversion',
+        org_id: ctx.orgId,
+        intent_id: intentId,
+        category: 'conversion',
         severity: storefront.appHosts.length >= 3 ? 'high' : 'medium',
         title: `App bloat: ${storefront.appHosts.length} third-party app${storefront.appHosts.length === 1 ? '' : 's'} loading scripts`,
         body: `Detected: ${apps}. Each app adds load time and a potential subscription overlap. Review which are still used — removing dead apps cuts page weight and cost.`,
-        citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+        citations: [],
+        model: 'shopify-admin-audit-v2',
+        provider: 'shopify-admin',
         generated_at: new Date().toISOString(),
       });
     }
-    if (storefront.renderBlockingScripts > 0 || storefront.thirdPartyHosts.length > 0 || storefront.imagesWithoutDimensions > 0) {
+    if (
+      storefront.renderBlockingScripts > 0 ||
+      storefront.thirdPartyHosts.length > 0 ||
+      storefront.imagesWithoutDimensions > 0
+    ) {
       const parts: string[] = [];
-      if (storefront.renderBlockingScripts > 0) parts.push(`${storefront.renderBlockingScripts} render-blocking script(s)`);
-      if (storefront.thirdPartyHosts.length > 0) parts.push(`${storefront.thirdPartyHosts.length} third-party host(s) (${storefront.thirdPartyHosts.map((h) => h.host).join(', ')})`);
-      if (storefront.imagesWithoutDimensions > 0) parts.push(`${storefront.imagesWithoutDimensions}/${storefront.totalImages} image(s) without width/height`);
+      if (storefront.renderBlockingScripts > 0)
+        parts.push(`${storefront.renderBlockingScripts} render-blocking script(s)`);
+      if (storefront.thirdPartyHosts.length > 0)
+        parts.push(
+          `${storefront.thirdPartyHosts.length} third-party host(s) (${storefront.thirdPartyHosts.map((h) => h.host).join(', ')})`,
+        );
+      if (storefront.imagesWithoutDimensions > 0)
+        parts.push(
+          `${storefront.imagesWithoutDimensions}/${storefront.totalImages} image(s) without width/height`,
+        );
       await ctx.supabase.from('insights').insert({
-        org_id: ctx.orgId, intent_id: intentId, category: 'conversion',
+        org_id: ctx.orgId,
+        intent_id: intentId,
+        category: 'conversion',
         severity: storefront.renderBlockingRisk === 'high' ? 'high' : 'medium',
         title: `Speed & friction: ${storefront.inefficiencyScore}/100 friction score`,
         body: `${parts.join('; ')}. Render-blocking risk: ${storefront.renderBlockingRisk}, layout-shift risk: ${storefront.layoutShiftRisk}. These are static proxies for Core Web Vitals — render-blocking JS and undimensioned images are the most common causes of slow LCP and layout shift.`,
-        citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+        citations: [],
+        model: 'shopify-admin-audit-v2',
+        provider: 'shopify-admin',
         generated_at: new Date().toISOString(),
       });
     }
@@ -658,13 +796,18 @@ const analyzeShopifyCatalog = async (
   // ── Catalog-wide summaries ──
   const withMargin = audit.rows.filter((r) => r.margin.marginPct !== null);
   if (withMargin.length > 0) {
-    const avgMarginPct = withMargin.reduce((sum, r) => sum + (r.margin.marginPct ?? 0), 0) / withMargin.length;
+    const avgMarginPct =
+      withMargin.reduce((sum, r) => sum + (r.margin.marginPct ?? 0), 0) / withMargin.length;
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId, intent_id: intentId, category: 'pricing',
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'pricing',
       severity: avgMarginPct < 35 ? 'high' : 'low',
       title: 'Catalog margin summary',
       body: `Average gross margin: ${avgMarginPct.toFixed(1)}% across ${withMargin.length} priced product(s) (${audit.shopCurrency}${audit.fxSource === 'fallback' ? ', FX fallback' : ''}).`,
-      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      citations: [],
+      model: 'shopify-admin-audit-v2',
+      provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
@@ -675,11 +818,18 @@ const analyzeShopifyCatalog = async (
   });
   if (outOfStock.length > 0) {
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId, intent_id: intentId, category: 'inventory',
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'inventory',
       severity: outOfStock.length > 3 ? 'high' : 'medium',
       title: 'Out-of-stock products',
-      body: `${outOfStock.length} product(s) currently out of stock: ${outOfStock.map((r) => r.product.title).slice(0, 8).join(', ')}.`,
-      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      body: `${outOfStock.length} product(s) currently out of stock: ${outOfStock
+        .map((r) => r.product.title)
+        .slice(0, 8)
+        .join(', ')}.`,
+      citations: [],
+      model: 'shopify-admin-audit-v2',
+      provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
@@ -687,11 +837,15 @@ const analyzeShopifyCatalog = async (
   // ── AI Agent Readiness Score ──
   const aiReadiness = computeAiReadiness(seoSignals, audit);
   await ctx.supabase.from('insights').insert({
-    org_id: ctx.orgId, intent_id: intentId, category: 'ai_agent_readiness',
+    org_id: ctx.orgId,
+    intent_id: intentId,
+    category: 'ai_agent_readiness',
     severity: aiReadiness.score < 40 ? 'high' : aiReadiness.score < 70 ? 'medium' : 'low',
     title: `AI Shopping Agent Readiness Score: ${aiReadiness.score}/100`,
     body: `Store is ${aiReadiness.score >= 70 ? 'well-prepared' : aiReadiness.score >= 40 ? 'partially ready' : 'not ready'} for AI shopping agents (ChatGPT Shopping, Google AI Mode, Perplexity). Product schema: ${aiReadiness.productSchemaPresent ? 'present' : 'MISSING'}. GTINs: ${aiReadiness.gtinOnProducts ? 'present' : 'MISSING'}. OAI-SearchBot allowed: ${aiReadiness.chatgptShopping ? 'yes' : 'no'}. ChatGPT Shopping is free for Shopify stores via Shop Pay integration — your products may already appear if you have Shop Pay enabled. Google AI Mode (0% fees) requires a Google Merchant Center feed. Perplexity merchant program is free via crawl. Action: submit GMC feed, add Product JSON-LD schema with GTINs, and allow AI crawlers in robots.txt.`,
-    citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+    citations: [],
+    model: 'shopify-admin-audit-v2',
+    provider: 'shopify-admin',
     generated_at: new Date().toISOString(),
   });
 
@@ -699,41 +853,65 @@ const analyzeShopifyCatalog = async (
   const firstSaleMath = computeFirstSaleMath(audit);
   if (firstSaleMath) {
     await ctx.supabase.from('insights').insert({
-      org_id: ctx.orgId, intent_id: intentId, category: 'first_sale_math',
-      severity: firstSaleMath.breakEvenRoas > 3.5 ? 'high' : firstSaleMath.breakEvenRoas > 2.0 ? 'medium' : 'low',
+      org_id: ctx.orgId,
+      intent_id: intentId,
+      category: 'first_sale_math',
+      severity:
+        firstSaleMath.breakEvenRoas > 3.5
+          ? 'high'
+          : firstSaleMath.breakEvenRoas > 2.0
+            ? 'medium'
+            : 'low',
       title: `Break-even ROAS: ${firstSaleMath.breakEvenRoas.toFixed(1)}x at ${firstSaleMath.grossMarginPct.toFixed(0)}% margin`,
       body: `Gross margin: ${firstSaleMath.grossMarginPct.toFixed(0)}% (Printify cost + payment fees). Break-even ROAS: ${firstSaleMath.breakEvenRoas.toFixed(1)}×. Recommended first channel: ${firstSaleMath.recommendedChannel} at ~$${firstSaleMath.recommendedCpc.toFixed(2)} CPC. At 2% conversion: need ${firstSaleMath.clicksForFirstSale} clicks → ~$${firstSaleMath.estimatedFirstSaleCost} estimated first-sale cost. Meta/TikTok have the lowest CPCs for apparel ($0.45-0.50); avoid Google Shopping ($4.44 CPC) unless margin exceeds 75%. Budget recommendation: $${firstSaleMath.dailyBudget}/day on ${firstSaleMath.recommendedChannel}. With POD margins (20-40% typical per Printful), every dollar of ad spend must return $2.5-5× in revenue to break even.`,
-      citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+      citations: [],
+      model: 'shopify-admin-audit-v2',
+      provider: 'shopify-admin',
       generated_at: new Date().toISOString(),
     });
   }
 
   // ── Channel Gap Audit ──
   await ctx.supabase.from('insights').insert({
-    org_id: ctx.orgId, intent_id: intentId, category: 'channel_gap',
+    org_id: ctx.orgId,
+    intent_id: intentId,
+    category: 'channel_gap',
     severity: 'high',
     title: 'You are only selling on Shopify',
     body: `Your store is only reachable through your Shopify domain. Expand to: (1) Etsy — $0.20 listing fee, 6.5% transaction, instant access to 90M+ buyers, Printify integrates directly. (2) TikTok Shop — free to list, 1,000 followers to unlock, organic video discovery reaches 10k+ views from account with 0 followers. (3) Google free listings — submit Merchant Center feed, zero ad cost, feeds AI Mode at same time. (4) ChatGPT Shopping — Shopify stores are auto-integrated via Shop Pay; your products may already be discoverable by AI shoppers. Each channel adds a separate zero-CAC revenue stream.`,
-    citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+    citations: [],
+    model: 'shopify-admin-audit-v2',
+    provider: 'shopify-admin',
     generated_at: new Date().toISOString(),
   });
 
   // ── Creator Playbook ──
   await ctx.supabase.from('insights').insert({
-    org_id: ctx.orgId, intent_id: intentId, category: 'creator_playbook',
+    org_id: ctx.orgId,
+    intent_id: intentId,
+    category: 'creator_playbook',
     severity: 'medium',
     title: 'First-sale content playbook',
     body: `Find 3-5 micro-creators (1k-50k followers) in your niche. Send free product + $50-150 per post (total <$1,000 for full set). Formats that convert: design-process timelapses (show creation on TikTok), unboxing/reaction videos (social proof), niche skits (insider humor + product reveal). Micro-creators drive ~60% of TikTok Shop GMV. Gifting + small payment = 2.3× engagement vs gifting alone. Repurpose their content as paid ad creative (Spark Ads, $10-20/day). Post 1-2× daily at 7-9am and 7-10pm for first 30 days. Trend window: 3-7 days. Target: 1,000 followers in 2-4 weeks for TikTok Shop eligibility.`,
-    citations: [], model: 'shopify-admin-audit-v2', provider: 'shopify-admin',
+    citations: [],
+    model: 'shopify-admin-audit-v2',
+    provider: 'shopify-admin',
     generated_at: new Date().toISOString(),
   });
   try {
-    const flagsSummary = byFlag.size > 0
-      ? [...byFlag.entries()].map(([code, { severity, products }]) =>
-          `${FLAG_TITLE[code]} (${severity}, ${products.length} products)`)
+    const flagsSummary =
+      byFlag.size > 0
+        ? [...byFlag.entries()].map(
+            ([code, { severity, products }]) =>
+              `${FLAG_TITLE[code]} (${severity}, ${products.length} products)`,
+          )
         : ['No flags raised'];
-    const productSample = audit.rows.slice(0, 15).map((r) =>
-      `${r.product.title} | ${r.product.productType || 'no-type'} | $${r.margin.priceMinCAD} | ${r.margin.marginPct?.toFixed(0) ?? '?'}% margin | ${r.flags.length} flags`);
+    const productSample = audit.rows
+      .slice(0, 15)
+      .map(
+        (r) =>
+          `${r.product.title} | ${r.product.productType || 'no-type'} | $${r.margin.priceMinCAD} | ${r.margin.marginPct?.toFixed(0) ?? '?'}% margin | ${r.flags.length} flags`,
+      );
 
     const llmPrompt = `You are auditing a Shopify store named "${audit.shop.name}" (${storeUrl}) with ${audit.totalProducts} products in ${audit.totalCollections} collections, operating in ${audit.shopCurrency}. Plan: ${audit.shop.plan?.displayName ?? 'unknown'}.
 
@@ -770,11 +948,15 @@ Respond ONLY with valid JSON, no markdown wrapping.`;
 
       if (parsed.narrative) {
         await ctx.supabase.from('insights').insert({
-          org_id: ctx.orgId, intent_id: intentId, category: 'positioning',
+          org_id: ctx.orgId,
+          intent_id: intentId,
+          category: 'positioning',
           severity: score < 50 ? 'high' : score < 75 ? 'medium' : 'low',
           title: 'Audit Narrative',
           body: parsed.narrative.slice(0, 5000),
-          citations: [], model: llmResult.model, provider: llmResult.provider,
+          citations: [],
+          model: llmResult.model,
+          provider: llmResult.provider,
           generated_at: new Date().toISOString(),
         });
       }
@@ -783,11 +965,15 @@ Respond ONLY with valid JSON, no markdown wrapping.`;
         const item = parsed[cat];
         if (item?.title && item.body) {
           await ctx.supabase.from('insights').insert({
-            org_id: ctx.orgId, intent_id: intentId, category: cat,
+            org_id: ctx.orgId,
+            intent_id: intentId,
+            category: cat,
             severity: 'medium',
             title: item.title,
             body: item.body.slice(0, 5000),
-            citations: [], model: llmResult.model, provider: llmResult.provider,
+            citations: [],
+            model: llmResult.model,
+            provider: llmResult.provider,
             generated_at: new Date().toISOString(),
           });
         }
@@ -821,24 +1007,30 @@ Respond ONLY with valid JSON, no markdown wrapping.`;
     .maybeSingle();
 
   if (existingReport) {
-    await ctx.supabase.from('reports')
+    await ctx.supabase
+      .from('reports')
       .update({ first_sale_plan: firstSalePlan as unknown as Json })
       .eq('intent_id', intentId);
   } else {
-    await ctx.supabase.from('reports')
-      .insert(reportRow);
+    await ctx.supabase.from('reports').insert(reportRow);
   }
 
   // ── Mark intent succeeded ──
-  await ctx.supabase.from('intents').update({
-    status: 'succeeded',
-    updated_at: new Date().toISOString(),
-  }).eq('id', intentId);
+  await ctx.supabase
+    .from('intents')
+    .update({
+      status: 'succeeded',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', intentId);
 
   await ctx.supabase.from('audit_log').insert({
-    org_id: ctx.orgId, user_id: userId,
-    action: 'analyze.shopify_catalog', outcome: 'success',
-    input_hash: urlHash, provider: 'shopify-admin',
+    org_id: ctx.orgId,
+    user_id: userId,
+    action: 'analyze.shopify_catalog',
+    outcome: 'success',
+    input_hash: urlHash,
+    provider: 'shopify-admin',
     duration_ms: 0,
     metadata: {
       totalProducts: audit.totalProducts,
@@ -889,17 +1081,24 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
           p_msg_id: envelope.data.msg_id,
         });
       } catch (err) {
-        await ctx.supabase.from('intents').update({
-          status: 'failed',
-          error_code: 'SHOPIFY_CATALOG_ANALYZE_FAILED',
-          error_message: String(err),
-          updated_at: new Date().toISOString(),
-        }).eq('id', intentId);
+        await ctx.supabase
+          .from('intents')
+          .update({
+            status: 'failed',
+            error_code: 'SHOPIFY_CATALOG_ANALYZE_FAILED',
+            error_message: String(err),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', intentId);
         await ctx.supabase.from('audit_log').insert({
-          org_id: ctx.orgId, user_id: userId,
-          action: 'analyze.shopify_catalog', outcome: 'error',
-          input_hash: await sha256(url), provider: 'shopify-admin',
-          duration_ms: Date.now() - startMs, metadata: {},
+          org_id: ctx.orgId,
+          user_id: userId,
+          action: 'analyze.shopify_catalog',
+          outcome: 'error',
+          input_hash: await sha256(url),
+          provider: 'shopify-admin',
+          duration_ms: Date.now() - startMs,
+          metadata: {},
         });
       }
       return;
@@ -910,15 +1109,19 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
     const result = await proxyFirecrawl(ctx.supabase, ctx.orgId, url);
     const urlHash = await sha256(url);
 
-    const { data: source } = await ctx.supabase.from('sources').insert({
-      org_id: ctx.orgId,
-      intent_id: intentId,
-      platform: platform ?? 'shopify',
-      url,
-      url_hash: urlHash,
-      raw_markdown: result.markdown,
-      metadata: result.metadata,
-    }).select('id').single();
+    const { data: source } = await ctx.supabase
+      .from('sources')
+      .insert({
+        org_id: ctx.orgId,
+        intent_id: intentId,
+        platform: platform ?? 'shopify',
+        url,
+        url_hash: urlHash,
+        raw_markdown: result.markdown,
+        metadata: result.metadata,
+      })
+      .select('id')
+      .single();
 
     if (source) {
       await ctx.supabase.rpc('enqueue_message', {
@@ -934,10 +1137,14 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
 
     const durationMs = Date.now() - startMs;
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: userId,
-      action: 'scrape.firecrawl', outcome: 'success',
-      input_hash: urlHash, provider: 'firecrawl',
-      duration_ms: durationMs, metadata: {},
+      org_id: ctx.orgId,
+      user_id: userId,
+      action: 'scrape.firecrawl',
+      outcome: 'success',
+      input_hash: urlHash,
+      provider: 'firecrawl',
+      duration_ms: durationMs,
+      metadata: {},
     });
 
     await ctx.supabase.rpc('archive_message', {
@@ -945,17 +1152,24 @@ export const workerScrape = async (ctx: WorkerCtx): Promise<void> => {
       p_msg_id: envelope.data.msg_id,
     });
   } catch (err) {
-    await ctx.supabase.from('intents').update({
-      status: 'failed',
-      error_code: 'SCRAPE_FAILED',
-      error_message: String(err),
-      updated_at: new Date().toISOString(),
-    }).eq('id', intentId);
+    await ctx.supabase
+      .from('intents')
+      .update({
+        status: 'failed',
+        error_code: 'SCRAPE_FAILED',
+        error_message: String(err),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', intentId);
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: userId,
-      action: 'scrape.firecrawl', outcome: 'error',
-      input_hash: await sha256(url), provider: 'firecrawl',
-      duration_ms: Date.now() - startMs, metadata: {},
+      org_id: ctx.orgId,
+      user_id: userId,
+      action: 'scrape.firecrawl',
+      outcome: 'error',
+      input_hash: await sha256(url),
+      provider: 'firecrawl',
+      duration_ms: Date.now() - startMs,
+      metadata: {},
     });
   }
 };
@@ -1032,16 +1246,23 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
       });
     }
 
-    await ctx.supabase.from('intents').update({
-      status: 'succeeded',
-      updated_at: new Date().toISOString(),
-    }).eq('id', intentId);
+    await ctx.supabase
+      .from('intents')
+      .update({
+        status: 'succeeded',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', intentId);
 
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: userId,
-      action: 'llm.chat', outcome: 'success',
-      input_hash: '0'.repeat(64), provider: llmResult.provider,
-      duration_ms: 0, metadata: {},
+      org_id: ctx.orgId,
+      user_id: userId,
+      action: 'llm.chat',
+      outcome: 'success',
+      input_hash: '0'.repeat(64),
+      provider: llmResult.provider,
+      duration_ms: 0,
+      metadata: {},
     });
 
     await ctx.supabase.rpc('archive_message', {
@@ -1049,17 +1270,24 @@ export const workerAnalyze = async (ctx: WorkerCtx): Promise<void> => {
       p_msg_id: envelope.data.msg_id,
     });
   } catch (err) {
-    await ctx.supabase.from('intents').update({
-      status: 'failed',
-      error_code: 'ANALYZE_FAILED',
-      error_message: String(err),
-      updated_at: new Date().toISOString(),
-    }).eq('id', intentId);
+    await ctx.supabase
+      .from('intents')
+      .update({
+        status: 'failed',
+        error_code: 'ANALYZE_FAILED',
+        error_message: String(err),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', intentId);
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: userId,
-      action: 'llm.chat', outcome: 'error',
-      input_hash: '0'.repeat(64), provider: 'unknown',
-      duration_ms: 0, metadata: {},
+      org_id: ctx.orgId,
+      user_id: userId,
+      action: 'llm.chat',
+      outcome: 'error',
+      input_hash: '0'.repeat(64),
+      provider: 'unknown',
+      duration_ms: 0,
+      metadata: {},
     });
   }
 };
@@ -1143,13 +1371,17 @@ export const workerMonitorCompetitor = async (ctx: WorkerCtx): Promise<void> => 
       prices = extractPrices(scraped.markdown);
     }
 
-    const { data: snapshot } = await ctx.supabase.from('competitor_snapshots').insert({
-      org_id: ctx.orgId,
-      competitor_id: competitorId,
-      product_count: prices.length || null,
-      price_points: prices,
-      source,
-    }).select('id').single();
+    const { data: snapshot } = await ctx.supabase
+      .from('competitor_snapshots')
+      .insert({
+        org_id: ctx.orgId,
+        competitor_id: competitorId,
+        product_count: prices.length || null,
+        price_points: prices,
+        source,
+      })
+      .select('id')
+      .single();
 
     // Diff against the previous snapshot, if one exists and both have data.
     const prevPrices = asNumberArray(previous?.price_points);
@@ -1174,15 +1406,21 @@ export const workerMonitorCompetitor = async (ctx: WorkerCtx): Promise<void> => 
       }
     }
 
-    await ctx.supabase.from('intents').update({
-      status: 'succeeded',
-      updated_at: new Date().toISOString(),
-    }).eq('id', intentId);
+    await ctx.supabase
+      .from('intents')
+      .update({
+        status: 'succeeded',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', intentId);
 
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: userId,
-      action: 'monitor.competitor', outcome: 'success',
-      input_hash: await sha256(competitor.url), provider: source,
+      org_id: ctx.orgId,
+      user_id: userId,
+      action: 'monitor.competitor',
+      outcome: 'success',
+      input_hash: await sha256(competitor.url),
+      provider: source,
       duration_ms: 0,
       metadata: { competitorId, priceCount: prices.length, snapshotId: snapshot?.id ?? null },
     });
@@ -1192,17 +1430,24 @@ export const workerMonitorCompetitor = async (ctx: WorkerCtx): Promise<void> => 
       p_msg_id: envelope.data.msg_id,
     });
   } catch (err) {
-    await ctx.supabase.from('intents').update({
-      status: 'failed',
-      error_code: 'MONITOR_FAILED',
-      error_message: String(err),
-      updated_at: new Date().toISOString(),
-    }).eq('id', intentId);
+    await ctx.supabase
+      .from('intents')
+      .update({
+        status: 'failed',
+        error_code: 'MONITOR_FAILED',
+        error_message: String(err),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', intentId);
     await ctx.supabase.from('audit_log').insert({
-      org_id: ctx.orgId, user_id: userId,
-      action: 'monitor.competitor', outcome: 'error',
-      input_hash: '0'.repeat(64), provider: 'tavily',
-      duration_ms: 0, metadata: { competitorId },
+      org_id: ctx.orgId,
+      user_id: userId,
+      action: 'monitor.competitor',
+      outcome: 'error',
+      input_hash: '0'.repeat(64),
+      provider: 'tavily',
+      duration_ms: 0,
+      metadata: { competitorId },
     });
   }
 };

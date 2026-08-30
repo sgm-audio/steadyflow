@@ -11,10 +11,10 @@
  * Env:   WORKER_ORG_ID (default: seeded Dev Org), WORKER_POLL_MS (default: 2000)
  */
 
-import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@steadyflow/db';
+import { createClient } from '@supabase/supabase-js';
 import { loadRootEnvLocal } from '../load-root-env.js';
-import { workerScrape, workerEnrich, workerAnalyze, type WorkerCtx } from '../src/workers.js';
+import { workerAnalyze, workerEnrich, workerScrape, type WorkerCtx } from '../src/workers.js';
 
 loadRootEnvLocal();
 
@@ -60,7 +60,9 @@ const tick = async (): Promise<void> => {
   }
 };
 
-console.log(`[worker-loop] polling q:scrape/q:enrich/q:analyze every ${POLL_MS}ms (org ${ORG_ID}). Ctrl+C to stop.`);
+console.log(
+  `[worker-loop] polling q:scrape/q:enrich/q:analyze every ${POLL_MS}ms (org ${ORG_ID}). Ctrl+C to stop.`,
+);
 
 while (running) {
   try {

@@ -1,11 +1,13 @@
-import { requireOrgSession } from '../../lib/session';
-import { classifyError } from '../../lib/api-client';
 import { StateBanner } from '../../components/StateBanner';
+import { classifyError } from '../../lib/api-client';
+import { requireOrgSession } from '../../lib/session';
 
 export default async function SettingsPage() {
   const { supabase, orgId, api } = await requireOrgSession();
 
-  const { data: org } = orgId ? await supabase.from('orgs').select('*').eq('id', orgId).single() : { data: null };
+  const { data: org } = orgId
+    ? await supabase.from('orgs').select('*').eq('id', orgId).single()
+    : { data: null };
   const orgData = org as Record<string, unknown> | null;
 
   const llmConfigResult = orgId ? await api.orgLlmConfigGet() : null;
@@ -17,10 +19,20 @@ export default async function SettingsPage() {
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.5rem' }}>Settings</h1>
       </header>
 
-      {!orgId && <StateBanner state="not-found" message="No organization found for this account." />}
+      {!orgId && (
+        <StateBanner state="not-found" message="No organization found for this account." />
+      )}
 
       <div style={{ maxWidth: 600 }}>
-        <div style={{ padding: '1.5rem', background: '#18181b', borderRadius: '0.5rem', border: '1px solid #27272a', marginBottom: '1rem' }}>
+        <div
+          style={{
+            padding: '1.5rem',
+            background: '#18181b',
+            borderRadius: '0.5rem',
+            border: '1px solid #27272a',
+            marginBottom: '1rem',
+          }}
+        >
           <h3 style={{ marginBottom: '1rem' }}>Organization</h3>
           <div style={{ marginBottom: '0.5rem' }}>
             <span style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>Name: </span>
@@ -28,15 +40,34 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        <div style={{ padding: '1.5rem', background: '#18181b', borderRadius: '0.5rem', border: '1px solid #27272a' }}>
+        <div
+          style={{
+            padding: '1.5rem',
+            background: '#18181b',
+            borderRadius: '0.5rem',
+            border: '1px solid #27272a',
+          }}
+        >
           <h3 style={{ marginBottom: '1rem' }}>LLM Configuration</h3>
           {llmConfigResult && !llmConfigResult.ok ? (
-            <StateBanner state={classifyError(llmConfigResult.error)} message={llmConfigResult.error.message} />
+            <StateBanner
+              state={classifyError(llmConfigResult.error)}
+              message={llmConfigResult.error.message}
+            />
           ) : (
-            <form action="/api/settings/llm" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <form
+              action="/api/settings/llm"
+              method="POST"
+              style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
+            >
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Provider</label>
-                <select name="provider" defaultValue={llmConfigResult?.ok ? llmConfigResult.data.provider : 'deepseek'}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>
+                  Provider
+                </label>
+                <select
+                  name="provider"
+                  defaultValue={llmConfigResult?.ok ? llmConfigResult.data.provider : 'deepseek'}
+                >
                   <option value="deepseek">Deepseek</option>
                   <option value="nvidia-nim">Nvidia NIM</option>
                   <option value="groq">Groq</option>
@@ -44,10 +75,27 @@ export default async function SettingsPage() {
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Default Model</label>
-                <input name="defaultModel" defaultValue={llmConfigResult?.ok ? llmConfigResult.data.defaultModel : 'deepseek-chat'} />
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem' }}>
+                  Default Model
+                </label>
+                <input
+                  name="defaultModel"
+                  defaultValue={
+                    llmConfigResult?.ok ? llmConfigResult.data.defaultModel : 'deepseek-chat'
+                  }
+                />
               </div>
-              <button type="submit" style={{ padding: '0.75rem', background: '#818cf8', color: '#fff', border: 'none', borderRadius: '0.375rem', fontWeight: 600 }}>
+              <button
+                type="submit"
+                style={{
+                  padding: '0.75rem',
+                  background: '#818cf8',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  fontWeight: 600,
+                }}
+              >
                 Save
               </button>
             </form>

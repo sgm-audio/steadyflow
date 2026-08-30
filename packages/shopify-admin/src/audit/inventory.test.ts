@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { evaluateInventoryFlags, LOW_STOCK_THRESHOLD } from './inventory.js';
+import { describe, expect, it } from 'vitest';
 import type { ShopifyProduct } from '../shopify/schema.js';
+import { evaluateInventoryFlags, LOW_STOCK_THRESHOLD } from './inventory.js';
 
 function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
   return {
@@ -16,7 +16,20 @@ function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
       minVariantPrice: { amount: '40.00', currencyCode: 'CAD' },
       maxVariantPrice: { amount: '40.00', currencyCode: 'CAD' },
     },
-    variants: { edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', inventoryQuantity: 10, inventoryPolicy: 'DENY' } }] },
+    variants: {
+      edges: [
+        {
+          node: {
+            id: 'v1',
+            sku: 'SKU-1',
+            title: 'Default',
+            price: '40.00',
+            inventoryQuantity: 10,
+            inventoryPolicy: 'DENY',
+          },
+        },
+      ],
+    },
     images: { edges: [{ node: { id: 'i1', altText: 'img', url: 'https://x/1.jpg' } }] },
     collections: { edges: [] },
     options: [],
@@ -31,7 +44,22 @@ function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
 describe('evaluateInventoryFlags', () => {
   it(`flags products with low stock (≤${LOW_STOCK_THRESHOLD} units, > 0)`, () => {
     const flags = evaluateInventoryFlags({
-      product: makeProduct({ totalInventory: LOW_STOCK_THRESHOLD, variants: { edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', inventoryQuantity: LOW_STOCK_THRESHOLD } }] } }),
+      product: makeProduct({
+        totalInventory: LOW_STOCK_THRESHOLD,
+        variants: {
+          edges: [
+            {
+              node: {
+                id: 'v1',
+                sku: 'SKU-1',
+                title: 'Default',
+                price: '40.00',
+                inventoryQuantity: LOW_STOCK_THRESHOLD,
+              },
+            },
+          ],
+        },
+      }),
     });
     expect(flags.some((f) => f.code === 'inventory_low_stock')).toBe(true);
   });
@@ -40,7 +68,19 @@ describe('evaluateInventoryFlags', () => {
     const flags = evaluateInventoryFlags({
       product: makeProduct({
         totalInventory: 0,
-        variants: { edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', inventoryQuantity: 0 } }] },
+        variants: {
+          edges: [
+            {
+              node: {
+                id: 'v1',
+                sku: 'SKU-1',
+                title: 'Default',
+                price: '40.00',
+                inventoryQuantity: 0,
+              },
+            },
+          ],
+        },
       }),
     });
     expect(flags.some((f) => f.code === 'inventory_low_stock')).toBe(false);
@@ -51,7 +91,19 @@ describe('evaluateInventoryFlags', () => {
       product: makeProduct({
         tracksInventory: false,
         totalInventory: 0,
-        variants: { edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', inventoryQuantity: 0 } }] },
+        variants: {
+          edges: [
+            {
+              node: {
+                id: 'v1',
+                sku: 'SKU-1',
+                title: 'Default',
+                price: '40.00',
+                inventoryQuantity: 0,
+              },
+            },
+          ],
+        },
       }),
     });
     expect(flags.some((f) => f.code === 'inventory_overselling')).toBe(true);
@@ -61,7 +113,18 @@ describe('evaluateInventoryFlags', () => {
     const flags = evaluateInventoryFlags({
       product: makeProduct({
         variants: {
-          edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', inventoryQuantity: 0, inventoryPolicy: 'CONTINUE' } }],
+          edges: [
+            {
+              node: {
+                id: 'v1',
+                sku: 'SKU-1',
+                title: 'Default',
+                price: '40.00',
+                inventoryQuantity: 0,
+                inventoryPolicy: 'CONTINUE',
+              },
+            },
+          ],
         },
       }),
     });
@@ -72,7 +135,19 @@ describe('evaluateInventoryFlags', () => {
     const flags = evaluateInventoryFlags({
       product: makeProduct({
         totalInventory: 100,
-        variants: { edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', inventoryQuantity: 100 } }] },
+        variants: {
+          edges: [
+            {
+              node: {
+                id: 'v1',
+                sku: 'SKU-1',
+                title: 'Default',
+                price: '40.00',
+                inventoryQuantity: 100,
+              },
+            },
+          ],
+        },
       }),
     });
     expect(flags).toEqual([]);

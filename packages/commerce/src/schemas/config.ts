@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  DistributorProviderId,
-  FulfillmentProviderId,
-  SellingPlatformId,
-} from './roles.js';
+import { DistributorProviderId, FulfillmentProviderId, SellingPlatformId } from './roles.js';
 
 export const SellingChannelConfig = z
   .object({

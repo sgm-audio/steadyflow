@@ -2,7 +2,7 @@
  * Popup UI — auth, page info, submit analysis.
  */
 
-import { getToken, signIn, signOut, getSession } from '../lib/supabase.js';
+import { getSession, getToken, signIn, signOut } from '../lib/supabase.js';
 
 // ── DOM Element helpers ─────────────────────────────────────────────────────
 
@@ -45,7 +45,9 @@ const handleLoginSubmit = (e: Event) => {
 };
 
 const handleLogoutClick = () => {
-  void signOut().then(() => { showLogin(); });
+  void signOut().then(() => {
+    showLogin();
+  });
 };
 
 const onReady = () => {
@@ -66,7 +68,9 @@ const onReady = () => {
   $('logout-btn').addEventListener('click', handleLogoutClick);
 
   // Analyze
-  analyzeBtn.addEventListener('click', () => { void handleAnalyze(); });
+  analyzeBtn.addEventListener('click', () => {
+    void handleAnalyze();
+  });
 
   // Dashboard links
   const dashUrl = 'http://127.0.0.1:3000/dashboard';
@@ -88,7 +92,9 @@ const loadPageInfo = async () => {
 
     // Get page info from content script
     // eslint-disable-next-line @typescript-eslint/no-deprecated
-    const response: Record<string, unknown> = await chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_PAGE' });
+    const response: Record<string, unknown> = await chrome.tabs.sendMessage(tab.id, {
+      type: 'CAPTURE_PAGE',
+    });
 
     if (!response.error) {
       pageTitle.textContent = typeof response.title === 'string' ? response.title : 'Unknown';
@@ -144,11 +150,11 @@ const handleAnalyze = async () => {
     });
 
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
+      const errBody = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
       throw new Error(errBody.error?.message ?? `HTTP ${res.status}`);
     }
 
-    const data = await res.json() as { intentId: string; status: string };
+    const data = (await res.json()) as { intentId: string; status: string };
     resultText.textContent = `Analysis submitted! Status: ${data.status}`;
     resultSection.classList.remove('hidden');
   } catch (err) {

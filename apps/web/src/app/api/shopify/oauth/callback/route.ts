@@ -8,8 +8,12 @@
  */
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import {
+  exchangeCodeForToken,
+  isValidShopDomain,
+  verifyHmac,
+} from '../../../../../lib/shopify-oauth';
 import { createClient } from '../../../../../lib/supabase-server';
-import { exchangeCodeForToken, isValidShopDomain, verifyHmac } from '../../../../../lib/shopify-oauth';
 
 /** Postgres bytea expects native \x<hex> text format, not base64. */
 const textToBytea = (s: string): string => '\\x' + Buffer.from(s, 'utf8').toString('hex');
@@ -19,7 +23,9 @@ const failure = (request: Request, reason: string): NextResponse =>
 
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) return NextResponse.redirect(new URL('/login', request.url));
 
   const { searchParams } = new URL(request.url);
@@ -43,7 +49,11 @@ export async function GET(request: Request) {
     return failure(request, 'token_exchange_failed');
   }
 
-  const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
+  const { data: member } = await supabase
+    .from('memberships')
+    .select('org_id')
+    .eq('user_id', session.user.id)
+    .single();
   const orgId = member?.org_id;
   if (!orgId) return failure(request, 'no_org');
 
@@ -52,18 +62,22 @@ export async function GET(request: Request) {
   });
   if (wrapError) return failure(request, 'encrypt_failed');
 
-  const { error: upsertError } = await supabase
-    .from('keys_envelopes')
-    .upsert({
+  const { error: upsertError } = await supabase.from('keys_envelopes').upsert(
+    {
       org_id: orgId,
       user_id: session.user.id,
       provider: 'shopify-admin',
       wrapped_key: wrappedKey,
       created_at: new Date().toISOString(),
-    }, { onConflict: 'org_id, provider' });
+    },
+    { onConflict: 'org_id, provider' },
+  );
   if (upsertError) return failure(request, 'store_failed');
 
-  await supabase.from('orgs').update({ shopify_store_url: `https://${shop}` }).eq('id', orgId);
+  await supabase
+    .from('orgs')
+    .update({ shopify_store_url: `https://${shop}` })
+    .eq('id', orgId);
 
   return NextResponse.redirect(new URL('/keys?connected=shopify-admin', request.url));
 }

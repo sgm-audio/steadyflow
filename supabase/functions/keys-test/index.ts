@@ -7,18 +7,28 @@
  */
 import { z } from 'npm:zod@3';
 import {
-  handleCors,
+  badRequest,
   createContext,
+  handleCors,
+  notFound,
+  ok,
   parseInput,
   writeAudit,
-  ok,
-  badRequest,
-  notFound,
-  internalError,
 } from '../_shared/context.ts';
 
 const KeysTestInput = z.object({
-  provider: z.enum(['firecrawl','tavily','deepseek','nvidia-nim','groq','openai-compatible','shopify-admin','printify','amazon-sp-api','alibaba']),
+  provider: z.enum([
+    'firecrawl',
+    'tavily',
+    'deepseek',
+    'nvidia-nim',
+    'groq',
+    'openai-compatible',
+    'shopify-admin',
+    'printify',
+    'amazon-sp-api',
+    'alibaba',
+  ]),
 });
 
 Deno.serve(async (req: Request) => {
@@ -30,8 +40,11 @@ Deno.serve(async (req: Request) => {
   if (ctx instanceof Response) return ctx;
 
   let body: unknown;
-  try { body = await req.json(); }
-  catch { return badRequest('Invalid JSON body'); }
+  try {
+    body = await req.json();
+  } catch {
+    return badRequest('Invalid JSON body');
+  }
 
   const parsed = parseInput(KeysTestInput, body);
   if (!parsed.ok) return badRequest(parsed.error.message);
@@ -51,8 +64,10 @@ Deno.serve(async (req: Request) => {
   const durationMs = Date.now() - startMs;
 
   writeAudit(ctx.supabase, {
-    orgId: ctx.orgId, userId: ctx.userId,
-    action: 'keys.test', outcome: 'success',
+    orgId: ctx.orgId,
+    userId: ctx.userId,
+    action: 'keys.test',
+    outcome: 'success',
     input: { provider },
     durationMs,
   }).catch(() => {});

@@ -1,9 +1,19 @@
-import { describe, it, expect, beforeAll } from 'vitest';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { runShopifyAppReadinessScan } from './integration';
 
-const DOCS_DIR = join(__dirname, '..', '..', '..', '..', '..', 'docs', 'experimental', 'shopify-app-readiness');
+const DOCS_DIR = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'docs',
+  'experimental',
+  'shopify-app-readiness',
+);
 
 describe('Shopify App Readiness — end-to-end scan', () => {
   beforeAll(() => {
@@ -45,7 +55,10 @@ describe('Shopify App Readiness — end-to-end scan', () => {
           },
         ],
       },
-      { organizationId: '22222222-2222-2222-2222-222222222222', actorId: '11111111-1111-1111-1111-111111111111' }
+      {
+        organizationId: '22222222-2222-2222-2222-222222222222',
+        actorId: '11111111-1111-1111-1111-111111111111',
+      },
     );
 
     expect(result.status).toBe('completed');
@@ -55,7 +68,8 @@ describe('Shopify App Readiness — end-to-end scan', () => {
 
     mkdirSync(DOCS_DIR, { recursive: true });
     if (result.reportJson) writeFileSync(join(DOCS_DIR, 'SAMPLE_REPORT.json'), result.reportJson);
-    if (result.reportMarkdown) writeFileSync(join(DOCS_DIR, 'SAMPLE_REPORT.md'), result.reportMarkdown);
+    if (result.reportMarkdown)
+      writeFileSync(join(DOCS_DIR, 'SAMPLE_REPORT.md'), result.reportMarkdown);
     if (result.reportHtml) writeFileSync(join(DOCS_DIR, 'SAMPLE_REPORT.html'), result.reportHtml);
   });
 });

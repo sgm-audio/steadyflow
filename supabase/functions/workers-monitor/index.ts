@@ -10,8 +10,8 @@
  * Auth: none (called internally via pgmq, uses service_role)
  */
 
-import { createServiceRoleClient } from '../_shared/supabase.ts';
 import { unwrapProviderKey } from '../_shared/envelope.ts';
+import { createServiceRoleClient } from '../_shared/supabase.ts';
 
 const PRICE_REGEX = /\$\d{1,4}(?:\.\d{2})?/g;
 
@@ -42,7 +42,9 @@ const assertPublicUrl = (rawUrl: string): void => {
 
 const directScrapeText = async (url: string): Promise<string> => {
   assertPublicUrl(url);
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' } });
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+  });
   if (!res.ok) throw new Error(`Direct scrape failed ${res.status}`);
   const html = await res.text();
   return html
@@ -125,13 +127,17 @@ Deno.serve(async (_req: Request) => {
       prices = extractPrices(text);
     }
 
-    const { data: snapshot } = await supabase.from('competitor_snapshots').insert({
-      org_id: orgId,
-      competitor_id: competitorId,
-      product_count: prices.length || null,
-      price_points: prices,
-      source,
-    }).select('id').single();
+    const { data: snapshot } = await supabase
+      .from('competitor_snapshots')
+      .insert({
+        org_id: orgId,
+        competitor_id: competitorId,
+        product_count: prices.length || null,
+        price_points: prices,
+        source,
+      })
+      .select('id')
+      .single();
 
     const prevPrices = Array.isArray(previous?.price_points)
       ? (previous.price_points as unknown[]).filter((n): n is number => typeof n === 'number')
@@ -161,11 +167,18 @@ Deno.serve(async (_req: Request) => {
     await supabase.from('intents').update({ status: 'succeeded' }).eq('id', intentId);
 
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: userId,
-      action: 'monitor.competitor', outcome: 'success',
-      input_hash: '0'.repeat(64), provider: source,
+      org_id: orgId,
+      user_id: userId,
+      action: 'monitor.competitor',
+      outcome: 'success',
+      input_hash: '0'.repeat(64),
+      provider: source,
       duration_ms: 0,
-      metadata: { competitorId, priceCount: prices.length, snapshotId: (snapshot as { id: string } | null)?.id ?? null },
+      metadata: {
+        competitorId,
+        priceCount: prices.length,
+        snapshotId: (snapshot as { id: string } | null)?.id ?? null,
+      },
     });
 
     await supabase.rpc('archive_message', {
@@ -173,16 +186,23 @@ Deno.serve(async (_req: Request) => {
       p_msg_id: (msg as { msg_id: number }).msg_id,
     });
   } catch (err) {
-    await supabase.from('intents').update({
-      status: 'failed',
-      error_code: 'MONITOR_FAILED',
-      error_message: String(err),
-    }).eq('id', intentId);
+    await supabase
+      .from('intents')
+      .update({
+        status: 'failed',
+        error_code: 'MONITOR_FAILED',
+        error_message: String(err),
+      })
+      .eq('id', intentId);
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: userId,
-      action: 'monitor.competitor', outcome: 'error',
-      input_hash: '0'.repeat(64), provider: 'tavily',
-      duration_ms: 0, metadata: { competitorId },
+      org_id: orgId,
+      user_id: userId,
+      action: 'monitor.competitor',
+      outcome: 'error',
+      input_hash: '0'.repeat(64),
+      provider: 'tavily',
+      duration_ms: 0,
+      metadata: { competitorId },
     });
   }
 

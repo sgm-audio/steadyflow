@@ -18,10 +18,12 @@ export const enqueue = async (
   queue: QueueName,
   message: Record<string, unknown>,
 ): Promise<number> => {
-  const { data, error } = await supabase.rpc('enqueue_message', {
-    p_queue_name: queue,
-    p_message: message,
-  }).single();
+  const { data, error } = await supabase
+    .rpc('enqueue_message', {
+      p_queue_name: queue,
+      p_message: message,
+    })
+    .single();
   if (error) throw new Error(`enqueue_message failed for ${queue}: ${error.message}`);
   return Number(data);
 };
@@ -34,10 +36,18 @@ export const dequeue = async (
   supabase: SupabaseClient,
   queue: QueueName,
   _vtSeconds = 300,
-): Promise<{ msgId: number; readCt: number; enqueuedAt: string; vt: string; message: Record<string, unknown> } | null> => {
-  const { data, error } = await supabase.rpc('dequeue_message', {
-    p_queue_name: queue,
-  }).single();
+): Promise<{
+  msgId: number;
+  readCt: number;
+  enqueuedAt: string;
+  vt: string;
+  message: Record<string, unknown>;
+} | null> => {
+  const { data, error } = await supabase
+    .rpc('dequeue_message', {
+      p_queue_name: queue,
+    })
+    .single();
   if (error) throw new Error(`dequeue_message failed for ${queue}: ${error.message}`);
   if (!data) return null;
 

@@ -7,11 +7,11 @@
  */
 
 export type {
-  Json,
+  CompositeTypes,
   Database,
+  Enums,
+  Json,
   Tables,
   TablesInsert,
   TablesUpdate,
-  Enums,
-  CompositeTypes,
 } from './database.types.js';

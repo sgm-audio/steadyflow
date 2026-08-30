@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { analyzeStorefrontHtml } from './storefront.js';
 
 const STORE = 'example.myshopify.com';
@@ -17,7 +17,9 @@ describe('analyzeStorefrontHtml', () => {
     `;
     const a = analyzeStorefrontHtml(html, STORE);
     expect(a.totalScripts).toBe(6);
-    expect(a.appHosts.map((h) => h.appName)).toEqual(expect.arrayContaining(['Klaviyo', 'Judge.me']));
+    expect(a.appHosts.map((h) => h.appName)).toEqual(
+      expect.arrayContaining(['Klaviyo', 'Judge.me']),
+    );
     expect(a.thirdPartyHosts.map((h) => h.host)).toContain('mystery.cdn.example');
     // First-party scripts are not counted as third-party or app.
     expect(a.thirdPartyHosts.map((h) => h.host)).not.toContain(STORE);

@@ -1,11 +1,11 @@
-import type { CommerceCatalog, CommerceProduct } from '../schemas/product.js';
-import type { CommerceOrder } from '../schemas/order.js';
-import type { CommerceInventoryLevel } from '../schemas/inventory.js';
 import type {
   DistributorHandoffResult,
   DistributorOffer,
   DistributorOrderHandoff,
 } from '../schemas/distributor.js';
+import type { CommerceInventoryLevel } from '../schemas/inventory.js';
+import type { CommerceOrder } from '../schemas/order.js';
+import type { CommerceCatalog, CommerceProduct } from '../schemas/product.js';
 import type {
   DistributorProviderId,
   FulfillmentProviderId,
@@ -48,7 +48,9 @@ export interface FulfillmentAdapter {
   /**
    * Submit a paid selling-platform order for production/shipping.
    */
-  submitFulfillment(order: CommerceOrder): Promise<{ accepted: boolean; externalId?: string; message?: string }>;
+  submitFulfillment(
+    order: CommerceOrder,
+  ): Promise<{ accepted: boolean; externalId?: string; message?: string }>;
   listInventory?(): Promise<CommerceInventoryLevel[]>;
 }
 

@@ -1,5 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { runShopifyAppReadinessScan, getFeatureFlagStatus, ShopifyAppReadinessInputSchema } from './integration';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  getFeatureFlagStatus,
+  runShopifyAppReadinessScan,
+  ShopifyAppReadinessInputSchema,
+} from './integration';
 
 describe('Shopify App Readiness Integration', () => {
   const originalEnv = process.env.STEADYFLOW_SHOPIFY_APP_READINESS_ENABLED;
@@ -74,7 +78,10 @@ describe('Shopify App Readiness Integration', () => {
     });
 
     it('rejects invalid email for scannedBy', () => {
-      const input = { ...validInput, scanConfig: { ...validInput.scanConfig, scannedBy: 'not-email' } };
+      const input = {
+        ...validInput,
+        scanConfig: { ...validInput.scanConfig, scannedBy: 'not-email' },
+      };
       const result = ShopifyAppReadinessInputSchema.safeParse(input);
       expect(result.success).toBe(false);
     });
@@ -86,14 +93,20 @@ describe('Shopify App Readiness Integration', () => {
     });
 
     it('rejects invalid URL for privacyPolicyUrl', () => {
-      const input = { ...validInput, appMetadata: { ...validInput.appMetadata, privacyPolicyUrl: 'not-a-url' } };
+      const input = {
+        ...validInput,
+        appMetadata: { ...validInput.appMetadata, privacyPolicyUrl: 'not-a-url' },
+      };
       const result = ShopifyAppReadinessInputSchema.safeParse(input);
       expect(result.success).toBe(false);
     });
   });
 
   describe('runShopifyAppReadinessScan', () => {
-    const baseContext = { organizationId: '22222222-2222-2222-2222-222222222222', actorId: '11111111-1111-1111-1111-111111111111' };
+    const baseContext = {
+      organizationId: '22222222-2222-2222-2222-222222222222',
+      actorId: '11111111-1111-1111-1111-111111111111',
+    };
     const validInput = {
       appId: '123e4567-e89b-12d3-a456-426614174000',
       appMetadata: {
@@ -150,7 +163,10 @@ describe('Shopify App Readiness Integration', () => {
 
     it('includes HTML when includeHtml is true', async () => {
       process.env.STEADYFLOW_SHOPIFY_APP_READINESS_ENABLED = 'true';
-      const inputWithHtml = { ...validInput, scanConfig: { ...validInput.scanConfig, includeHtml: true } };
+      const inputWithHtml = {
+        ...validInput,
+        scanConfig: { ...validInput.scanConfig, includeHtml: true },
+      };
       const result = await runShopifyAppReadinessScan(inputWithHtml, baseContext);
       expect(result.status).toBe('completed');
       expect(result.reportHtml).toBeDefined();
@@ -161,16 +177,18 @@ describe('Shopify App Readiness Integration', () => {
       process.env.STEADYFLOW_SHOPIFY_APP_READINESS_ENABLED = 'true';
       const inputWithReviews = {
         ...validInput,
-        manualReviews: [{
-          requirementId: 'embedded-app',
-          requirementVersion: '1.0.0',
-          reviewerId: 'reviewer@example.com',
-          reviewerName: 'John Reviewer',
-          decision: 'approved' as const,
-          evidence: [],
-          applicabilityDecision: 'applicable' as const,
-          reviewedAt: new Date().toISOString(),
-        }],
+        manualReviews: [
+          {
+            requirementId: 'embedded-app',
+            requirementVersion: '1.0.0',
+            reviewerId: 'reviewer@example.com',
+            reviewerName: 'John Reviewer',
+            decision: 'approved' as const,
+            evidence: [],
+            applicabilityDecision: 'applicable' as const,
+            reviewedAt: new Date().toISOString(),
+          },
+        ],
       };
       const result = await runShopifyAppReadinessScan(inputWithReviews, baseContext);
       expect(result.status).toBe('completed');

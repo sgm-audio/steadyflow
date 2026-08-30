@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { ShopifyAppRequirementRegistrySchema } from './schema';
 import type { ShopifyAppRequirement } from './schema';
+import { ShopifyAppRequirementRegistrySchema } from './schema';
 
 const REGISTRY_FILE = join(__dirname, 'requirements.json');
 

@@ -23,7 +23,10 @@ export function NavHeader() {
     <header className="sticky top-0 z-20 border-b border-white/5 bg-[#08080b]/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 md:px-8">
         <div className="flex min-w-0 items-center gap-8">
-          <a href="/dashboard" className="shrink-0 text-lg font-semibold tracking-tight no-underline text-ink">
+          <a
+            href="/dashboard"
+            className="shrink-0 text-lg font-semibold tracking-tight no-underline text-ink"
+          >
             SteadyFlow
           </a>
           <nav className="hidden items-center gap-1 md:flex">

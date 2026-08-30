@@ -8,8 +8,15 @@
 
 import { z } from 'npm:zod@3';
 import {
-  handleCors, createContext, parseInput,
-  writeAudit, ok, badRequest, notFound, internalError, jsonError,
+  badRequest,
+  createContext,
+  handleCors,
+  internalError,
+  jsonError,
+  notFound,
+  ok,
+  parseInput,
+  writeAudit,
 } from '../_shared/context.ts';
 import { error as sfError } from '../_shared/core-shim.ts';
 
@@ -28,8 +35,11 @@ Deno.serve(async (req: Request) => {
   if (ctx instanceof Response) return ctx;
 
   let body: unknown;
-  try { body = await req.json(); }
-  catch { return badRequest('Invalid JSON body'); }
+  try {
+    body = await req.json();
+  } catch {
+    return badRequest('Invalid JSON body');
+  }
 
   const parsed = parseInput(CancelInput, body);
   if (!parsed.ok) return badRequest(parsed.error.message);
@@ -59,7 +69,10 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (existing) {
         return jsonError(
-          sfError('VALIDATION_FAILED', `Intent is already ${existing.status} and can no longer be cancelled`),
+          sfError(
+            'VALIDATION_FAILED',
+            `Intent is already ${existing.status} and can no longer be cancelled`,
+          ),
           409,
         );
       }
@@ -69,8 +82,10 @@ Deno.serve(async (req: Request) => {
   }
 
   writeAudit(ctx.supabase, {
-    orgId: ctx.orgId, userId: ctx.userId,
-    action: 'intent.cancel', outcome: 'success',
+    orgId: ctx.orgId,
+    userId: ctx.userId,
+    action: 'intent.cancel',
+    outcome: 'success',
     input: { intentId },
     durationMs: Date.now() - startMs,
   }).catch(() => {});

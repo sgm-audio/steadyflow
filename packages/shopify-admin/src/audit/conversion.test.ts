@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { evaluateConversionFlags, MAX_TITLE_LENGTH, HIGH_PRICE_THRESHOLD } from './conversion.js';
+import { describe, expect, it } from 'vitest';
 import type { ShopifyProduct } from '../shopify/schema.js';
+import { evaluateConversionFlags, HIGH_PRICE_THRESHOLD, MAX_TITLE_LENGTH } from './conversion.js';
 
 function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
   return {
@@ -16,7 +16,11 @@ function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
       minVariantPrice: { amount: '40.00', currencyCode: 'CAD' },
       maxVariantPrice: { amount: '40.00', currencyCode: 'CAD' },
     },
-    variants: { edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', barcode: '123456' } }] },
+    variants: {
+      edges: [
+        { node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', barcode: '123456' } },
+      ],
+    },
     images: { edges: [{ node: { id: 'i1', altText: 'img', url: 'https://x/1.jpg' } }] },
     collections: { edges: [] },
     options: [],
@@ -29,7 +33,11 @@ function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
 describe('evaluateConversionFlags', () => {
   it('flags product with no barcode on any variant', () => {
     const product = makeProduct({
-      variants: { edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', barcode: null } }] },
+      variants: {
+        edges: [
+          { node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', barcode: null } },
+        ],
+      },
     });
     const flags = evaluateConversionFlags({ product });
     expect(flags.some((f) => f.code === 'conversion_no_barcode')).toBe(true);
@@ -66,7 +74,11 @@ describe('evaluateConversionFlags', () => {
       product: makeProduct({
         title: 'Modern Wall Art',
         variants: {
-          edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', barcode: '123456' } }],
+          edges: [
+            {
+              node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '40.00', barcode: '123456' },
+            },
+          ],
         },
       }),
     });

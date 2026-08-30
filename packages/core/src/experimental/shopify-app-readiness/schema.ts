@@ -15,7 +15,7 @@ export const CategorySchema = z.enum([
   'theme',
   'listing',
   'submission',
-  'other'
+  'other',
 ]);
 
 export const ShopifyAppRequirementSchema = z.object({
@@ -32,13 +32,13 @@ export const ShopifyAppRequirementSchema = z.object({
   sourceVersion: z.string().optional(),
   thirdPartyReference: z.string().optional(),
   notes: z.string().optional(),
-  evidenceExpectations: z.array(z.string()).optional()
+  evidenceExpectations: z.array(z.string()).optional(),
 });
 
 export const ShopifyAppRequirementRegistrySchema = z.object({
   version: z.string(),
   schemaVersion: z.string(),
-  requirements: z.array(ShopifyAppRequirementSchema)
+  requirements: z.array(ShopifyAppRequirementSchema),
 });
 
 export type ShopifyAppRequirement = z.infer<typeof ShopifyAppRequirementSchema>;
@@ -46,17 +46,17 @@ export type ShopifyAppRequirementRegistry = z.infer<typeof ShopifyAppRequirement
 
 export const ShopifyAppCategorySchema = z.object({
   category: CategorySchema,
-  description: z.string()
+  description: z.string(),
 });
 
 export const ShopifyAppValidationModeSchema = z.object({
   validationMode: ValidationModeSchema,
-  description: z.string()
+  description: z.string(),
 });
 
 export const ShopifyAppSeveritySchema = z.object({
   severity: SeveritySchema,
-  description: z.string()
+  description: z.string(),
 });
 
 export default {
@@ -64,5 +64,5 @@ export default {
   ShopifyAppRequirementRegistrySchema,
   ShopifyAppCategorySchema,
   ShopifyAppValidationModeSchema,
-  ShopifyAppSeveritySchema
+  ShopifyAppSeveritySchema,
 };

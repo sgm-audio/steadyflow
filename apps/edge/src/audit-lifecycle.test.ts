@@ -9,10 +9,10 @@
  * Automatically excluded when Supabase is not available locally.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@steadyflow/db';
-import { workerScrape, workerAnalyze } from './workers.js';
+import { createClient } from '@supabase/supabase-js';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { workerAnalyze, workerScrape } from './workers.js';
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -42,7 +42,11 @@ describe('audit lifecycle (integration)', () => {
     // Cleanup: remove the intent and any insights/audit rows it created
     if (intentId) {
       await supabase.from('insights').delete().eq('intent_id', intentId);
-      await supabase.from('audit_log').delete().eq('org_id', ORG_ID).eq('action', 'analyze.shopify_catalog');
+      await supabase
+        .from('audit_log')
+        .delete()
+        .eq('org_id', ORG_ID)
+        .eq('action', 'analyze.shopify_catalog');
       await supabase.from('intents').delete().eq('id', intentId);
     }
   });

@@ -28,7 +28,10 @@ export class PrintifyClient {
     if (!parsed.success) {
       throw new Error(
         `Printify /shops response failed validation:\n${parsed.error.issues
-          .map((i: { path: (string | number)[]; message: string }) => `  - ${i.path.join('.')}: ${i.message}`)
+          .map(
+            (i: { path: (string | number)[]; message: string }) =>
+              `  - ${i.path.join('.')}: ${i.message}`,
+          )
           .join('\n')}`,
       );
     }

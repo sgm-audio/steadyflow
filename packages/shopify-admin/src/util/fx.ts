@@ -29,7 +29,9 @@ export async function getUsdToCadRate(fallback: number): Promise<CachedRate> {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => { controller.abort(); }, 5000);
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 5000);
     const res = await fetch(FX_ENDPOINT, { signal: controller.signal });
     clearTimeout(timeout);
 
@@ -37,7 +39,9 @@ export async function getUsdToCadRate(fallback: number): Promise<CachedRate> {
     const data = (await res.json()) as ErApiResponse;
 
     if (data.result !== 'success' || typeof data.rates?.CAD !== 'number') {
-      throw new Error(`FX endpoint returned invalid payload: ${JSON.stringify(data).slice(0, 200)}`);
+      throw new Error(
+        `FX endpoint returned invalid payload: ${JSON.stringify(data).slice(0, 200)}`,
+      );
     }
 
     cache = {

@@ -1,6 +1,6 @@
 import { PrintifyClient } from '@steadyflow/shopify-admin';
-import type { CommerceOrder } from '../../schemas/order.js';
 import type { CommerceInventoryLevel } from '../../schemas/inventory.js';
+import type { CommerceOrder } from '../../schemas/order.js';
 import {
   AdapterNotImplementedError,
   AdapterNotReadyError,
@@ -53,7 +53,9 @@ export class PrintifyFulfillmentAdapter implements FulfillmentAdapter {
   /**
    * Readiness: validates shop connectivity. Full order create API wiring is next.
    */
-  async submitFulfillment(order: CommerceOrder): Promise<{ accepted: boolean; externalId?: string; message?: string }> {
+  async submitFulfillment(
+    order: CommerceOrder,
+  ): Promise<{ accepted: boolean; externalId?: string; message?: string }> {
     const shopId = await this.shopId();
     // Connectivity probe — ensures token + shop resolve before claiming readiness.
     await this.client.fetchShopCatalog(shopId);

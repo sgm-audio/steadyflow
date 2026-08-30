@@ -7,14 +7,22 @@
  * procedure in the contract yet, so DELETE still talks to Postgres directly.
  */
 
-import { createClient } from '../../../lib/supabase-server';
-import { createApiClient } from '../../../lib/api-client';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { createApiClient } from '../../../lib/api-client';
+import { createClient } from '../../../lib/supabase-server';
 
 const PROVIDERS = [
-  'firecrawl', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible',
-  'shopify-admin', 'printify', 'amazon-sp-api', 'alibaba',
+  'firecrawl',
+  'tavily',
+  'deepseek',
+  'nvidia-nim',
+  'groq',
+  'openai-compatible',
+  'shopify-admin',
+  'printify',
+  'amazon-sp-api',
+  'alibaba',
 ] as const;
 
 const KeysSetInput = z.object({
@@ -28,7 +36,9 @@ const KeysDeleteInput = z.object({
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const parsed = KeysSetInput.safeParse(await request.json());
@@ -43,14 +53,20 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const parsed = KeysDeleteInput.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   const input = parsed.data;
 
-  const { data: member } = await supabase.from('memberships').select('org_id').eq('user_id', session.user.id).single();
+  const { data: member } = await supabase
+    .from('memberships')
+    .select('org_id')
+    .eq('user_id', session.user.id)
+    .single();
   const orgId = member?.org_id;
   if (!orgId) return NextResponse.json({ error: 'No org' }, { status: 400 });
 

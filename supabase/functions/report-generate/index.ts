@@ -21,14 +21,14 @@
 
 import { z } from 'npm:zod@3';
 import {
-  handleCors,
+  badRequest,
   createContext,
+  handleCors,
+  internalError,
+  notFound,
+  ok,
   parseInput,
   writeAudit,
-  ok,
-  badRequest,
-  notFound,
-  internalError,
 } from '../_shared/context.ts';
 
 const ReportGenerateInput = z.object({
@@ -36,8 +36,18 @@ const ReportGenerateInput = z.object({
 });
 
 type InsightCategory =
-  | 'pricing' | 'positioning' | 'product_mix' | 'marketing' | 'seo' | 'conversion' | 'inventory' | 'trend'
-  | 'ai_agent_readiness' | 'first_sale_math' | 'channel_gap' | 'creator_playbook';
+  | 'pricing'
+  | 'positioning'
+  | 'product_mix'
+  | 'marketing'
+  | 'seo'
+  | 'conversion'
+  | 'inventory'
+  | 'trend'
+  | 'ai_agent_readiness'
+  | 'first_sale_math'
+  | 'channel_gap'
+  | 'creator_playbook';
 type InsightRow = {
   id: string;
   category: InsightCategory;
@@ -51,24 +61,41 @@ type InsightRow = {
 };
 
 const REMEDIATION_BY_CATEGORY: Record<InsightCategory, string> = {
-  pricing: 'Review pricing against competitor benchmarks and adjust margins where this finding flags a gap.',
-  positioning: 'Refine product or brand messaging to close the positioning gap this finding identifies.',
+  pricing:
+    'Review pricing against competitor benchmarks and adjust margins where this finding flags a gap.',
+  positioning:
+    'Refine product or brand messaging to close the positioning gap this finding identifies.',
   product_mix: 'Reorganize the affected catalog or collection structure to address this finding.',
   marketing: 'Update marketing copy or channels to address this finding.',
   seo: 'Add or correct the missing metadata, alt text, or structured data this finding flags.',
-  conversion: 'Adjust the affected page or checkout flow to remove the friction this finding identifies.',
-  inventory: 'Update the affected product or variant data (weight, stock, shipping fields) this finding flags.',
+  conversion:
+    'Adjust the affected page or checkout flow to remove the friction this finding identifies.',
+  inventory:
+    'Update the affected product or variant data (weight, stock, shipping fields) this finding flags.',
   trend: 'Monitor this trend and revisit pricing or positioning if it persists.',
-  ai_agent_readiness: 'Submit product feed to Google Merchant Center, add JSON-LD Product schema, allow AI crawler bots in robots.txt, and enable Shop Pay / Google Pay for AI-native checkout.',
-  first_sale_math: 'Calculate break-even ROAS from your actual Printify costs + Shopify pricing, then choose the cheapest CPA channel (Meta/TikTok, not Google Shopping) that clears break-even at 2% conversion.',
-  channel_gap: 'You are only selling through Shopify. Expand to Etsy (built-in traffic, $0.20 listing), TikTok Shop (1,000-follower threshold, zero-fee discovery), and Google free listings (via Merchant Center) to add three new zero-CAC channels.',
-  creator_playbook: 'Find 3-5 micro-creators in your niche (1k-50k followers), send free product + $50-150 per post, and repurpose their content as paid ad creative. Gifting + small payment delivers 2.3x engagement vs gifting alone.',
+  ai_agent_readiness:
+    'Submit product feed to Google Merchant Center, add JSON-LD Product schema, allow AI crawler bots in robots.txt, and enable Shop Pay / Google Pay for AI-native checkout.',
+  first_sale_math:
+    'Calculate break-even ROAS from your actual Printify costs + Shopify pricing, then choose the cheapest CPA channel (Meta/TikTok, not Google Shopping) that clears break-even at 2% conversion.',
+  channel_gap:
+    'You are only selling through Shopify. Expand to Etsy (built-in traffic, $0.20 listing), TikTok Shop (1,000-follower threshold, zero-fee discovery), and Google free listings (via Merchant Center) to add three new zero-CAC channels.',
+  creator_playbook:
+    'Find 3-5 micro-creators in your niche (1k-50k followers), send free product + $50-150 per post, and repurpose their content as paid ad creative. Gifting + small payment delivers 2.3x engagement vs gifting alone.',
 };
 
 const EFFORT_BY_CATEGORY: Record<InsightCategory, 'small' | 'medium' | 'large'> = {
-  pricing: 'small', positioning: 'medium', product_mix: 'medium', marketing: 'medium',
-  seo: 'small', conversion: 'medium', inventory: 'small', trend: 'small',
-  ai_agent_readiness: 'medium', first_sale_math: 'small', channel_gap: 'medium', creator_playbook: 'medium',
+  pricing: 'small',
+  positioning: 'medium',
+  product_mix: 'medium',
+  marketing: 'medium',
+  seo: 'small',
+  conversion: 'medium',
+  inventory: 'small',
+  trend: 'small',
+  ai_agent_readiness: 'medium',
+  first_sale_math: 'small',
+  channel_gap: 'medium',
+  creator_playbook: 'medium',
 };
 
 const ACCESS_BY_CATEGORY: Record<InsightCategory, string[]> = {
@@ -86,7 +113,9 @@ const ACCESS_BY_CATEGORY: Record<InsightCategory, string[]> = {
   creator_playbook: ['TikTok account', 'social media accounts'],
 };
 
-const computeFindingConfidence = (insight: Pick<InsightRow, 'citations' | 'provider' | 'severity'>): number => {
+const computeFindingConfidence = (
+  insight: Pick<InsightRow, 'citations' | 'provider' | 'severity'>,
+): number => {
   let score = 0.55;
   if (insight.citations.length > 0) score += 0.2;
   if (insight.provider === 'shopify-admin') score += 0.15;
@@ -159,8 +188,11 @@ Deno.serve(async (req: Request) => {
   if (ctx instanceof Response) return ctx;
 
   let body: unknown;
-  try { body = await req.json(); }
-  catch { return badRequest('Invalid JSON body'); }
+  try {
+    body = await req.json();
+  } catch {
+    return badRequest('Invalid JSON body');
+  }
 
   const parsed = parseInput(ReportGenerateInput, body);
   if (!parsed.ok) return badRequest(parsed.error.message);
@@ -186,7 +218,9 @@ Deno.serve(async (req: Request) => {
 
   const { data: existing } = await ctx.supabase
     .from('reports')
-    .select('id, org_id, intent_id, executive_summary, sprint_recommendation, first_sale_plan, finding_count, generated_at')
+    .select(
+      'id, org_id, intent_id, executive_summary, sprint_recommendation, first_sale_plan, finding_count, generated_at',
+    )
     .eq('intent_id', intentId)
     .maybeSingle();
 
@@ -219,13 +253,18 @@ Deno.serve(async (req: Request) => {
       finding_count: rows.length,
       generated_by: ctx.userId,
     })
-    .select('id, org_id, intent_id, executive_summary, sprint_recommendation, first_sale_plan, finding_count, generated_at')
+    .select(
+      'id, org_id, intent_id, executive_summary, sprint_recommendation, first_sale_plan, finding_count, generated_at',
+    )
     .single();
-  if (createError || !created) return internalError(`Failed to store report: ${createError?.message ?? 'unknown error'}`);
+  if (createError || !created)
+    return internalError(`Failed to store report: ${createError?.message ?? 'unknown error'}`);
 
   writeAudit(ctx.supabase, {
-    orgId: ctx.orgId, userId: ctx.userId,
-    action: 'report.generate', outcome: 'success',
+    orgId: ctx.orgId,
+    userId: ctx.userId,
+    action: 'report.generate',
+    outcome: 'success',
     input: { intentId },
     durationMs: Date.now() - startMs,
   }).catch(() => {});

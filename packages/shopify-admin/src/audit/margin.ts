@@ -1,6 +1,6 @@
-import type { ShopifyProduct, ShopifyVariant } from '../shopify/schema.js';
 import type { CostLookup } from '../printify/catalog.js';
 import { lookupCost } from '../printify/catalog.js';
+import type { ShopifyProduct, ShopifyVariant } from '../shopify/schema.js';
 
 export type Currency = 'CAD' | 'USD';
 
@@ -50,10 +50,7 @@ function convertToCAD(cents: number, ctx: MarginContext): number {
   return fromCents(Math.round(cents * ctx.fxRate));
 }
 
-export function calcMargin(
-  product: ShopifyProduct,
-  ctx: MarginContext,
-): ProductMargin {
+export function calcMargin(product: ShopifyProduct, ctx: MarginContext): ProductMargin {
   const variants: ShopifyVariant[] = product.variants.edges.map((e) => e.node);
 
   // Price range (already in shop currency)

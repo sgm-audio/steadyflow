@@ -6,9 +6,7 @@
  */
 
 import { z } from 'npm:zod@3';
-import {
-  handleCors, createContext, ok, badRequest,
-} from '../_shared/context.ts';
+import { badRequest, createContext, handleCors, ok } from '../_shared/context.ts';
 
 const QueryInput = z.object({
   action: z.string().optional(),
@@ -35,7 +33,9 @@ Deno.serve(async (req: Request) => {
 
   let query = ctx.supabase
     .from('audit_log')
-    .select('id, org_id, user_id, action, outcome, input_hash, provider, duration_ms, error_code, idempotency_key, metadata, created_at')
+    .select(
+      'id, org_id, user_id, action, outcome, input_hash, provider, duration_ms, error_code, idempotency_key, metadata, created_at',
+    )
     .eq('org_id', ctx.orgId)
     .order('created_at', { ascending: false })
     .limit(limit + 1);
@@ -46,7 +46,10 @@ Deno.serve(async (req: Request) => {
 
   const { data, error } = await query;
   if (error) {
-    return new Response(JSON.stringify({ error: { code: 'INTERNAL', message: error.message } }), { status: 500, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ error: { code: 'INTERNAL', message: error.message } }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 
   const rows = data ?? [];

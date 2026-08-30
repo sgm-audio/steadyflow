@@ -1,6 +1,6 @@
 import type { ShopifyProduct } from '../shopify/schema.js';
-import type { ProductMargin } from './margin.js';
 import { descriptionWordCount } from '../util/html.js';
+import type { ProductMargin } from './margin.js';
 
 export type FlagCode =
   | 'low_margin'
@@ -127,7 +127,9 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
   // (now on InventoryItem, which needs read_inventory). Only flag when
   // variant-level weight data is actually present.
   const variants = product.variants.edges.map((e) => e.node);
-  const weightPresent = variants.some((v) => v.weight?.value !== undefined && v.weight.value !== null);
+  const weightPresent = variants.some(
+    (v) => v.weight?.value !== undefined && v.weight.value !== null,
+  );
   if (weightPresent) {
     const missingWeight = variants.filter((v) => {
       const w = v.weight?.value;
@@ -205,33 +207,62 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
   // 12. missing_seo_description
   const seoDescription = product.seo?.description ?? '';
   if (seoDescription.length > 0 && seoDescription.trim().length === 0) {
-    flags.push({ code: 'missing_seo_description', severity: 'yellow', message: 'No SEO description set' });
+    flags.push({
+      code: 'missing_seo_description',
+      severity: 'yellow',
+      message: 'No SEO description set',
+    });
   }
 
   // 13. seo_title_too_short
-  if (product.seo?.title && product.seo.title.trim().length > 0 && product.seo.title.trim().length < 30) {
-    flags.push({ code: 'seo_title_too_short', severity: 'yellow', message: `SEO title only ${product.seo.title.trim().length} chars (aim for 50-60)` });
+  if (
+    product.seo?.title &&
+    product.seo.title.trim().length > 0 &&
+    product.seo.title.trim().length < 30
+  ) {
+    flags.push({
+      code: 'seo_title_too_short',
+      severity: 'yellow',
+      message: `SEO title only ${product.seo.title.trim().length} chars (aim for 50-60)`,
+    });
   }
 
   // 14. seo_description_too_short
-  if (product.seo?.description && product.seo.description.trim().length > 0 && product.seo.description.trim().length < 100) {
-    flags.push({ code: 'seo_description_too_short', severity: 'yellow', message: `SEO description only ${product.seo.description.trim().length} chars (aim for 120-160)` });
+  if (
+    product.seo?.description &&
+    product.seo.description.trim().length > 0 &&
+    product.seo.description.trim().length < 100
+  ) {
+    flags.push({
+      code: 'seo_description_too_short',
+      severity: 'yellow',
+      message: `SEO description only ${product.seo.description.trim().length} chars (aim for 120-160)`,
+    });
   }
 
   // 15. only_one_image
   if (images.length === 1) {
-    flags.push({ code: 'only_one_image', severity: 'yellow', message: 'Single product image — 3+ images boost conversion' });
+    flags.push({
+      code: 'only_one_image',
+      severity: 'yellow',
+      message: 'Single product image — 3+ images boost conversion',
+    });
   }
 
   // 16. no_alt_text_on_any_image
   if (images.length > 0 && missingAltImages.length === images.length) {
-    flags.push({ code: 'no_alt_text_on_any_image', severity: 'red', message: `All ${images.length} images missing alt text` });
+    flags.push({
+      code: 'no_alt_text_on_any_image',
+      severity: 'red',
+      message: `All ${images.length} images missing alt text`,
+    });
   }
 
   // 17. out_of_stock — derived from variant availability (product-level
   // availableForSale/totalInventory require read_inventory, which may be
   // absent under a read_products-only scope).
-  const allVariantsUnavailable = variants.length > 0 && variants.every((v) => v.availableForSale === false);
+  const allVariantsUnavailable =
+    variants.length > 0 && variants.every((v) => v.availableForSale === false);
   if (allVariantsUnavailable) {
     flags.push({ code: 'out_of_stock', severity: 'red', message: 'Product is out of stock' });
   }
@@ -239,7 +270,11 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
   // 18. on_sale
   const hasCompareAt = variants.some((v) => v.compareAtPrice && parseFloat(v.compareAtPrice) > 0);
   if (hasCompareAt) {
-    flags.push({ code: 'on_sale', severity: 'yellow', message: 'Product has a compare-at (sale) price set' });
+    flags.push({
+      code: 'on_sale',
+      severity: 'yellow',
+      message: 'Product has a compare-at (sale) price set',
+    });
   }
 
   // 19. no_vendor

@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { PlatformUrl } from './platform.js';
-import { Shop, ShopHandle, ShopifyShop, EtsyShop } from './shop.js';
-import { Product } from './product.js';
+import { describe, expect, it } from 'vitest';
+import { AuditEvent } from './auditEvent.js';
 import { Insight } from './insight.js';
 import { Intent } from './intent.js';
-import { AuditEvent } from './auditEvent.js';
-import { Provider, LlmProvider } from './provider.js';
+import { PlatformUrl } from './platform.js';
+import { Product } from './product.js';
+import { LlmProvider, Provider } from './provider.js';
+import { EtsyShop, Shop, ShopHandle, ShopifyShop } from './shop.js';
 
 describe('PlatformUrl', () => {
   it('accepts a valid URL', () => {
@@ -18,7 +18,9 @@ describe('PlatformUrl', () => {
   });
 
   it('rejects invalid URL', () => {
-    expect(() => PlatformUrl.parse({ platform: 'etsy', url: 'not-a-url', requiresAuth: false })).toThrow();
+    expect(() =>
+      PlatformUrl.parse({ platform: 'etsy', url: 'not-a-url', requiresAuth: false }),
+    ).toThrow();
   });
 
   it('defaults requiresAuth to false', () => {
@@ -64,9 +66,7 @@ describe('Shop', () => {
   });
 
   it('rejects invalid handle', () => {
-    expect(() =>
-      ShopHandle.parse('bad handle!'),
-    ).toThrow();
+    expect(() => ShopHandle.parse('bad handle!')).toThrow();
   });
 
   it('rejects extra fields (strict)', () => {

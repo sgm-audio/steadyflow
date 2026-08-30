@@ -16,22 +16,28 @@ const PriceRangeSchema = z.object({
   maxVariantPrice: MoneySchema,
 });
 
-const CompareAtPriceRangeSchema = z.object({
-  minVariantCompareAtPrice: MoneySchema.nullable().optional(),
-  maxVariantCompareAtPrice: MoneySchema.nullable().optional(),
-}).optional();
+const CompareAtPriceRangeSchema = z
+  .object({
+    minVariantCompareAtPrice: MoneySchema.nullable().optional(),
+    maxVariantCompareAtPrice: MoneySchema.nullable().optional(),
+  })
+  .optional();
 
-const SeoSchema = z.object({
-  title: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-}).optional();
+const SeoSchema = z
+  .object({
+    title: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
+  })
+  .optional();
 
-const FeaturedImageSchema = z.object({
-  url: z.string(),
-  altText: z.string().nullable().optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-}).nullish();
+const FeaturedImageSchema = z
+  .object({
+    url: z.string(),
+    altText: z.string().nullable().optional(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+  })
+  .nullish();
 
 const OptionSchema = z.object({
   id: z.string(),
@@ -45,10 +51,12 @@ const VariantNodeSchema = z.object({
   title: z.string(),
   price: z.string(),
   compareAtPrice: z.string().nullable().optional(),
-  weight: z.object({
-    value: z.number().nullable().optional(),
-    unit: z.string().nullable().optional(),
-  }).nullish(),
+  weight: z
+    .object({
+      value: z.number().nullable().optional(),
+      unit: z.string().nullable().optional(),
+    })
+    .nullish(),
   inventoryQuantity: z.number().optional(),
   availableForSale: z.boolean().optional(),
   inventoryPolicy: z.enum(['DENY', 'CONTINUE']).optional(),
@@ -139,30 +147,34 @@ const ShopSchema = z.object({
   email: z.string().optional(),
   currencyCode: z.string(),
   description: z.string().optional(),
-  plan: z.object({
-    displayName: z.string(),
-    partnerDevelopment: z.boolean().optional(),
-    shopifyPlus: z.boolean().optional(),
-  }).optional(),
-  primaryDomain: z.object({
-    url: z.string(),
-    host: z.string(),
-  }).optional(),
+  plan: z
+    .object({
+      displayName: z.string(),
+      partnerDevelopment: z.boolean().optional(),
+      shopifyPlus: z.boolean().optional(),
+    })
+    .optional(),
+  primaryDomain: z
+    .object({
+      url: z.string(),
+      host: z.string(),
+    })
+    .optional(),
   timezoneAbbreviation: z.string().nullable().optional(),
   timezoneOffsetMinutes: z.number().optional(),
   ianaTimezone: z.string().optional(),
-  billingAddress: z.object({
-    country: z.string().optional(),
-    city: z.string().nullable().optional(),
-    province: z.string().nullable().optional(),
-    zip: z.string().nullable().optional(),
-  }).nullish(),
+  billingAddress: z
+    .object({
+      country: z.string().optional(),
+      city: z.string().nullable().optional(),
+      province: z.string().nullable().optional(),
+      zip: z.string().nullable().optional(),
+    })
+    .nullish(),
 });
 
 const AllCollectionsDetailSchema = z.object({
-  edges: z.array(
-    z.object({ node: CollectionDetailSchema }),
-  ),
+  edges: z.array(z.object({ node: CollectionDetailSchema })),
 });
 
 export const CatalogResponseSchema = z.object({

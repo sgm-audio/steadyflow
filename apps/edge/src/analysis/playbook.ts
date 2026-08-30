@@ -74,18 +74,19 @@ export interface FirstSaleMath {
   dailyBudget: number;
 }
 
-export const computeFirstSaleMath = (
-  audit: { rows: { margin: { marginPct: number | null } }[] },
-): FirstSaleMath | null => {
+export const computeFirstSaleMath = (audit: {
+  rows: { margin: { marginPct: number | null } }[];
+}): FirstSaleMath | null => {
   const withMargin = audit.rows.filter((r) => r.margin.marginPct !== null);
   if (withMargin.length === 0) return null;
 
-  const grossMarginPct = withMargin.reduce((sum, r) => sum + (r.margin.marginPct ?? 0), 0) / withMargin.length;
+  const grossMarginPct =
+    withMargin.reduce((sum, r) => sum + (r.margin.marginPct ?? 0), 0) / withMargin.length;
   const breakEvenRoas = grossMarginPct > 0 ? 1 / (grossMarginPct / 100) : 4.0;
 
   // Channel CPC benchmarks (from Triple Whale + WordStream 2025/2026)
   const metaCpc = 0.45; // Fashion/apparel on Meta
-  const tiktokCpc = 0.50; // Typical TikTok Spark Ads
+  const tiktokCpc = 0.5; // Typical TikTok Spark Ads
   const googleCpc = 4.44; // Google Ads apparel
 
   let recommendedChannel: string;
@@ -131,60 +132,94 @@ export const buildFirstSalePlaybook = (
   // Immediate actions (Day 1)
   if (!aiReadiness.productSchemaPresent) {
     actions.push({
-      step: actions.length + 1, channel: 'ai_agents', priority: 'immediate',
-      action: 'Add JSON-LD Product schema to all product pages (name, image, price, availability, GTIN/SKU, aggregateRating). This feeds ChatGPT Shopping, Google AI Mode, Perplexity, and Copilot simultaneously.',
-      estimatedBudget: 'Free (theme edit or free SEO app)', estimatedTimeToResult: '1-7 days for AI crawlers to index',
+      step: actions.length + 1,
+      channel: 'ai_agents',
+      priority: 'immediate',
+      action:
+        'Add JSON-LD Product schema to all product pages (name, image, price, availability, GTIN/SKU, aggregateRating). This feeds ChatGPT Shopping, Google AI Mode, Perplexity, and Copilot simultaneously.',
+      estimatedBudget: 'Free (theme edit or free SEO app)',
+      estimatedTimeToResult: '1-7 days for AI crawlers to index',
     });
   }
   actions.push({
-    step: actions.length + 1, channel: 'ai_agents', priority: 'immediate',
-    action: 'Submit product feed to Google Merchant Center. One feed covers Google AI Mode (0% fee), Google free listings, and Bing/Copilot. Include GTINs, product highlights, shipping weight, return policy.',
-    estimatedBudget: 'Free (Google Merchant Center)', estimatedTimeToResult: '2-5 days for feed approval',
+    step: actions.length + 1,
+    channel: 'ai_agents',
+    priority: 'immediate',
+    action:
+      'Submit product feed to Google Merchant Center. One feed covers Google AI Mode (0% fee), Google free listings, and Bing/Copilot. Include GTINs, product highlights, shipping weight, return policy.',
+    estimatedBudget: 'Free (Google Merchant Center)',
+    estimatedTimeToResult: '2-5 days for feed approval',
   });
   if (!aiReadiness.chatgptShopping) {
     actions.push({
-      step: actions.length + 1, channel: 'ai_agents', priority: 'immediate',
-      action: 'Allow OAI-SearchBot in robots.txt — add "User-agent: OAI-SearchBot\nAllow: /" so ChatGPT can crawl your products.',
-      estimatedBudget: 'Free (theme liquid edit)', estimatedTimeToResult: '1-2 days for crawl',
+      step: actions.length + 1,
+      channel: 'ai_agents',
+      priority: 'immediate',
+      action:
+        'Allow OAI-SearchBot in robots.txt — add "User-agent: OAI-SearchBot\nAllow: /" so ChatGPT can crawl your products.',
+      estimatedBudget: 'Free (theme liquid edit)',
+      estimatedTimeToResult: '1-2 days for crawl',
     });
   }
 
   // Week 1 actions
   actions.push({
-    step: actions.length + 1, channel: 'etsy', priority: 'week_1',
+    step: actions.length + 1,
+    channel: 'etsy',
+    priority: 'week_1',
     action: `Create Etsy shop and connect Printify. List your top 5-10 products with SEO-optimized titles (all 13 tags used) and lifestyle mockups. Etsy has 90M+ active buyers searching for unique designs. Fees: $0.20/listing + 6.5% transaction.`,
-    estimatedBudget: '$0-5 startup cost', estimatedTimeToResult: '3-14 days to first sale',
+    estimatedBudget: '$0-5 startup cost',
+    estimatedTimeToResult: '3-14 days to first sale',
   });
   actions.push({
-    step: actions.length + 1, channel: 'tiktok', priority: 'week_1',
-    action: 'Create TikTok business account. Post 1-2 videos/day: design-process timelapses, niche skits, unboxings. Use trending sounds in your niche. Target: 1,000 followers in 2-4 weeks to unlock TikTok Shop.',
-    estimatedBudget: 'Free (organic content)', estimatedTimeToResult: '2-4 weeks to 1,000 followers',
+    step: actions.length + 1,
+    channel: 'tiktok',
+    priority: 'week_1',
+    action:
+      'Create TikTok business account. Post 1-2 videos/day: design-process timelapses, niche skits, unboxings. Use trending sounds in your niche. Target: 1,000 followers in 2-4 weeks to unlock TikTok Shop.',
+    estimatedBudget: 'Free (organic content)',
+    estimatedTimeToResult: '2-4 weeks to 1,000 followers',
   });
   actions.push({
-    step: actions.length + 1, channel: 'email_sms', priority: 'week_1',
-    action: 'Install email capture popup (15-30% capture rate). Set up abandoned-cart email sequence (10.7% recovery rate). At 70% cart abandonment, recovering even 5 carts/month = serious revenue for a new store.',
-    estimatedBudget: 'Free-20/month (Shopify Email or Klaviyo free tier)', estimatedTimeToResult: 'Immediate capture; first recovery within 1-3 days',
+    step: actions.length + 1,
+    channel: 'email_sms',
+    priority: 'week_1',
+    action:
+      'Install email capture popup (15-30% capture rate). Set up abandoned-cart email sequence (10.7% recovery rate). At 70% cart abandonment, recovering even 5 carts/month = serious revenue for a new store.',
+    estimatedBudget: 'Free-20/month (Shopify Email or Klaviyo free tier)',
+    estimatedTimeToResult: 'Immediate capture; first recovery within 1-3 days',
   });
 
   // Week 2
   actions.push({
-    step: actions.length + 1, channel: 'creators', priority: 'week_2',
-    action: 'Find 3-5 micro-creators (1k-50k followers) in your niche. Send free product in exchange for a TikTok/IG Reel. Budget $50-150 per creator for paid usage rights. Total: <$1,000 for full content library you can repurpose as ads.',
-    estimatedBudget: '$150-750 total', estimatedTimeToResult: '1-2 weeks for content delivery',
+    step: actions.length + 1,
+    channel: 'creators',
+    priority: 'week_2',
+    action:
+      'Find 3-5 micro-creators (1k-50k followers) in your niche. Send free product in exchange for a TikTok/IG Reel. Budget $50-150 per creator for paid usage rights. Total: <$1,000 for full content library you can repurpose as ads.',
+    estimatedBudget: '$150-750 total',
+    estimatedTimeToResult: '1-2 weeks for content delivery',
   });
 
   // Month 1
   if (firstSaleMath) {
     actions.push({
-      step: actions.length + 1, channel: 'ads', priority: 'month_1',
+      step: actions.length + 1,
+      channel: 'ads',
+      priority: 'month_1',
       action: `Launch ${firstSaleMath.recommendedChannel} ads at $${firstSaleMath.dailyBudget}/day. Use creator content as ad creative (Spark Ads on TikTok, Advantage+ on Meta). Target CPC <$${firstSaleMath.recommendedCpc.toFixed(2)}. Break-even ROAS: ${firstSaleMath.breakEvenRoas.toFixed(1)}×. Expected first-sale cost: ~$${firstSaleMath.estimatedFirstSaleCost} at 2% conversion. Start AFTER you have 10-20 organic posts that got engagement — ads amplify what already works.`,
-      estimatedBudget: `$${firstSaleMath.dailyBudget}/day`, estimatedTimeToResult: '1-7 days to first sale',
+      estimatedBudget: `$${firstSaleMath.dailyBudget}/day`,
+      estimatedTimeToResult: '1-7 days to first sale',
     });
   }
   actions.push({
-    step: actions.length + 1, channel: 'pinterest', priority: 'month_1',
-    action: 'Repurpose TikTok/Reels as Pinterest Idea Pins. Pinterest users are deliberate buyers — higher conversion intent. Tag products with Rich Pins. Free organic reach.',
-    estimatedBudget: 'Free', estimatedTimeToResult: '2-4 weeks for Pinterest SEO traction',
+    step: actions.length + 1,
+    channel: 'pinterest',
+    priority: 'month_1',
+    action:
+      'Repurpose TikTok/Reels as Pinterest Idea Pins. Pinterest users are deliberate buyers — higher conversion intent. Tag products with Rich Pins. Free organic reach.',
+    estimatedBudget: 'Free',
+    estimatedTimeToResult: '2-4 weeks for Pinterest SEO traction',
   });
 
   return {

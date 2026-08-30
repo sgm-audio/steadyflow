@@ -1,33 +1,33 @@
-import { describe, it, expect } from 'vitest';
-import { getShopifyAppRequirements } from './registry';
-import type { ShopifyAppRequirement } from './schema';
-import type { ReadinessCheckResult, AppConfiguration } from './checks';
+import { describe, expect, it } from 'vitest';
+import type { AppConfiguration, ReadinessCheckResult } from './checks';
 import {
   checkConfigurationParsing,
-  checkOAuthInstallationDetection,
-  checkHardcodedDevelopmentUrls,
   checkDirectMutationFlags,
   checkExternalDependencyInventory,
+  checkHardcodedDevelopmentUrls,
+  checkOAuthInstallationDetection,
 } from './checks';
-import {
-  generateReadinessReport,
-  reportToHtml,
-  reportToMarkdown,
-  reportToJson,
-  computeReportHash,
-  type ReadinessReport,
-  type AppMetadata,
-  type ScanMetadata,
-} from './report-generator';
 import {
   runShopifyAppReadinessScan,
   ShopifyAppReadinessInputSchema,
   type AuditEvent,
   type AuditWriter,
 } from './integration';
+import { getShopifyAppRequirements } from './registry';
+import {
+  computeReportHash,
+  generateReadinessReport,
+  reportToHtml,
+  reportToJson,
+  reportToMarkdown,
+  type AppMetadata,
+  type ReadinessReport,
+  type ScanMetadata,
+} from './report-generator';
+import type { ShopifyAppRequirement } from './schema';
 
 const findReq = (id: string): ShopifyAppRequirement => {
-  const found = getShopifyAppRequirements().find(r => r.id === id);
+  const found = getShopifyAppRequirements().find((r) => r.id === id);
   if (!found) throw new Error(`Requirement not found: ${id}`);
   return found;
 };
@@ -101,7 +101,7 @@ describe('Security: secret leakage', () => {
   it('checkConfigurationParsing does not echo raw config into evidence', () => {
     const result = checkConfigurationParsing(
       { clientSecret: 'SUPERSECRET', apiKey: 'KEY123', name: 'x' },
-      findReq('config-parsing')
+      findReq('config-parsing'),
     );
     const serialized = JSON.stringify(result.evidence);
     expect(serialized).not.toContain('SUPERSECRET');
@@ -244,7 +244,9 @@ describe('Security: incomplete review cannot report ready', () => {
     const report = generateReadinessReport({
       appMetadata: baseAppMetadata,
       scanMetadata: baseScanMetadata,
-      staticCheckResults: [{ requirementId: 'embedded-app', status: 'manual_review', message: 'manual' }],
+      staticCheckResults: [
+        { requirementId: 'embedded-app', status: 'manual_review', message: 'manual' },
+      ],
       manualReviewResults: [],
     });
     expect(report.summary.overallStatus).toBe('needs_review');

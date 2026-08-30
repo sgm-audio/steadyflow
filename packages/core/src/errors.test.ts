@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ErrorCode, SteadyFlowError, error } from './errors.js';
 
 describe('ErrorCode', () => {
@@ -49,15 +49,11 @@ describe('SteadyFlowError', () => {
   });
 
   it('rejects empty message', () => {
-    expect(() =>
-      SteadyFlowError.parse({ code: 'INTERNAL', message: '' }),
-    ).toThrow();
+    expect(() => SteadyFlowError.parse({ code: 'INTERNAL', message: '' })).toThrow();
   });
 
   it('rejects message over 2000 chars', () => {
-    expect(() =>
-      SteadyFlowError.parse({ code: 'INTERNAL', message: 'x'.repeat(2001) }),
-    ).toThrow();
+    expect(() => SteadyFlowError.parse({ code: 'INTERNAL', message: 'x'.repeat(2001) })).toThrow();
   });
 
   it('rejects invalid requestId', () => {

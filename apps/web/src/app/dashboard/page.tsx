@@ -2,19 +2,19 @@
  * Dashboard — protected page requiring auth.
  */
 
-import { requireOrgSession } from '../../lib/session';
-import { StateBanner } from '../../components/StateBanner';
-import { Reveal } from '../../components/Reveal';
-import { ScoreRing, CategoryBar } from '../../components/Charts';
 import {
-  SparkleIcon,
-  KeyIcon,
-  ClockCounterClockwiseIcon,
   ArrowUpRightIcon,
-  UsersThreeIcon,
+  ClockCounterClockwiseIcon,
+  KeyIcon,
+  SparkleIcon,
   StorefrontIcon,
+  UsersThreeIcon,
 } from '@phosphor-icons/react/ssr';
 import type { ReactNode } from 'react';
+import { CategoryBar, ScoreRing } from '../../components/Charts';
+import { Reveal } from '../../components/Reveal';
+import { StateBanner } from '../../components/StateBanner';
+import { requireOrgSession } from '../../lib/session';
 
 const SEVERITY_STYLES: Record<string, string> = {
   high: 'text-rose-300 bg-rose-400/10',
@@ -58,8 +58,17 @@ export default async function DashboardPage() {
           .eq('org_id', orgId)
           .order('generated_at', { ascending: false })
           .limit(5),
-        supabase.from('insights').select('category').eq('org_id', orgId).is('superseded_at', null).order('generated_at', { ascending: false }).limit(200),
-        supabase.from('competitors').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
+        supabase
+          .from('insights')
+          .select('category')
+          .eq('org_id', orgId)
+          .is('superseded_at', null)
+          .order('generated_at', { ascending: false })
+          .limit(200),
+        supabase
+          .from('competitors')
+          .select('*', { count: 'exact', head: true })
+          .eq('org_id', orgId),
         supabase
           .from('competitor_snapshots')
           .select('captured_at, source')
@@ -75,14 +84,25 @@ export default async function DashboardPage() {
           .limit(1)
           .maybeSingle(),
       ])
-    : [{ count: null, error: null }, { data: null }, { data: null }, { count: null }, { data: null }, { data: null }];
+    : [
+        { count: null, error: null },
+        { data: null },
+        { data: null },
+        { count: null },
+        { data: null },
+        { data: null },
+      ];
 
   const categoryCounts = (categoryRows ?? []).reduce<Record<string, number>>((acc, row) => {
     acc[row.category] = (acc[row.category] ?? 0) + 1;
     return acc;
   }, {});
   const categoryBars = Object.entries(categoryCounts)
-    .map(([label, count]) => ({ label: label.replace('_', ' '), count, color: CATEGORY_COLORS[label] ?? '#a1a1aa' }))
+    .map(([label, count]) => ({
+      label: label.replace('_', ' '),
+      count,
+      color: CATEGORY_COLORS[label] ?? '#a1a1aa',
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
@@ -95,17 +115,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-[100dvh]">
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
-      >
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 left-1/2 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-accent/10 blur-[120px]" />
       </div>
 
       <main className="mx-auto max-w-7xl px-4 pb-24 pt-4 md:px-8">
         {insightsCountError && (
           <div className="pt-6">
-            <StateBanner state="error" message="Couldn't load your dashboard data. Try refreshing." />
+            <StateBanner
+              state="error"
+              message="Couldn't load your dashboard data. Try refreshing."
+            />
           </div>
         )}
         <Reveal>
@@ -147,17 +167,16 @@ export default async function DashboardPage() {
             >
               {categoryBars.length > 0 && (
                 <div className="mt-6">
-                  <p className="mb-2 text-xs uppercase tracking-wide text-ink-muted">Findings by category</p>
+                  <p className="mb-2 text-xs uppercase tracking-wide text-ink-muted">
+                    Findings by category
+                  </p>
                   <CategoryBar categories={categoryBars} />
-               </div>
+                </div>
               )}
               {recentInsights && recentInsights.length > 0 && (
                 <ul className="mt-6 flex-1 divide-y divide-white/[0.04] border-y border-white/[0.04]">
                   {recentInsights.map((insight, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center justify-between gap-4 py-3"
-                    >
+                    <li key={i} className="flex items-center justify-between gap-4 py-3">
                       <span className="truncate text-sm text-ink">
                         {sanitizeTitle(insight.title)}
                       </span>
@@ -179,16 +198,20 @@ export default async function DashboardPage() {
                   icon={<StorefrontIcon size={20} weight="light" />}
                   title="Latest audit score"
                   description={`${topStore.store_name ?? 'Most recent store'} — ${topStore.product_count ?? 0} product${topStore.product_count === 1 ? '' : 's'} in ${topStore.currency ?? 'CAD'}.`}
-                  stat={topStore.last_analyzed_at ? `Analyzed ${new Date(topStore.last_analyzed_at).toLocaleDateString()}` : undefined}
+                  stat={
+                    topStore.last_analyzed_at
+                      ? `Analyzed ${new Date(topStore.last_analyzed_at).toLocaleDateString()}`
+                      : undefined
+                  }
                   href="/intents"
                 >
                   <div className="mt-4 flex items-center gap-4">
                     <ScoreRing score={topStore.latest_score} size={88} strokeWidth={8} />
                     <div className="text-xs leading-relaxed text-ink-muted">
                       Higher is better. 75+ = healthy; 50-75 = needs work; under 50 = urgent fixes.
-                   </div>
-                 </div>
-               </DashboardCard>
+                    </div>
+                  </div>
+                </DashboardCard>
               ) : null}
               <DashboardCard
                 icon={<UsersThreeIcon size={20} weight="light" />}

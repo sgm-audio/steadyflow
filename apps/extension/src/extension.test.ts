@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Mock chrome API
 const mockStorage: Record<string, unknown> = {};
@@ -42,7 +42,7 @@ beforeAll(() => {
     notifications: {
       create: vi.fn(),
     },
-  // eslint-disable-next-line @typescript-eslint/no-deprecated
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
   } as unknown as typeof chrome;
 });
 

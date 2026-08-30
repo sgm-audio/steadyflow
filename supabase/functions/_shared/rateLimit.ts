@@ -41,18 +41,24 @@ export const checkRateLimit = async (
   bucket: string,
 ): Promise<RateLimitResult> => {
   const cfg = getRateLimitConfig(bucket);
-  const { data, error } = await supabase.rpc('rate_limit_take', {
-    p_user_id: userId,
-    p_org_id: orgId,
-    p_bucket: cfg.bucket,
-    p_capacity: cfg.capacity,
-    p_refill_per_second: cfg.refillPerSecond,
-  }).single();
+  const { data, error } = await supabase
+    .rpc('rate_limit_take', {
+      p_user_id: userId,
+      p_org_id: orgId,
+      p_bucket: cfg.bucket,
+      p_capacity: cfg.capacity,
+      p_refill_per_second: cfg.refillPerSecond,
+    })
+    .single();
   if (error) {
     // Fail closed on infra errors.
     return { allowed: false, remaining: 0, retryAfterSeconds: 60 };
   }
-  const result = data as { allowed: boolean; remaining: number; retry_after_seconds: number } | null;
+  const result = data as {
+    allowed: boolean;
+    remaining: number;
+    retry_after_seconds: number;
+  } | null;
   if (!result) {
     return { allowed: false, remaining: 0, retryAfterSeconds: 60 };
   }

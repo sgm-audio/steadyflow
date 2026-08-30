@@ -58,8 +58,13 @@ Unit tests: `impact.test.ts` (7) and `storefront.test.ts` (6) in `packages/shopi
 - [x] Findings are ranked by estimated `$` impact with documented basis.
 - [x] Speed/friction + app-bloat analysis produces findings.
 - [x] Read-only Shopify Admin + Printify via BYOK; org isolation + RLS + audit log.
-- [ ] **Deno parity** — `supabase/functions/workers-scrape/` reimplements the audit
-  inline; the new `impact`/`storefront` logic must be mirrored there (or the worker
-  switched to import `@steadyflow/shopify-admin`) before the deployed edge path produces
-  the same leak list. (Tracked as PR-2 in `docs/SURFACE_MATRIX.md`.)
+- [x] **Deno impact parity** — `supabase/functions/workers-scrape/` now imports the
+  vendored `@steadyflow/shopify-admin` bundle (`runCatalogAudit`, `buildLeakList`,
+  `totalEstimatedImpact`, `computeAuditScore`), so the deployed edge path produces the
+  same ranked Leak List as the Node worker. (Closed as PR-2 in `docs/SURFACE_MATRIX.md`.)
+- [ ] **Deno storefront/SEO/AI parity** — the Deno worker still runs only the catalog
+  + leak-list path. Homepage SEO signals, `analyzeStorefrontHtml` (speed/friction +
+  app bloat), AI-readiness score, first-sale math, channel-gap/creator playbook, LLM
+  synthesis, and `reports` persistence (`first_sale_plan`) are produced only by the
+  Node worker (`apps/edge/src/workers.ts`), not by the deployed Deno worker.
 - [ ] Checkout teardown + real CWV measurement (explicit manual follow-ups).

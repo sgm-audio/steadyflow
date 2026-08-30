@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function RemoveKeyButton({ provider }: { provider: string }) {
   const router = useRouter();
@@ -28,7 +28,9 @@ export default function RemoveKeyButton({ provider }: { provider: string }) {
   return (
     <button
       type="button"
-      onClick={() => { void handleRemove(); }}
+      onClick={() => {
+        void handleRemove();
+      }}
       disabled={busy}
       style={{
         fontSize: '0.875rem',

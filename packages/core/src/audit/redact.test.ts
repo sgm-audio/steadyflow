@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-confusing-void-expression */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { redactSecrets } from './redact.js';
 
 describe('redactSecrets', () => {

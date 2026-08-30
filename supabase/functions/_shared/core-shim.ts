@@ -5,10 +5,18 @@
 import { z } from 'npm:zod@3';
 
 export const ErrorCode = z.enum([
-  'UNAUTHENTICATED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION_FAILED',
-  'RATE_LIMITED', 'PROVIDER_ERROR', 'PROVIDER_UNAVAILABLE',
-  'KEY_MISSING', 'KEY_INVALID', 'ENVELOPE_DECRYPT_FAILED',
-  'INTERNAL', 'TIMEOUT',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'VALIDATION_FAILED',
+  'RATE_LIMITED',
+  'PROVIDER_ERROR',
+  'PROVIDER_UNAVAILABLE',
+  'KEY_MISSING',
+  'KEY_INVALID',
+  'ENVELOPE_DECRYPT_FAILED',
+  'INTERNAL',
+  'TIMEOUT',
 ]);
 
 export const SteadyFlowError = z.object({
@@ -20,17 +28,34 @@ export const SteadyFlowError = z.object({
 
 export type SteadyFlowError = z.infer<typeof SteadyFlowError>;
 
-export const error = (code: string, message: string, details?: Record<string, unknown>): SteadyFlowError => {
-  const base: { code: string; message: string; details?: Record<string, unknown> } = { code, message };
+export const error = (
+  code: string,
+  message: string,
+  details?: Record<string, unknown>,
+): SteadyFlowError => {
+  const base: { code: string; message: string; details?: Record<string, unknown> } = {
+    code,
+    message,
+  };
   if (details !== undefined) base.details = details;
   return base as SteadyFlowError;
 };
 
 export const AuditAction = z.enum([
-  'scrape.firecrawl', 'scrape.playwright', 'enrich.tavily',
-  'analyze.shopify_catalog', 'monitor.competitor',
-  'llm.chat', 'keys.set', 'keys.rotate', 'keys.delete', 'keys.test',
-  'intent.create', 'intent.cancel', 'auth.login', 'auth.logout',
+  'scrape.firecrawl',
+  'scrape.playwright',
+  'enrich.tavily',
+  'analyze.shopify_catalog',
+  'monitor.competitor',
+  'llm.chat',
+  'keys.set',
+  'keys.rotate',
+  'keys.delete',
+  'keys.test',
+  'intent.create',
+  'intent.cancel',
+  'auth.login',
+  'auth.logout',
 ]);
 export type AuditAction = z.infer<typeof AuditAction>;
 
@@ -58,7 +83,9 @@ export interface BuildAuditEventInput {
  */
 const sha256Hex = async (input: string): Promise<string> => {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 };
 
 /** Stable JSON serialization with sorted keys (matches core `stableStringify`). */
@@ -71,8 +98,17 @@ const stableStringify = (value: unknown): string => {
 };
 
 const SECRET_KEY_PATTERNS = [
-  /^api[_-]?key$/i, /^key$/i, /^token$/i, /^secret$/i, /^password$/i, /^pass$/i,
-  /^authorization$/i, /^bearer$/i, /^cookie$/i, /^session[_-]?id$/i, /^private[_-]?key$/i,
+  /^api[_-]?key$/i,
+  /^key$/i,
+  /^token$/i,
+  /^secret$/i,
+  /^password$/i,
+  /^pass$/i,
+  /^authorization$/i,
+  /^bearer$/i,
+  /^cookie$/i,
+  /^session[_-]?id$/i,
+  /^private[_-]?key$/i,
 ];
 const REDACTED = '[REDACTED]';
 

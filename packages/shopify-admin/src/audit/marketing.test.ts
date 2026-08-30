@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { evaluateMarketingFlags, MIN_DESCRIPTION_CHARS } from './marketing.js';
+import { describe, expect, it } from 'vitest';
 import type { ShopifyProduct } from '../shopify/schema.js';
+import { evaluateMarketingFlags, MIN_DESCRIPTION_CHARS } from './marketing.js';
 
 function makeProduct(overrides: Partial<ShopifyProduct> = {}): ShopifyProduct {
   return {
@@ -38,17 +38,23 @@ describe('evaluateMarketingFlags', () => {
   });
 
   it(`flags products with descriptions shorter than ${MIN_DESCRIPTION_CHARS} chars`, () => {
-    const flags = evaluateMarketingFlags({ product: makeProduct({ descriptionHtml: '<p>short</p>' }) });
+    const flags = evaluateMarketingFlags({
+      product: makeProduct({ descriptionHtml: '<p>short</p>' }),
+    });
     expect(flags.some((f) => f.code === 'marketing_no_description')).toBe(true);
   });
 
   it('flags ACTIVE products with no publishedAt date', () => {
-    const flags = evaluateMarketingFlags({ product: makeProduct({ status: 'ACTIVE', publishedAt: null }) });
+    const flags = evaluateMarketingFlags({
+      product: makeProduct({ status: 'ACTIVE', publishedAt: null }),
+    });
     expect(flags.some((f) => f.code === 'marketing_never_published')).toBe(true);
   });
 
   it('flags products with no compare-at price range', () => {
-    const flags = evaluateMarketingFlags({ product: makeProduct({ compareAtPriceRange: undefined }) });
+    const flags = evaluateMarketingFlags({
+      product: makeProduct({ compareAtPriceRange: undefined }),
+    });
     expect(flags.some((f) => f.code === 'marketing_no_compare_at_range')).toBe(true);
   });
 

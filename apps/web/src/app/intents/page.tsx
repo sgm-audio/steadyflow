@@ -2,9 +2,9 @@
  * Intents list and submission page.
  */
 
-import { requireOrgSession } from '../../lib/session';
-import { classifyError } from '../../lib/api-client';
 import { StateBanner } from '../../components/StateBanner';
+import { classifyError } from '../../lib/api-client';
+import { requireOrgSession } from '../../lib/session';
 import CancelIntentButton from './CancelIntentButton';
 
 const CANCELLABLE = new Set(['queued', 'running']);
@@ -54,7 +54,14 @@ export default async function IntentsPage() {
                   <td style={{ padding: '0.5rem', fontSize: '0.875rem', color: '#a1a1aa' }}>
                     {new Date(intent.createdAt).toLocaleString()}
                   </td>
-                  <td style={{ padding: '0.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <td
+                    style={{
+                      padding: '0.5rem',
+                      display: 'flex',
+                      gap: '0.75rem',
+                      alignItems: 'center',
+                    }}
+                  >
                     <a href={`/intents/${intent.id}`}>View</a>
                     {CANCELLABLE.has(intent.status) && <CancelIntentButton intentId={intent.id} />}
                   </td>
@@ -78,15 +85,17 @@ function StatusBadge({ status }: { status: string }) {
     rate_limited: '#f59e0b',
   };
   return (
-    <span style={{
-      display: 'inline-block',
-      padding: '0.125rem 0.5rem',
-      borderRadius: '0.25rem',
-      background: colors[status] ?? '#a1a1aa',
-      color: '#000',
-      fontSize: '0.75rem',
-      fontWeight: 600,
-    }}>
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '0.125rem 0.5rem',
+        borderRadius: '0.25rem',
+        background: colors[status] ?? '#a1a1aa',
+        color: '#000',
+        fontSize: '0.75rem',
+        fontWeight: 600,
+      }}
+    >
       {status}
     </span>
   );
@@ -94,7 +103,14 @@ function StatusBadge({ status }: { status: string }) {
 
 function IntentForm() {
   return (
-    <div style={{ padding: '1.5rem', background: '#18181b', borderRadius: '0.5rem', border: '1px solid #27272a' }}>
+    <div
+      style={{
+        padding: '1.5rem',
+        background: '#18181b',
+        borderRadius: '0.5rem',
+        border: '1px solid #27272a',
+      }}
+    >
       <h3 style={{ marginBottom: '1rem' }}>Submit a Shop for Analysis</h3>
       <form action="/api/intents" method="POST" style={{ display: 'flex', gap: '0.5rem' }}>
         <select name="platform" defaultValue="shopify" style={{ width: 120 }}>

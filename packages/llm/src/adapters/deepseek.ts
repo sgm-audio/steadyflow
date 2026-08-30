@@ -5,7 +5,13 @@
  * Supports JSON mode, token counting, and error handling.
  */
 
-import type { LlmAdapter, LlmAdapterConfig, LlmChatOptions, LlmMessage, LlmResponse } from '../adapter.js';
+import type {
+  LlmAdapter,
+  LlmAdapterConfig,
+  LlmChatOptions,
+  LlmMessage,
+  LlmResponse,
+} from '../adapter.js';
 
 export class DeepseekAdapter implements LlmAdapter {
   readonly provider = 'deepseek';
@@ -22,7 +28,9 @@ export class DeepseekAdapter implements LlmAdapter {
   async chat(messages: LlmMessage[], options: LlmChatOptions = {}): Promise<LlmResponse> {
     const model = options.model ?? this.defaultModel;
     const controller = new AbortController();
-    const timeout = setTimeout(() => { controller.abort(); }, options.timeoutMs ?? 60000);
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, options.timeoutMs ?? 60000);
 
     try {
       const body: Record<string, unknown> = {
@@ -51,7 +59,7 @@ export class DeepseekAdapter implements LlmAdapter {
         throw new Error(`Deepseek returned ${res.status}: ${errorText}`);
       }
 
-      const json = await res.json() as {
+      const json = (await res.json()) as {
         choices: { message: { content: string }; finish_reason: string }[];
         model: string;
         usage?: { prompt_tokens: number; completion_tokens: number };
@@ -75,9 +83,12 @@ export class DeepseekAdapter implements LlmAdapter {
 
 const mapFinishReason = (reason: string): LlmResponse['finishReason'] => {
   switch (reason) {
-    case 'stop': return 'stop';
-    case 'length': return 'length';
-    default: return 'error';
+    case 'stop':
+      return 'stop';
+    case 'length':
+      return 'length';
+    default:
+      return 'error';
   }
 };
 

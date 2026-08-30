@@ -9,32 +9,32 @@
  * components/route handlers already hold from the session.
  */
 
-import { z } from 'zod';
-import {
-  error as makeError,
-  SteadyFlowError,
-  ListInsightsOutput,
-  AuditQueryOutput,
-  KeysListOutput,
-  KeysSetOutput,
-  KeysTestOutput,
-  IntentListOutput,
-  IntentCancelOutput,
-  AnalyzeShopOutput,
-  OrgLlmConfigOutput,
-  ReportGenerateOutput,
-} from '@steadyflow/core';
 import type {
-  ListInsightsInput,
+  AnalyzeShopInput,
   AuditQueryInput,
+  IntentCancelInput,
+  IntentListInput,
   KeysSetInput,
   KeysTestInput,
-  IntentListInput,
-  IntentCancelInput,
-  AnalyzeShopInput,
+  ListInsightsInput,
   OrgLlmConfigInput,
   ReportGenerateInput,
 } from '@steadyflow/core';
+import {
+  AnalyzeShopOutput,
+  AuditQueryOutput,
+  IntentCancelOutput,
+  IntentListOutput,
+  KeysListOutput,
+  KeysSetOutput,
+  KeysTestOutput,
+  ListInsightsOutput,
+  error as makeError,
+  OrgLlmConfigOutput,
+  ReportGenerateOutput,
+  SteadyFlowError,
+} from '@steadyflow/core';
+import { z } from 'zod';
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: SteadyFlowError };
 
@@ -59,7 +59,11 @@ async function callFunction<O>(
   accessToken: string,
   slug: string,
   outputSchema: z.ZodType<O>,
-  init: { method: 'GET' | 'POST'; query?: Record<string, string | number | undefined>; body?: unknown },
+  init: {
+    method: 'GET' | 'POST';
+    query?: Record<string, string | number | undefined>;
+    body?: unknown;
+  },
 ): Promise<ApiResult<O>> {
   const url = `${functionsBaseUrl()}/${slug}${init.query ? queryString(init.query) : ''}`;
 
@@ -75,7 +79,10 @@ async function callFunction<O>(
       cache: 'no-store',
     });
   } catch (err) {
-    return { ok: false, error: makeError('TIMEOUT', err instanceof Error ? err.message : 'Network request failed') };
+    return {
+      ok: false,
+      error: makeError('TIMEOUT', err instanceof Error ? err.message : 'Network request failed'),
+    };
   }
 
   let payload: unknown;
@@ -87,7 +94,10 @@ async function callFunction<O>(
 
   if (!res.ok) {
     const parsedErr = ErrorEnvelope.safeParse(payload);
-    return { ok: false, error: parsedErr.success ? parsedErr.data.error : makeError('INTERNAL', `HTTP ${res.status}`) };
+    return {
+      ok: false,
+      error: parsedErr.success ? parsedErr.data.error : makeError('INTERNAL', `HTTP ${res.status}`),
+    };
   }
 
   const parsed = outputSchema.safeParse(payload);
@@ -112,7 +122,12 @@ export const createApiClient = (accessToken: string) => ({
   auditQuery: (input: Partial<z.infer<typeof AuditQueryInput>> = {}) =>
     callFunction(accessToken, 'audit-query', AuditQueryOutput, {
       method: 'GET',
-      query: { limit: input.limit, cursor: input.cursor, action: input.action, outcome: input.outcome },
+      query: {
+        limit: input.limit,
+        cursor: input.cursor,
+        action: input.action,
+        outcome: input.outcome,
+      },
     }),
 
   keysList: () => callFunction(accessToken, 'keys-list', KeysListOutput, { method: 'GET' }),
@@ -135,15 +150,25 @@ export const createApiClient = (accessToken: string) => ({
     callFunction(accessToken, 'intel-cancel', IntentCancelOutput, { method: 'POST', body: input }),
 
   analyzeShop: (input: z.infer<typeof AnalyzeShopInput>) =>
-    callFunction(accessToken, 'intel-analyze-shop', AnalyzeShopOutput, { method: 'POST', body: input }),
+    callFunction(accessToken, 'intel-analyze-shop', AnalyzeShopOutput, {
+      method: 'POST',
+      body: input,
+    }),
 
-  orgLlmConfigGet: () => callFunction(accessToken, 'org-llm-config-get', OrgLlmConfigOutput, { method: 'GET' }),
+  orgLlmConfigGet: () =>
+    callFunction(accessToken, 'org-llm-config-get', OrgLlmConfigOutput, { method: 'GET' }),
 
   orgLlmConfigSet: (input: z.infer<typeof OrgLlmConfigInput>) =>
-    callFunction(accessToken, 'org-llm-config-set', OrgLlmConfigOutput, { method: 'POST', body: input }),
+    callFunction(accessToken, 'org-llm-config-set', OrgLlmConfigOutput, {
+      method: 'POST',
+      body: input,
+    }),
 
   reportGenerate: (input: z.infer<typeof ReportGenerateInput>) =>
-    callFunction(accessToken, 'report-generate', ReportGenerateOutput, { method: 'POST', body: input }),
+    callFunction(accessToken, 'report-generate', ReportGenerateOutput, {
+      method: 'POST',
+      body: input,
+    }),
 });
 
 export type ApiClient = ReturnType<typeof createApiClient>;

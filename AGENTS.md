@@ -89,11 +89,13 @@ Every external action **must** call `buildAuditEvent()` and write to `audit_log`
 
 ## Testing
 
-- Vitest, node environment, tests co-located as `*.test.ts`
+- **Vitest** is the runner (root `devDependencies` still list `jest`/`ts-jest`/`@types/jest` — stale, no jest config or tests exist; do not reach for Jest)
+- Node environment, tests co-located as `*.test.ts`
 - Coverage thresholds: 90% stmts/funcs/lines, 85% branches
 - Run full suite: `pnpm test`
 - Run single package: `pnpm --filter @steadyflow/core test`
 - Run single file: `npx vitest run packages/core/src/result.test.ts`
+- `apps/edge` integration tests need local Supabase running + `SUPABASE_SERVICE_ROLE_KEY` set (`apps/edge/vitest.global-setup.ts` wipes org-scoped rows first; fails closed — no hardcoded key)
 
 ## Pre-commit
 
@@ -102,6 +104,12 @@ Every external action **must** call `buildAuditEvent()` and write to `audit_log`
 ## Secrets that must NOT be committed
 
 `.env`, `.env.*` (except `.env.example`, `.env.local.example`) are gitignored. Server-only vars: `SUPABASE_SECRET_KEY`, `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`.
+
+## Repo gotchas
+
+- `steadyflow-pr-*/` at repo root are git-worktree/parallel-agent snapshots (gitignored). Ignore them in searches; never commit them into `main`.
+- `supabase/functions/_shared/shopify-admin/` is **vendored** — regenerate via `pnpm vendor:shopify-admin`, don't hand-edit.
+- `apps/desktop` and `apps/extension` are EXPERIMENTAL and outside v0.x scope — don't spend effort there unless asked.
 
 ## Setup
 

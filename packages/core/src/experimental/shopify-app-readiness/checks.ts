@@ -1,6 +1,7 @@
 import type { ShopifyAppRequirement } from './schema';
 
-export type ReadinessCheckStatus = 'pass' | 'fail' | 'warning' | 'manual_review' | 'not_applicable' | 'unknown';
+export type ReadinessCheckStatus =
+  'pass' | 'fail' | 'warning' | 'manual_review' | 'not_applicable' | 'unknown';
 
 export interface ReadinessCheckResult {
   requirementId: string;
@@ -19,11 +20,13 @@ export interface AppConfiguration {
   webhooks?: { topic: string; address: string }[] | undefined;
   extensions?: { type: string; handle: string }[] | undefined;
   embeddedApp?: boolean | undefined;
-  oauth?: {
-    redirectUris?: string[] | undefined;
-    clientId?: string | undefined;
-    clientSecret?: string | undefined;
-  } | undefined;
+  oauth?:
+    | {
+        redirectUris?: string[] | undefined;
+        clientId?: string | undefined;
+        clientSecret?: string | undefined;
+      }
+    | undefined;
   developmentUrls?: string[] | undefined;
   mutations?: string[] | undefined;
   externalDependencies?: string[] | undefined;
@@ -36,7 +39,7 @@ export interface AppConfiguration {
  */
 export function checkConfigurationParsing(
   config: unknown,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   if (!config || typeof config !== 'object') {
     return {
@@ -61,7 +64,7 @@ export function checkConfigurationParsing(
  */
 export function checkApiScopeExtraction(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const scopes = config.scopes ?? [];
   if (!scopes.length) {
@@ -72,7 +75,7 @@ export function checkApiScopeExtraction(
     };
   }
   const allowedWriteScope = /^write_(products|orders|customers)$/;
-  const excessive = scopes.filter(s => s.includes('write_') && !allowedWriteScope.test(s));
+  const excessive = scopes.filter((s) => s.includes('write_') && !allowedWriteScope.test(s));
   if (excessive.length) {
     return {
       requirementId: requirement.id,
@@ -94,7 +97,7 @@ export function checkApiScopeExtraction(
  */
 export function checkDeprecatedApiDetection(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const deprecatedPatterns = [
     '/admin/api/2022-',
@@ -127,7 +130,7 @@ export function checkDeprecatedApiDetection(
  */
 export function checkOAuthInstallationDetection(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const oauth = config.oauth;
   if (oauth === undefined) {
@@ -145,7 +148,7 @@ export function checkOAuthInstallationDetection(
       message: 'OAuth redirect URIs not configured',
     };
   }
-  const invalid = redirectUris.filter(uri => !uri.startsWith('https://'));
+  const invalid = redirectUris.filter((uri) => !uri.startsWith('https://'));
   if (invalid.length) {
     return {
       requirementId: requirement.id,
@@ -167,7 +170,7 @@ export function checkOAuthInstallationDetection(
  */
 export function checkEmbeddedAppDetection(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   if (config.embeddedApp === false) {
     return {
@@ -189,7 +192,7 @@ export function checkEmbeddedAppDetection(
  */
 export function checkThemeExtensionChecks(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const extensions = config.themeExtensions ?? [];
   if (!extensions.length) {
@@ -199,12 +202,12 @@ export function checkThemeExtensionChecks(
       message: 'No theme extensions declared',
     };
   }
-  const missingHandle = extensions.filter(e => !e.handle);
+  const missingHandle = extensions.filter((e) => !e.handle);
   if (missingHandle.length) {
     return {
       requirementId: requirement.id,
       status: 'fail',
-      message: `Theme extensions missing handle: ${missingHandle.map(e => e.name).join(', ')}`,
+      message: `Theme extensions missing handle: ${missingHandle.map((e) => e.name).join(', ')}`,
       evidence: { missingHandle },
     };
   }
@@ -221,7 +224,7 @@ export function checkThemeExtensionChecks(
  */
 export function checkDirectMutationFlags(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const mutations = config.mutations;
   if (mutations === undefined) {
@@ -251,7 +254,7 @@ export function checkDirectMutationFlags(
  */
 export function checkPrivacySupportUrls(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const missing: string[] = [];
   if (!config.privacyPolicyUrl) missing.push('privacyPolicyUrl');
@@ -277,7 +280,7 @@ export function checkPrivacySupportUrls(
  */
 export function checkNameDescriptionExtraction(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const issues: string[] = [];
   if (!config.name?.trim()) issues.push('name');
@@ -303,7 +306,7 @@ export function checkNameDescriptionExtraction(
  */
 export function checkHardcodedDevelopmentUrls(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const devPatterns = ['localhost', '127.0.0.1', 'ngrok', 'tunnel', '.local'];
   const urls = config.developmentUrls;
@@ -314,7 +317,7 @@ export function checkHardcodedDevelopmentUrls(
       message: 'No development URL data provided; cannot verify',
     };
   }
-  const found = urls.filter(u => devPatterns.some(p => u.includes(p)));
+  const found = urls.filter((u) => devPatterns.some((p) => u.includes(p)));
   if (found.length) {
     return {
       requirementId: requirement.id,
@@ -336,7 +339,7 @@ export function checkHardcodedDevelopmentUrls(
  */
 export function checkSecretLikeValueDetection(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const secretPatterns = [
     /sk_[a-zA-Z0-9]{24,}/,
@@ -347,7 +350,7 @@ export function checkSecretLikeValueDetection(
     /password/i,
   ];
   const configStr = JSON.stringify(config);
-  const found = secretPatterns.filter(p => p.test(configStr));
+  const found = secretPatterns.filter((p) => p.test(configStr));
   if (found.length) {
     return {
       requirementId: requirement.id,
@@ -368,7 +371,7 @@ export function checkSecretLikeValueDetection(
  */
 export function checkWebhookIdentification(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const webhooks = config.webhooks ?? [];
   if (!webhooks.length) {
@@ -378,7 +381,7 @@ export function checkWebhookIdentification(
       message: 'No webhooks declared',
     };
   }
-  const invalid = webhooks.filter(w => !w.topic || !w.address);
+  const invalid = webhooks.filter((w) => !w.topic || !w.address);
   if (invalid.length) {
     return {
       requirementId: requirement.id,
@@ -400,7 +403,7 @@ export function checkWebhookIdentification(
  */
 export function checkExternalDependencyInventory(
   config: AppConfiguration,
-  requirement: ShopifyAppRequirement
+  requirement: ShopifyAppRequirement,
 ): ReadinessCheckResult {
   const deps = config.externalDependencies;
   if (deps === undefined) {
@@ -423,9 +426,12 @@ export function checkExternalDependencyInventory(
  */
 export function runStaticChecks(
   config: AppConfiguration,
-  requirements: ShopifyAppRequirement[]
+  requirements: ShopifyAppRequirement[],
 ): ReadinessCheckResult[] {
-  const checkMap: Record<string, (c: AppConfiguration, r: ShopifyAppRequirement) => ReadinessCheckResult> = {
+  const checkMap: Record<
+    string,
+    (c: AppConfiguration, r: ShopifyAppRequirement) => ReadinessCheckResult
+  > = {
     'config-parsing': checkConfigurationParsing,
     'api-scopes': checkApiScopeExtraction,
     'deprecated-api': checkDeprecatedApiDetection,
@@ -441,7 +447,7 @@ export function runStaticChecks(
     'external-deps': checkExternalDependencyInventory,
   };
 
-  return requirements.map(req => {
+  return requirements.map((req) => {
     const checker = checkMap[req.id];
     if (!checker) {
       return {

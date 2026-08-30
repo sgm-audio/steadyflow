@@ -13,9 +13,9 @@
  * This test requires a running local Supabase instance with migrations applied.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@steadyflow/db';
+import { createClient } from '@supabase/supabase-js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { workerScrape } from './workers.js';
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -90,7 +90,9 @@ describe('E2E Audit Lifecycle', () => {
     // intent stuck at 'queued' forever. Draining first guarantees the next
     // pop is always this test's own message.
     for (let drained = 0; drained < 20; drained++) {
-      const { data: leftover } = await supabase.rpc('dequeue_message', { p_queue_name: 'q:scrape' });
+      const { data: leftover } = await supabase.rpc('dequeue_message', {
+        p_queue_name: 'q:scrape',
+      });
       if (!leftover) break;
     }
   });
@@ -100,7 +102,11 @@ describe('E2E Audit Lifecycle', () => {
       await supabase.from('insights').delete().eq('intent_id', testIntentId);
       await supabase.from('sources').delete().eq('intent_id', testIntentId);
       await supabase.from('intents').delete().eq('id', testIntentId);
-      await supabase.from('audit_log').delete().eq('user_id', USER_ID).like('input_hash', 'test-e2e-%');
+      await supabase
+        .from('audit_log')
+        .delete()
+        .eq('user_id', USER_ID)
+        .like('input_hash', 'test-e2e-%');
     }
     testIntentId = null;
   });
@@ -141,7 +147,11 @@ describe('E2E Audit Lifecycle', () => {
     expect(enqueueError).toBeNull();
 
     // Step 3: Verify intent is in pending state before processing
-    const { data: intentBefore } = await supabase.from('intents').select('status').eq('id', intent.id).single();
+    const { data: intentBefore } = await supabase
+      .from('intents')
+      .select('status')
+      .eq('id', intent.id)
+      .single();
 
     expect(intentBefore?.status).toBe('queued');
 
@@ -189,7 +199,10 @@ describe('E2E Audit Lifecycle', () => {
 
     // Step 8: Sources table has the scraped content if the fallback path was used;
     // if the shopify-admin direct API path ran instead, no source row is expected.
-    await supabase.from('sources').select('id, platform, url, raw_markdown').eq('intent_id', intent.id);
+    await supabase
+      .from('sources')
+      .select('id, platform, url, raw_markdown')
+      .eq('intent_id', intent.id);
 
     // Step 9: Verify the queue message was archived (removed from active queue) —
     // dequeuing again should never return the message already processed for this intent.
@@ -277,24 +290,28 @@ describe('E2E Audit Lifecycle', () => {
     // the actual RPC with a tiny capacity so it provably blocks.
     const bucket = `test-e2e-${Date.now()}`;
 
-    const first = await supabase.rpc('rate_limit_take', {
-      p_user_id: USER_ID,
-      p_org_id: ORG_ID,
-      p_bucket: bucket,
-      p_capacity: 1,
-      p_refill_per_second: 0.001,
-    }).single();
+    const first = await supabase
+      .rpc('rate_limit_take', {
+        p_user_id: USER_ID,
+        p_org_id: ORG_ID,
+        p_bucket: bucket,
+        p_capacity: 1,
+        p_refill_per_second: 0.001,
+      })
+      .single();
     expect(first.error).toBeNull();
     expect((first.data as { allowed: boolean } | null)?.allowed).toBe(true);
 
     // Capacity was 1 and no refill — the next take must be rejected.
-    const second = await supabase.rpc('rate_limit_take', {
-      p_user_id: USER_ID,
-      p_org_id: ORG_ID,
-      p_bucket: bucket,
-      p_capacity: 1,
-      p_refill_per_second: 0.001,
-    }).single();
+    const second = await supabase
+      .rpc('rate_limit_take', {
+        p_user_id: USER_ID,
+        p_org_id: ORG_ID,
+        p_bucket: bucket,
+        p_capacity: 1,
+        p_refill_per_second: 0.001,
+      })
+      .single();
     expect(second.error).toBeNull();
     expect((second.data as { allowed: boolean } | null)?.allowed).toBe(false);
 

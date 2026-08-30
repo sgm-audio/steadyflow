@@ -8,16 +8,23 @@
  * (see vitest.config.ts for the dynamic availability check).
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
-import { z } from 'zod';
 import type { Database } from '@steadyflow/db';
+import { createClient } from '@supabase/supabase-js';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import {
-  analyzeShop, listInsights, auditQuery,
-  keysSet, keysList, keysTest,
-  orgLlmConfigGet, orgLlmConfigSet,
-  intentList, intentCancel,
-  handleCors, type HandlerCtx,
+  analyzeShop,
+  auditQuery,
+  handleCors,
+  intentCancel,
+  intentList,
+  keysList,
+  keysSet,
+  keysTest,
+  listInsights,
+  orgLlmConfigGet,
+  orgLlmConfigSet,
+  type HandlerCtx,
 } from './handlers.js';
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -70,7 +77,8 @@ const LlmConfigResponse = z.object({
   baseUrl: z.string().nullable().optional(),
   defaultModel: z.string(),
 });
-const readJson = async <T>(res: Response, schema: z.ZodType<T>): Promise<T> => schema.parse(await res.json());
+const readJson = async <T>(res: Response, schema: z.ZodType<T>): Promise<T> =>
+  schema.parse(await res.json());
 
 // ── CORS ───────────────────────────────────────────────────────────────────
 
@@ -90,11 +98,13 @@ describe('handleCors', () => {
 
 describe('analyzeShop', () => {
   it('creates an intent and enqueues scrape', async () => {
-    const res = await analyzeShop(ctx({
-      platform: 'shopify',
-      url: 'https://demo.myshopify.com',
-      idempotencyKey: `test-${Date.now()}`,
-    }));
+    const res = await analyzeShop(
+      ctx({
+        platform: 'shopify',
+        url: 'https://demo.myshopify.com',
+        idempotencyKey: `test-${Date.now()}`,
+      }),
+    );
 
     expect(res.status).toBe(200);
     const body = await readJson(res, IntentResponse);
@@ -104,15 +114,21 @@ describe('analyzeShop', () => {
 
   it('returns existing intent on duplicate key', async () => {
     const key = `dup-${Date.now()}`;
-    const r1 = await analyzeShop(ctx({ platform: 'shopify', url: 'https://x.com', idempotencyKey: key }));
+    const r1 = await analyzeShop(
+      ctx({ platform: 'shopify', url: 'https://x.com', idempotencyKey: key }),
+    );
     const b1 = await readJson(r1, IntentResponse);
-    const r2 = await analyzeShop(ctx({ platform: 'shopify', url: 'https://x.com', idempotencyKey: key }));
+    const r2 = await analyzeShop(
+      ctx({ platform: 'shopify', url: 'https://x.com', idempotencyKey: key }),
+    );
     const b2 = await readJson(r2, IntentResponse);
     expect(b1.intentId).toBe(b2.intentId);
   });
 
   it('rejects invalid URL', async () => {
-    const res = await analyzeShop(ctx({ platform: 'shopify', url: 'not-a-url', idempotencyKey: `bad-${Date.now()}` }));
+    const res = await analyzeShop(
+      ctx({ platform: 'shopify', url: 'not-a-url', idempotencyKey: `bad-${Date.now()}` }),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -156,10 +172,12 @@ describe('keys', () => {
   const provider = 'firecrawl';
 
   it('sets and lists a key', async () => {
-    const setRes = await keysSet(ctx({
-      provider,
-      rawKey: 'sk-test-key',
-    }));
+    const setRes = await keysSet(
+      ctx({
+        provider,
+        rawKey: 'sk-test-key',
+      }),
+    );
 
     expect(setRes.status).toBe(200);
 
@@ -195,10 +213,12 @@ describe('orgLlmConfig', () => {
   });
 
   it('sets and gets new config', async () => {
-    const setRes = await orgLlmConfigSet(ctx({
-      provider: 'deepseek',
-      defaultModel: 'deepseek-v4-flash',
-    }));
+    const setRes = await orgLlmConfigSet(
+      ctx({
+        provider: 'deepseek',
+        defaultModel: 'deepseek-v4-flash',
+      }),
+    );
     expect(setRes.status).toBe(200);
 
     const getRes = await orgLlmConfigGet(getCtx());
@@ -219,11 +239,13 @@ describe('intents', () => {
 
   it('cancels an intent', async () => {
     // Create then cancel
-    const create = await analyzeShop(ctx({
-      platform: 'shopify',
-      url: 'https://cancel-test.myshopify.com',
-      idempotencyKey: `cancel-${Date.now()}`,
-    }));
+    const create = await analyzeShop(
+      ctx({
+        platform: 'shopify',
+        url: 'https://cancel-test.myshopify.com',
+        idempotencyKey: `cancel-${Date.now()}`,
+      }),
+    );
     const created = await readJson(create, IntentResponse);
 
     const res = await intentCancel(ctx({ intentId: created.intentId }));

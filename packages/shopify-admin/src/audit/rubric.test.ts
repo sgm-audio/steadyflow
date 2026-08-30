@@ -1,18 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { FlagCode } from './flags.js';
+import { aggregateFlags } from './impact.js';
 import {
+  FLAG_TO_RUBRIC,
+  gradeFor,
   RUBRIC_CATEGORIES,
   RUBRIC_TOTAL_POINTS,
-  FLAG_TO_RUBRIC,
   scoreRubric,
-  gradeFor,
 } from './rubric.js';
-import { aggregateFlags } from './impact.js';
-import type { FlagCode } from './flags.js';
 
 const agg = (
   entries: [FlagCode, { severity: 'high' | 'medium'; affectedCount: number }][],
-): Map<FlagCode, { severity: 'high' | 'medium'; affectedCount: number }> =>
-  new Map(entries);
+): Map<FlagCode, { severity: 'high' | 'medium'; affectedCount: number }> => new Map(entries);
 
 describe('rubric taxonomy', () => {
   it('weights sum to exactly 200', () => {

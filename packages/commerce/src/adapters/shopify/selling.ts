@@ -1,8 +1,8 @@
 import { runCatalogAudit, type CatalogAuditResult } from '@steadyflow/shopify-admin';
 import { mapShopifyAuditToCatalog, mapShopifyProduct } from '../../mappers/shopify.js';
-import type { CommerceCatalog, CommerceProduct } from '../../schemas/product.js';
-import type { CommerceOrder } from '../../schemas/order.js';
 import type { CommerceInventoryLevel } from '../../schemas/inventory.js';
+import type { CommerceOrder } from '../../schemas/order.js';
+import type { CommerceCatalog, CommerceProduct } from '../../schemas/product.js';
 import {
   AdapterNotImplementedError,
   AdapterNotReadyError,
@@ -24,7 +24,13 @@ export class ShopifySellingAdapter implements SellingPlatformAdapter {
     id: 'shopify' as const,
     role: 'selling' as const,
     stub: false,
-    capabilities: ['list_catalog', 'get_product', 'list_orders', 'list_inventory', 'push_inventory'] as const,
+    capabilities: [
+      'list_catalog',
+      'get_product',
+      'list_orders',
+      'list_inventory',
+      'push_inventory',
+    ] as const,
   };
 
   private cachedAudit: CatalogAuditResult | null = null;
@@ -87,6 +93,8 @@ export class ShopifySellingAdapter implements SellingPlatformAdapter {
   }
 }
 
-export function createShopifySellingAdapter(opts: ShopifySellingAdapterOptions): ShopifySellingAdapter {
+export function createShopifySellingAdapter(
+  opts: ShopifySellingAdapterOptions,
+): ShopifySellingAdapter {
   return new ShopifySellingAdapter(opts);
 }

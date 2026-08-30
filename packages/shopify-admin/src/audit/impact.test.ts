@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { Flag } from './flags.js';
 import {
-  deriveLeakContext,
   aggregateFlags,
   buildLeakList,
-  totalEstimatedImpact,
   DEFAULT_MONTHLY_ORDERS,
+  deriveLeakContext,
+  totalEstimatedImpact,
 } from './impact.js';
-import type { Flag } from './flags.js';
 
 const red = (code: Flag['code']): Flag => ({ code, severity: 'red', message: 'x' });
 const yellow = (code: Flag['code']): Flag => ({ code, severity: 'yellow', message: 'x' });
@@ -46,7 +46,9 @@ describe('buildLeakList', () => {
     const list = buildLeakList(rows, 'CAD', { monthlyOrders: 100 });
     expect(list.length).toBe(2);
     expect(list[0]?.code).toBe('low_margin');
-    expect(list[0]?.estimatedAnnualImpact).toBeGreaterThanOrEqual(list[1]?.estimatedAnnualImpact ?? 0);
+    expect(list[0]?.estimatedAnnualImpact).toBeGreaterThanOrEqual(
+      list[1]?.estimatedAnnualImpact ?? 0,
+    );
     // Deterministic ordering: low_margin has the larger coefficient (0.03 vs 0.01).
     expect(list[0]?.code).toBe('low_margin');
   });
@@ -79,7 +81,9 @@ describe('buildLeakList', () => {
   it('uses real sales data when provided (overrides assumptions)', () => {
     const rows = [{ priceMinCAD: 40, flags: [red('low_margin')] }];
     const assumed = buildLeakList(rows, 'CAD');
-    const real = buildLeakList(rows, 'CAD', { sales: { averageOrderValue: 100, monthlyOrders: 500 } });
+    const real = buildLeakList(rows, 'CAD', {
+      sales: { averageOrderValue: 100, monthlyOrders: 500 },
+    });
     expect(real[0]?.estimatedAnnualImpact).toBeGreaterThan(assumed[0]?.estimatedAnnualImpact ?? 0);
     expect(real[0]?.basis).toContain('real order data');
     expect(assumed[0]?.basis).toContain('assumed');
@@ -89,8 +93,24 @@ describe('buildLeakList', () => {
 describe('totalEstimatedImpact', () => {
   it('sums the leak list', () => {
     const items = [
-      { code: 'low_margin' as const, title: 't', severity: 'high' as const, affectedCount: 1, rubricCategory: 'cost_margin' as const, estimatedAnnualImpact: 100, basis: '' },
-      { code: 'missing_alt_text' as const, title: 't', severity: 'medium' as const, affectedCount: 1, rubricCategory: 'technical_seo' as const, estimatedAnnualImpact: 50, basis: '' },
+      {
+        code: 'low_margin' as const,
+        title: 't',
+        severity: 'high' as const,
+        affectedCount: 1,
+        rubricCategory: 'cost_margin' as const,
+        estimatedAnnualImpact: 100,
+        basis: '',
+      },
+      {
+        code: 'missing_alt_text' as const,
+        title: 't',
+        severity: 'medium' as const,
+        affectedCount: 1,
+        rubricCategory: 'technical_seo' as const,
+        estimatedAnnualImpact: 50,
+        basis: '',
+      },
     ];
     expect(totalEstimatedImpact(items)).toBe(150);
   });

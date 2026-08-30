@@ -1,19 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  runStaticChecks,
-  checkConfigurationParsing,
   checkApiScopeExtraction,
+  checkConfigurationParsing,
   checkDeprecatedApiDetection,
-  checkOAuthInstallationDetection,
-  checkEmbeddedAppDetection,
-  checkThemeExtensionChecks,
   checkDirectMutationFlags,
-  checkPrivacySupportUrls,
-  checkNameDescriptionExtraction,
-  checkHardcodedDevelopmentUrls,
-  checkSecretLikeValueDetection,
-  checkWebhookIdentification,
+  checkEmbeddedAppDetection,
   checkExternalDependencyInventory,
+  checkHardcodedDevelopmentUrls,
+  checkNameDescriptionExtraction,
+  checkOAuthInstallationDetection,
+  checkPrivacySupportUrls,
+  checkSecretLikeValueDetection,
+  checkThemeExtensionChecks,
+  checkWebhookIdentification,
+  runStaticChecks,
 } from './checks';
 import { getShopifyAppRequirements } from './registry';
 import type { ShopifyAppRequirement } from './schema';
@@ -22,7 +22,7 @@ describe('Static Readiness Checks', () => {
   const requirements = getShopifyAppRequirements();
 
   const findReq = (id: string): ShopifyAppRequirement => {
-    const found = requirements.find(r => r.id === id);
+    const found = requirements.find((r) => r.id === id);
     if (!found) throw new Error(`Requirement not found: ${id}`);
     return found;
   };
@@ -64,7 +64,10 @@ describe('Static Readiness Checks', () => {
 
     it('checkApiScopeExtraction warns on excessive scopes', () => {
       const req = findReq('api-scopes');
-      const result = checkApiScopeExtraction({ ...baseConfig, scopes: ['read_products', 'write_all_data'] }, req);
+      const result = checkApiScopeExtraction(
+        { ...baseConfig, scopes: ['read_products', 'write_all_data'] },
+        req,
+      );
       expect(result.status).toBe('warning');
     });
 
@@ -208,7 +211,7 @@ describe('Static Readiness Checks', () => {
     it('returns results for all requirements', () => {
       const results = runStaticChecks(baseConfig, requirements);
       expect(results.length).toBe(requirements.length);
-      expect(results.every(r => typeof r.status === 'string')).toBe(true);
+      expect(results.every((r) => typeof r.status === 'string')).toBe(true);
     });
 
     it('marks unknown for requirements without checkers', () => {

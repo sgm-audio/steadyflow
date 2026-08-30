@@ -13,18 +13,26 @@ import type { Insight, InsightCategory } from '../schemas/insight.js';
 import type { EffortEstimate, ReportFinding } from '../schemas/report.js';
 
 const REMEDIATION_BY_CATEGORY: Record<InsightCategory, string> = {
-  pricing: 'Review pricing against competitor benchmarks and adjust margins where this finding flags a gap.',
-  positioning: 'Refine product or brand messaging to close the positioning gap this finding identifies.',
+  pricing:
+    'Review pricing against competitor benchmarks and adjust margins where this finding flags a gap.',
+  positioning:
+    'Refine product or brand messaging to close the positioning gap this finding identifies.',
   product_mix: 'Reorganize the affected catalog or collection structure to address this finding.',
   marketing: 'Update marketing copy or channels to address this finding.',
   seo: 'Add or correct the missing metadata, alt text, or structured data this finding flags.',
-  conversion: 'Adjust the affected page or checkout flow to remove the friction this finding identifies.',
-  inventory: 'Update the affected product or variant data (weight, stock, shipping fields) this finding flags.',
+  conversion:
+    'Adjust the affected page or checkout flow to remove the friction this finding identifies.',
+  inventory:
+    'Update the affected product or variant data (weight, stock, shipping fields) this finding flags.',
   trend: 'Monitor this trend and revisit pricing or positioning if it persists.',
-  ai_agent_readiness: 'Submit product feed to Google Merchant Center, add JSON-LD Product schema, allow AI crawler bots in robots.txt, and enable Shop Pay / Google Pay for AI-native checkout.',
-  first_sale_math: 'Calculate break-even ROAS from your actual Printify costs + Shopify pricing, then choose the cheapest CPA channel (Meta/TikTok, not Google Shopping) that clears break-even at 2% conversion.',
-  channel_gap: 'You are only selling through Shopify. Expand to Etsy (built-in traffic, $0.20 listing), TikTok Shop (1,000-follower threshold, zero-fee discovery), and Google free listings (via Merchant Center) to add three new zero-CAC channels.',
-  creator_playbook: 'Find 3-5 micro-creators in your niche (1k-50k followers), send free product + $50-150 per post, and repurpose their content as paid ad creative. Gifting + small payment delivers 2.3x engagement vs gifting alone.',
+  ai_agent_readiness:
+    'Submit product feed to Google Merchant Center, add JSON-LD Product schema, allow AI crawler bots in robots.txt, and enable Shop Pay / Google Pay for AI-native checkout.',
+  first_sale_math:
+    'Calculate break-even ROAS from your actual Printify costs + Shopify pricing, then choose the cheapest CPA channel (Meta/TikTok, not Google Shopping) that clears break-even at 2% conversion.',
+  channel_gap:
+    'You are only selling through Shopify. Expand to Etsy (built-in traffic, $0.20 listing), TikTok Shop (1,000-follower threshold, zero-fee discovery), and Google free listings (via Merchant Center) to add three new zero-CAC channels.',
+  creator_playbook:
+    'Find 3-5 micro-creators in your niche (1k-50k followers), send free product + $50-150 per post, and repurpose their content as paid ad creative. Gifting + small payment delivers 2.3x engagement vs gifting alone.',
 };
 
 const EFFORT_BY_CATEGORY: Record<InsightCategory, EffortEstimate> = {
@@ -64,7 +72,9 @@ const ACCESS_BY_CATEGORY: Record<InsightCategory, string[]> = {
  * heuristic pass. An uncited high-severity claim is nudged down, since
  * that's the combination most likely to be a false positive.
  */
-export const computeFindingConfidence = (insight: Pick<Insight, 'citations' | 'provider' | 'severity'>): number => {
+export const computeFindingConfidence = (
+  insight: Pick<Insight, 'citations' | 'provider' | 'severity'>,
+): number => {
   let score = 0.55;
   if (insight.citations.length > 0) score += 0.2;
   if (insight.provider === 'shopify-admin') score += 0.15;
@@ -119,5 +129,5 @@ export const buildSprintRecommendation = (findings: readonly Insight[]): string 
   if (mediumCount > 0) {
     return `No sprint recommended — the ${mediumCount} medium-severity finding${mediumCount === 1 ? '' : 's'} can be self-serviced or scheduled as routine maintenance.`;
   }
-  return 'No sprint recommended — findings are low-priority and can be addressed at the store owner\'s convenience.';
+  return "No sprint recommended — findings are low-priority and can be addressed at the store owner's convenience.";
 };

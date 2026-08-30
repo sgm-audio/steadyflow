@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { wrapKey, unwrapKey, wrapString, unwrapString, withUnwrappedKey } from './envelope.js';
+import { describe, expect, it } from 'vitest';
 import { deriveDekPbkdf2, randomSalt } from './dek.js';
+import { unwrapKey, unwrapString, withUnwrappedKey, wrapKey, wrapString } from './envelope.js';
 import { zeroBuffer } from './zero.js';
 
 const newDek = async (): Promise<Uint8Array> => {

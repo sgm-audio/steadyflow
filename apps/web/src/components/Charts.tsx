@@ -22,8 +22,21 @@ export function ScoreRing({
   const dash = (clamped / 100) * circumference;
   const color = clamped >= 75 ? '#34d399' : clamped >= 50 ? '#fbbf24' : '#f87171';
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={label ?? `${clamped} out of 100`}>
-      <circle cx={size / 2} cy={size / 2} r={radius} stroke="#27272a" strokeWidth={strokeWidth} fill="none" />
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label={label ?? `${clamped} out of 100`}
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke="#27272a"
+        strokeWidth={strokeWidth}
+        fill="none"
+      />
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -46,8 +59,8 @@ export function ScoreRing({
         fill="#e4e4e7"
       >
         {clamped}
-     </text>
-   </svg>
+      </text>
+    </svg>
   );
 }
 
@@ -64,23 +77,55 @@ export function CategoryBar({
   const width = labelWidth + barWidth + 60;
   const height = rowHeight * categories.length + 8;
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Findings by category">
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label="Findings by category"
+    >
       {categories.map((c, i) => {
         const w = (c.count / max) * barWidth;
         const y = i * rowHeight + 4;
         return (
           <g key={c.label}>
-            <text x={0} y={y + 14} fontSize={11} fill="#a1a1aa" fontFamily="ui-sans-serif, system-ui">
+            <text
+              x={0}
+              y={y + 14}
+              fontSize={11}
+              fill="#a1a1aa"
+              fontFamily="ui-sans-serif, system-ui"
+            >
               {c.label}
-           </text>
-            <rect x={labelWidth} y={y + 4} width={barWidth} height={rowHeight - 10} fill="#27272a" rx={3} />
-            <rect x={labelWidth} y={y + 4} width={w} height={rowHeight - 10} fill={c.color} rx={3} />
-            <text x={labelWidth + barWidth + 8} y={y + 14} fontSize={11} fill="#e4e4e7" fontWeight={600}>
+            </text>
+            <rect
+              x={labelWidth}
+              y={y + 4}
+              width={barWidth}
+              height={rowHeight - 10}
+              fill="#27272a"
+              rx={3}
+            />
+            <rect
+              x={labelWidth}
+              y={y + 4}
+              width={w}
+              height={rowHeight - 10}
+              fill={c.color}
+              rx={3}
+            />
+            <text
+              x={labelWidth + barWidth + 8}
+              y={y + 14}
+              fontSize={11}
+              fill="#e4e4e7"
+              fontWeight={600}
+            >
               {c.count}
-           </text>
-         </g>
+            </text>
+          </g>
         );
       })}
-   </svg>
+    </svg>
   );
 }

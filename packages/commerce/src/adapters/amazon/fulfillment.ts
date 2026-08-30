@@ -1,5 +1,5 @@
-import type { CommerceOrder } from '../../schemas/order.js';
 import type { CommerceInventoryLevel } from '../../schemas/inventory.js';
+import type { CommerceOrder } from '../../schemas/order.js';
 import { AdapterNotImplementedError, type FulfillmentAdapter } from '../types.js';
 
 /**

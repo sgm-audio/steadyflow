@@ -47,10 +47,7 @@ export const RUBRIC_CATEGORIES: readonly RubricCategory[] = [
   { id: 'platform_ops', label: 'Platform Hygiene & Ops', maxPoints: 7 },
 ];
 
-export const RUBRIC_TOTAL_POINTS = RUBRIC_CATEGORIES.reduce(
-  (sum, c) => sum + c.maxPoints,
-  0,
-);
+export const RUBRIC_TOTAL_POINTS = RUBRIC_CATEGORIES.reduce((sum, c) => sum + c.maxPoints, 0);
 
 /**
  * Canonical flag → rubric-category mapping. Consumed by BOTH the report card
@@ -194,5 +191,10 @@ export const scoreRubric = (
   const totalScore = Math.round(categoryScores.reduce((sum, c) => sum + c.score, 0) * 100) / 100;
   const grade = critical ? capGrade(gradeFor(totalScore)) : gradeFor(totalScore);
 
-  return { categoryScores, totalScore, grade, criticalCapped: critical && grade === CRITICAL_GRADE_CAP };
+  return {
+    categoryScores,
+    totalScore,
+    grade,
+    criticalCapped: critical && grade === CRITICAL_GRADE_CAP,
+  };
 };

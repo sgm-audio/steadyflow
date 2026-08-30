@@ -1,5 +1,5 @@
-import type { Flag } from './flags.js';
 import type { AuditRow } from '../index.js';
+import type { Flag } from './flags.js';
 
 /**
  * Product mix / assortment audit.
@@ -47,7 +47,9 @@ export const detectUndifferentiatedProducts = (rows: AuditRow[]): string[][] => 
 };
 
 /** Detect catalogs where >80% of products are a single product type (assortment lopsidedness). */
-export const detectLopsidedAssortment = (rows: AuditRow[]): { dominantType: string; sharePct: number } | null => {
+export const detectLopsidedAssortment = (
+  rows: AuditRow[],
+): { dominantType: string; sharePct: number } | null => {
   if (rows.length < 5) return null;
   const typeCounts = new Map<string, number>();
   for (const row of rows) {

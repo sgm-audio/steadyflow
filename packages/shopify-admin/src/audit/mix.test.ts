@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { AuditRow } from '../index.js';
+import type { ShopifyProduct } from '../shopify/schema.js';
+import { evaluateFlags } from './flags.js';
+import { calcMargin } from './margin.js';
 import {
-  detectUndifferentiatedProducts,
   detectLopsidedAssortment,
   detectSingleCollectionConcentration,
+  detectUndifferentiatedProducts,
   evaluateMixFlags,
 } from './mix.js';
-import type { AuditRow } from '../index.js';
-import { calcMargin } from './margin.js';
-import { evaluateFlags } from './flags.js';
-import type { ShopifyProduct } from '../shopify/schema.js';
 
 function makeRow(title: string, productType: string, collections: string[] = []): AuditRow {
   const product: ShopifyProduct = {
@@ -24,16 +24,39 @@ function makeRow(title: string, productType: string, collections: string[] = [])
       minVariantPrice: { amount: '30.00', currencyCode: 'CAD' },
       maxVariantPrice: { amount: '30.00', currencyCode: 'CAD' },
     },
-    variants: { edges: [{ node: { id: 'v1', sku: 'SKU-1', title: 'Default', price: '30.00', weight: { value: 0.5, unit: 'KILOGRAMS' } } }] },
+    variants: {
+      edges: [
+        {
+          node: {
+            id: 'v1',
+            sku: 'SKU-1',
+            title: 'Default',
+            price: '30.00',
+            weight: { value: 0.5, unit: 'KILOGRAMS' },
+          },
+        },
+      ],
+    },
     images: { edges: [{ node: { id: 'i1', altText: 'image', url: 'https://x/1.jpg' } }] },
-    collections: { edges: collections.map((c, i) => ({ node: { id: `c${i}`, title: c, handle: c.toLowerCase() } })) },
+    collections: {
+      edges: collections.map((c, i) => ({
+        node: { id: `c${i}`, title: c, handle: c.toLowerCase() },
+      })),
+    },
     options: [],
     featuredImage: null,
     seo: { title: null, description: null },
   };
   const margin = calcMargin(product, { shopCurrency: 'CAD', fxRate: 1, costLookup: null });
   const flags = evaluateFlags({ product, margin, fxFallback: false });
-  return { product, margin, flags, primarySku: 'SKU-1', collectionTitles: collections, flagCategories: { core: 0, mix: 0, conversion: 0, inventory: 0, marketing: 0 } };
+  return {
+    product,
+    margin,
+    flags,
+    primarySku: 'SKU-1',
+    collectionTitles: collections,
+    flagCategories: { core: 0, mix: 0, conversion: 0, inventory: 0, marketing: 0 },
+  };
 }
 
 describe('detectUndifferentiatedProducts', () => {
@@ -90,10 +113,7 @@ describe('detectSingleCollectionConcentration', () => {
   });
 
   it('does not flag mixed-collection catalogs', () => {
-    const rows = [
-      makeRow('A', 'T', ['Featured']),
-      makeRow('B', 'T', ['New Arrivals']),
-    ];
+    const rows = [makeRow('A', 'T', ['Featured']), makeRow('B', 'T', ['New Arrivals'])];
     expect(detectSingleCollectionConcentration(rows)).toBeNull();
   });
 });

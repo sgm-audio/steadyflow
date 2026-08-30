@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   ManualReviewEvidenceSchema,
+  ManualReviewItemSchema,
   ReviewDecisionSchema,
   WaiverSchema,
-  ManualReviewItemSchema,
-  generateMarkdownChecklist,
   generateChecklistItems,
+  generateMarkdownChecklist,
   type ManualReviewChecklistItem,
 } from './manual-review';
 

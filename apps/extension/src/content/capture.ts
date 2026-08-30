@@ -26,11 +26,10 @@ interface PageExtract {
 }
 
 const extractPageInfo = (): PageExtract => {
-  const description = document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '';
-  const metaTags = Array.from(
-    document.querySelectorAll('meta[name], meta[property]')
-  ).map((m) => ({
-    name: (m.getAttribute('name') ?? m.getAttribute('property') ?? ''),
+  const description =
+    document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '';
+  const metaTags = Array.from(document.querySelectorAll('meta[name], meta[property]')).map((m) => ({
+    name: m.getAttribute('name') ?? m.getAttribute('property') ?? '',
     content: m.getAttribute('content') ?? '',
   }));
 

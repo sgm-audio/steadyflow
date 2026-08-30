@@ -1,12 +1,14 @@
-import { createClient } from '../../../../lib/supabase-server';
-import { createApiClient } from '../../../../lib/api-client';
 import { NextResponse } from 'next/server';
+import { createApiClient } from '../../../../lib/api-client';
+import { createClient } from '../../../../lib/supabase-server';
 
 const LLM_PROVIDERS = new Set(['deepseek', 'nvidia-nim', 'groq', 'openai-compatible']);
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const form = await request.formData();

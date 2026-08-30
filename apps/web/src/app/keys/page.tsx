@@ -1,12 +1,20 @@
-import { requireOrgSession } from '../../lib/session';
-import { classifyError } from '../../lib/api-client';
 import { StateBanner } from '../../components/StateBanner';
+import { classifyError } from '../../lib/api-client';
+import { requireOrgSession } from '../../lib/session';
 import RemoveKeyButton from './RemoveKeyButton';
 import TestKeyButton from './TestKeyButton';
 
 const ALL_PROVIDERS = [
-  'firecrawl', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible',
-  'shopify-admin', 'printify', 'amazon-sp-api', 'alibaba',
+  'firecrawl',
+  'tavily',
+  'deepseek',
+  'nvidia-nim',
+  'groq',
+  'openai-compatible',
+  'shopify-admin',
+  'printify',
+  'amazon-sp-api',
+  'alibaba',
 ];
 
 export default async function KeysPage() {
@@ -46,16 +54,25 @@ export default async function KeysPage() {
             <div>
               <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{provider}</span>
               {configured.has(provider) ? (
-                <span style={{ marginLeft: '0.5rem', color: '#34d399', fontSize: '0.75rem' }}>✓ Configured</span>
+                <span style={{ marginLeft: '0.5rem', color: '#34d399', fontSize: '0.75rem' }}>
+                  ✓ Configured
+                </span>
               ) : (
-                <span style={{ marginLeft: '0.5rem', color: '#a1a1aa', fontSize: '0.75rem' }}>Not set</span>
+                <span style={{ marginLeft: '0.5rem', color: '#a1a1aa', fontSize: '0.75rem' }}>
+                  Not set
+                </span>
               )}
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               {configured.has(provider) && <TestKeyButton provider={provider} />}
               <a
                 href={`/keys/${provider}`}
-                style={{ fontSize: '0.875rem', padding: '0.25rem 0.75rem', background: '#27272a', borderRadius: '0.25rem' }}
+                style={{
+                  fontSize: '0.875rem',
+                  padding: '0.25rem 0.75rem',
+                  background: '#27272a',
+                  borderRadius: '0.25rem',
+                }}
               >
                 {configured.has(provider) ? 'Update' : 'Add'}
               </a>

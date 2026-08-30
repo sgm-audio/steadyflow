@@ -1,11 +1,11 @@
 import { redact, safeStringify } from '../util/redact.js';
+import { CATALOG_PAGE_QUERY, SALES_SUMMARY_QUERY } from './queries.js';
 import {
-  CatalogResponseSchema,
   CatalogPageSchema,
+  CatalogResponseSchema,
   type CatalogResponse,
   type ShopifyProduct,
 } from './schema.js';
-import { CATALOG_PAGE_QUERY, SALES_SUMMARY_QUERY } from './queries.js';
 
 export interface ShopifyClientOptions {
   storeUrl: string;
@@ -141,7 +141,10 @@ export class ShopifyClient {
     const json = (await res.json()) as { access_token?: string; expires_in?: number };
     if (!json.access_token) throw new Error('Shopify token exchange returned no access_token');
 
-    this.tokenCache = { token: json.access_token, expiresAt: Date.now() + (json.expires_in ?? 86400) * 1000 };
+    this.tokenCache = {
+      token: json.access_token,
+      expiresAt: Date.now() + (json.expires_in ?? 86400) * 1000,
+    };
     return this.tokenCache.token;
   }
 
@@ -153,15 +156,18 @@ export class ShopifyClient {
       try {
         const shop = await this.resolveShopHandle();
         const token = await this.resolveToken();
-        const res = await fetch(`https://${shop}.myshopify.com/admin/api/${API_VERSION}/graphql.json`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Shopify-Access-Token': token,
-            Accept: 'application/json',
+        const res = await fetch(
+          `https://${shop}.myshopify.com/admin/api/${API_VERSION}/graphql.json`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Shopify-Access-Token': token,
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({ query, variables }),
           },
-          body: JSON.stringify({ query, variables }),
-        });
+        );
 
         if (res.status === 429) {
           const retryAfter = Number(res.headers.get('Retry-After') ?? '1');
@@ -180,16 +186,15 @@ export class ShopifyClient {
         if (json.errors && json.errors.length > 0) {
           // Throttle errors come through here too
           const isThrottle = json.errors.some(
-            (e) => typeof e.extensions?.code === 'string' && e.extensions.code.includes('THROTTLED'),
+            (e) =>
+              typeof e.extensions?.code === 'string' && e.extensions.code.includes('THROTTLED'),
           );
           if (isThrottle && attempt < this.maxRetries) {
             await this.sleep(this.backoff(attempt));
             attempt++;
             continue;
           }
-          throw new Error(
-            `Shopify GraphQL errors: ${safeStringify(json.errors)}`,
-          );
+          throw new Error(`Shopify GraphQL errors: ${safeStringify(json.errors)}`);
         }
 
         if (!json.data) {
@@ -267,7 +272,9 @@ export class ShopifyClient {
       const data = await this.query<{
         orders?: {
           pageInfo?: { hasNextPage?: boolean };
-          edges?: { node: { createdAt?: string; totalPriceSet?: { shopMoney?: { amount?: string } } } }[];
+          edges?: {
+            node: { createdAt?: string; totalPriceSet?: { shopMoney?: { amount?: string } } };
+          }[];
         };
       }>(SALES_SUMMARY_QUERY);
 

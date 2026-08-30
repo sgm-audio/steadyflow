@@ -7,13 +7,27 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { createServiceRoleClient } from './supabase.ts';
 
-export { json, jsonError, ok, created, noContent, badRequest, unauthorized, forbidden, notFound, rateLimited, internalError, parseInput, handleCors } from './response.ts';
-export { createServiceRoleClient } from './supabase.ts';
 export { writeAudit } from './audit.ts';
-export { checkRateLimit } from './rateLimit.ts';
-export { enqueue, dequeue, archive } from './queue.ts';
 export { unwrapProviderKey, zeroBuffer } from './envelope.ts';
+export { archive, dequeue, enqueue } from './queue.ts';
 export type { QueueName } from './queue.ts';
+export { checkRateLimit } from './rateLimit.ts';
+export {
+  badRequest,
+  created,
+  forbidden,
+  handleCors,
+  internalError,
+  json,
+  jsonError,
+  noContent,
+  notFound,
+  ok,
+  parseInput,
+  rateLimited,
+  unauthorized,
+} from './response.ts';
+export { createServiceRoleClient } from './supabase.ts';
 
 export interface EdgeContext {
   req: Request;

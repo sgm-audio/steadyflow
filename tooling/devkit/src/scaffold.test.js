@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { scaffold, toSlug, toPhpClass, SCAFFOLD_KINDS } from './scaffold.js';
+import { scaffold, SCAFFOLD_KINDS, toPhpClass, toSlug } from './scaffold.js';
 
 test('toSlug normalizes names', () => {
   assert.equal(toSlug('My Cool Theme'), 'my-cool-theme');

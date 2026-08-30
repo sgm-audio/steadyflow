@@ -31,7 +31,11 @@ Deno.serve(async (_req: Request) => {
   // audit_log.user_id has a foreign key to auth.users; orgId is not a valid
   // user_id, so writing it there always silently violated the FK and
   // dropped the audit row. Fetch the intent's real creator instead.
-  const { data: intentRow } = await supabase.from('intents').select('user_id').eq('id', intentId).single();
+  const { data: intentRow } = await supabase
+    .from('intents')
+    .select('user_id')
+    .eq('id', intentId)
+    .single();
   const userId = (intentRow as { user_id: string } | null)?.user_id ?? orgId;
 
   const startMs = Date.now();
@@ -79,11 +83,13 @@ ${content}`;
     // Insert each insight
     for (const ins of insights) {
       const citations = Array.isArray(ins.citations)
-        ? (ins.citations as Array<Record<string, unknown>>).slice(0, 20).map((c: Record<string, unknown>) => ({
-            sourceId,
-            url: (source as { url: string }).url,
-            excerpt: String(c.excerpt ?? '').slice(0, 500),
-          }))
+        ? (ins.citations as Array<Record<string, unknown>>)
+            .slice(0, 20)
+            .map((c: Record<string, unknown>) => ({
+              sourceId,
+              url: (source as { url: string }).url,
+              excerpt: String(c.excerpt ?? '').slice(0, 500),
+            }))
         : [];
 
       await supabase.from('insights').insert({
@@ -105,10 +111,14 @@ ${content}`;
 
     // Audit
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: userId,
-      action: 'llm.chat', outcome: 'success',
-      input_hash: '0'.repeat(64), provider: 'deepseek',
-      duration_ms: Date.now() - startMs, metadata: {},
+      org_id: orgId,
+      user_id: userId,
+      action: 'llm.chat',
+      outcome: 'success',
+      input_hash: '0'.repeat(64),
+      provider: 'deepseek',
+      duration_ms: Date.now() - startMs,
+      metadata: {},
     });
 
     // Archive the message
@@ -117,16 +127,23 @@ ${content}`;
       p_msg_id: (msg as { msg_id: number }).msg_id,
     });
   } catch (err) {
-    await supabase.from('intents').update({
-      status: 'failed',
-      error_code: 'ANALYZE_FAILED',
-      error_message: String(err),
-    }).eq('id', intentId);
+    await supabase
+      .from('intents')
+      .update({
+        status: 'failed',
+        error_code: 'ANALYZE_FAILED',
+        error_message: String(err),
+      })
+      .eq('id', intentId);
     await supabase.from('audit_log').insert({
-      org_id: orgId, user_id: userId,
-      action: 'llm.chat', outcome: 'error',
-      input_hash: '0'.repeat(64), provider: 'deepseek',
-      duration_ms: Date.now() - startMs, metadata: {},
+      org_id: orgId,
+      user_id: userId,
+      action: 'llm.chat',
+      outcome: 'error',
+      input_hash: '0'.repeat(64),
+      provider: 'deepseek',
+      duration_ms: Date.now() - startMs,
+      metadata: {},
     });
   }
 

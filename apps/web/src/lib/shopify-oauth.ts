@@ -45,7 +45,10 @@ export const verifyHmac = (searchParams: URLSearchParams): boolean => {
     .map(([key, value]) => `${key}=${value}`)
     .join('&');
 
-  const digest = crypto.createHmac('sha256', getEnv('SHOPIFY_CLIENT_SECRET')).update(message).digest('hex');
+  const digest = crypto
+    .createHmac('sha256', getEnv('SHOPIFY_CLIENT_SECRET'))
+    .update(message)
+    .digest('hex');
   const digestBuf = Buffer.from(digest, 'utf8');
   const hmacBuf = Buffer.from(hmac, 'utf8');
   if (digestBuf.length !== hmacBuf.length) return false;
@@ -57,7 +60,10 @@ interface TokenExchangeResult {
   scope: string;
 }
 
-export const exchangeCodeForToken = async (shop: string, code: string): Promise<TokenExchangeResult> => {
+export const exchangeCodeForToken = async (
+  shop: string,
+  code: string,
+): Promise<TokenExchangeResult> => {
   const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

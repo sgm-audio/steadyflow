@@ -1,6 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Insight } from '../schemas/insight.js';
-import { computeFindingConfidence, enrichFinding, buildExecutiveSummary, buildSprintRecommendation } from './enrich.js';
+import {
+  buildExecutiveSummary,
+  buildSprintRecommendation,
+  computeFindingConfidence,
+  enrichFinding,
+} from './enrich.js';
 
 const makeInsight = (overrides: Partial<Parameters<typeof Insight.parse>[0]> = {}) =>
   Insight.parse({
@@ -24,13 +29,18 @@ describe('computeFindingConfidence', () => {
 
   it('increases confidence when citations are present', () => {
     const score = computeFindingConfidence(
-      makeInsight({ severity: 'medium', citations: [{ sourceId: '00000000-0000-4000-8000-000000000002' }] }),
+      makeInsight({
+        severity: 'medium',
+        citations: [{ sourceId: '00000000-0000-4000-8000-000000000002' }],
+      }),
     );
     expect(score).toBe(0.75);
   });
 
   it('increases confidence for shopify-admin-sourced findings', () => {
-    const score = computeFindingConfidence(makeInsight({ severity: 'medium', provider: 'shopify-admin' }));
+    const score = computeFindingConfidence(
+      makeInsight({ severity: 'medium', provider: 'shopify-admin' }),
+    );
     expect(score).toBe(0.7);
   });
 
@@ -41,14 +51,21 @@ describe('computeFindingConfidence', () => {
 
   it('does not penalize a cited high-severity finding', () => {
     const score = computeFindingConfidence(
-      makeInsight({ severity: 'high', citations: [{ sourceId: '00000000-0000-4000-8000-000000000002' }] }),
+      makeInsight({
+        severity: 'high',
+        citations: [{ sourceId: '00000000-0000-4000-8000-000000000002' }],
+      }),
     );
     expect(score).toBe(0.75);
   });
 
   it('clamps to [0, 1]', () => {
     const score = computeFindingConfidence(
-      makeInsight({ severity: 'medium', provider: 'shopify-admin', citations: [{ sourceId: '00000000-0000-4000-8000-000000000002' }] }),
+      makeInsight({
+        severity: 'medium',
+        provider: 'shopify-admin',
+        citations: [{ sourceId: '00000000-0000-4000-8000-000000000002' }],
+      }),
     );
     expect(score).toBeLessThanOrEqual(1);
     expect(score).toBeGreaterThanOrEqual(0);
@@ -57,7 +74,16 @@ describe('computeFindingConfidence', () => {
 
 describe('enrichFinding', () => {
   it('adds confidence, remediation, effortEstimate, and requiredAccess to every category', () => {
-    const categories = ['pricing', 'positioning', 'product_mix', 'marketing', 'seo', 'conversion', 'inventory', 'trend'] as const;
+    const categories = [
+      'pricing',
+      'positioning',
+      'product_mix',
+      'marketing',
+      'seo',
+      'conversion',
+      'inventory',
+      'trend',
+    ] as const;
     for (const category of categories) {
       const finding = enrichFinding(makeInsight({ category }));
       expect(finding.confidence).toBeGreaterThanOrEqual(0);
@@ -108,7 +134,10 @@ describe('buildExecutiveSummary', () => {
   });
 
   it('notes when no high-severity findings exist', () => {
-    const summary = buildExecutiveSummary([makeInsight({ severity: 'medium' }), makeInsight({ severity: 'low' })]);
+    const summary = buildExecutiveSummary([
+      makeInsight({ severity: 'medium' }),
+      makeInsight({ severity: 'low' }),
+    ]);
     expect(summary).toContain('No high-severity findings were identified');
   });
 });
@@ -125,20 +154,28 @@ describe('buildSprintRecommendation', () => {
   });
 
   it('recommends a scoped fix for 1-2 high-severity findings, with singular grammar for one', () => {
-    const rec = buildSprintRecommendation([makeInsight({ severity: 'high' }), makeInsight({ severity: 'medium' })]);
+    const rec = buildSprintRecommendation([
+      makeInsight({ severity: 'high' }),
+      makeInsight({ severity: 'medium' }),
+    ]);
     expect(rec).toContain('scoped fix for the 1 high-severity finding');
     expect(rec).not.toContain('findings');
     expect(rec).toContain('1 medium-severity item');
   });
 
   it('recommends no sprint but notes medium findings when there are no high-severity findings', () => {
-    const rec = buildSprintRecommendation([makeInsight({ severity: 'medium' }), makeInsight({ severity: 'medium' })]);
+    const rec = buildSprintRecommendation([
+      makeInsight({ severity: 'medium' }),
+      makeInsight({ severity: 'medium' }),
+    ]);
     expect(rec).toContain('No sprint recommended');
     expect(rec).toContain('2 medium-severity findings');
   });
 
   it('recommends no sprint when everything is low severity', () => {
     const rec = buildSprintRecommendation([makeInsight({ severity: 'low' })]);
-    expect(rec).toBe("No sprint recommended — findings are low-priority and can be addressed at the store owner's convenience.");
+    expect(rec).toBe(
+      "No sprint recommended — findings are low-priority and can be addressed at the store owner's convenience.",
+    );
   });
 });

@@ -1,5 +1,5 @@
-import type { Flag } from './flags.js';
 import type { ShopifyProduct } from '../shopify/schema.js';
+import type { Flag } from './flags.js';
 
 /**
  * On-page conversion audit.

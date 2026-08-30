@@ -6,13 +6,15 @@
  */
 
 import { z } from 'npm:zod@3';
-import {
-  handleCors, createContext, ok, badRequest,
-} from '../_shared/context.ts';
+import { badRequest, createContext, handleCors, ok } from '../_shared/context.ts';
 
 const ListInput = z.object({
-  kind: z.enum(['analyze_shop', 'analyze_product', 'enrich_contact', 'monitor_competitor']).optional(),
-  status: z.enum(['queued', 'running', 'succeeded', 'failed', 'cancelled', 'rate_limited']).optional(),
+  kind: z
+    .enum(['analyze_shop', 'analyze_product', 'enrich_contact', 'monitor_competitor'])
+    .optional(),
+  status: z
+    .enum(['queued', 'running', 'succeeded', 'failed', 'cancelled', 'rate_limited'])
+    .optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().optional(),
 });
@@ -46,7 +48,10 @@ Deno.serve(async (req: Request) => {
 
   const { data, error } = await query;
   if (error) {
-    return new Response(JSON.stringify({ error: { code: 'INTERNAL', message: error.message } }), { status: 500, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ error: { code: 'INTERNAL', message: error.message } }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 
   const rows = data ?? [];

@@ -6,12 +6,8 @@
  */
 
 import type { LlmAdapter } from './adapter.js';
+import { LlmEmptyResponseError, LlmMalformedJsonError, LlmRefusalError } from './errors.js';
 import type { Insight } from './insight-types.js';
-import {
-  LlmEmptyResponseError,
-  LlmMalformedJsonError,
-  LlmRefusalError,
-} from './errors.js';
 
 export interface AnalyzeRequest {
   /** The scraped markdown content of the shop page. */
@@ -68,10 +64,11 @@ export const analyzeShop = async (
 ): Promise<AnalyzeResult> => {
   const prompt = SHOP_ANALYSIS_PROMPT.replace('{content}', request.content.slice(0, 12000));
 
-  const response = await adapter.chat(
-    [{ role: 'user', content: prompt }],
-    { jsonMode: true, temperature: 0.3, maxTokens: 4096 },
-  );
+  const response = await adapter.chat([{ role: 'user', content: prompt }], {
+    jsonMode: true,
+    temperature: 0.3,
+    maxTokens: 4096,
+  });
 
   const content = response.content.trim();
   if (content.length === 0) {
@@ -92,11 +89,14 @@ export const analyzeShop = async (
   }
 
   // Map to typed Insight objects
-  const toStr = (v: unknown, fallback: string): string => typeof v === 'string' ? v : fallback;
+  const toStr = (v: unknown, fallback: string): string => (typeof v === 'string' ? v : fallback);
 
   const insights: Insight[] = rawInsights.slice(0, 5).map((raw, _idx) => {
     const i = raw as Record<string, unknown>;
-    const citations = (Array.isArray(i.citations) ? i.citations.slice(0, 20) : []) as Record<string, unknown>[];
+    const citations = (Array.isArray(i.citations) ? i.citations.slice(0, 20) : []) as Record<
+      string,
+      unknown
+    >[];
 
     return {
       category: validCategory(toStr(i.category, 'positioning')),
@@ -123,7 +123,16 @@ export const analyzeShop = async (
 };
 
 const validCategory = (c: string): string => {
-  const categories = ['pricing', 'positioning', 'product_mix', 'marketing', 'seo', 'conversion', 'inventory', 'trend'];
+  const categories = [
+    'pricing',
+    'positioning',
+    'product_mix',
+    'marketing',
+    'seo',
+    'conversion',
+    'inventory',
+    'trend',
+  ];
   return categories.includes(c) ? c : 'positioning';
 };
 
@@ -131,8 +140,7 @@ const validCategory = (c: string): string => {
  * Detect a safety/policy refusal in a non-JSON response body. Applied only
  * after JSON parsing fails, so a legitimate JSON payload is never misread.
  */
-const isRefusal = (content: string): boolean =>
-  REFUSAL_PATTERNS.some((re) => re.test(content));
+const isRefusal = (content: string): boolean => REFUSAL_PATTERNS.some((re) => re.test(content));
 
 const REFUSAL_PATTERNS: readonly RegExp[] = [
   /I cannot/i,

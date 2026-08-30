@@ -3,14 +3,22 @@
  * component doesn't need the user's raw access token.
  */
 
-import { createClient } from '../../../../lib/supabase-server';
-import { createApiClient } from '../../../../lib/api-client';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { createApiClient } from '../../../../lib/api-client';
+import { createClient } from '../../../../lib/supabase-server';
 
 const PROVIDERS = [
-  'firecrawl', 'tavily', 'deepseek', 'nvidia-nim', 'groq', 'openai-compatible',
-  'shopify-admin', 'printify', 'amazon-sp-api', 'alibaba',
+  'firecrawl',
+  'tavily',
+  'deepseek',
+  'nvidia-nim',
+  'groq',
+  'openai-compatible',
+  'shopify-admin',
+  'printify',
+  'amazon-sp-api',
+  'alibaba',
 ] as const;
 
 const TestKeyInput = z.object({ provider: z.enum(PROVIDERS) });
@@ -20,11 +28,18 @@ export async function POST(request: Request) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: { code: 'UNAUTHENTICATED', message: 'Not signed in' } }, { status: 401 });
+  if (!session)
+    return NextResponse.json(
+      { error: { code: 'UNAUTHENTICATED', message: 'Not signed in' } },
+      { status: 401 },
+    );
 
   const parsed = TestKeyInput.safeParse(await request.json());
   if (!parsed.success) {
-    return NextResponse.json({ error: { code: 'VALIDATION_FAILED', message: 'Invalid provider' } }, { status: 400 });
+    return NextResponse.json(
+      { error: { code: 'VALIDATION_FAILED', message: 'Invalid provider' } },
+      { status: 400 },
+    );
   }
 
   const api = createApiClient(session.access_token);

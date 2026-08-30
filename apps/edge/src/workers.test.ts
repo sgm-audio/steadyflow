@@ -1,7 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@steadyflow/db';
-import { workerScrape, workerEnrich, workerAnalyze, workerMonitorCompetitor, proxyFirecrawl } from './workers.js';
+import { createClient } from '@supabase/supabase-js';
+import { describe, expect, it } from 'vitest';
+import {
+  proxyFirecrawl,
+  workerAnalyze,
+  workerEnrich,
+  workerMonitorCompetitor,
+  workerScrape,
+} from './workers.js';
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 // Checked in beforeAll / per-test — avoid module-load throw aborting other suites.
@@ -29,9 +35,9 @@ describe('proxyFirecrawl', () => {
     await expect(proxyFirecrawl(supabase, ORG_ID, 'http://127.0.0.1:54321/')).rejects.toThrow(
       /private address/,
     );
-    await expect(proxyFirecrawl(supabase, ORG_ID, 'http://169.254.169.254/latest/meta-data/')).rejects.toThrow(
-      /private address/,
-    );
+    await expect(
+      proxyFirecrawl(supabase, ORG_ID, 'http://169.254.169.254/latest/meta-data/'),
+    ).rejects.toThrow(/private address/);
   });
 
   it('refuses to scrape a non-http(s) URL', async () => {
@@ -109,7 +115,13 @@ describe('workerMonitorCompetitor', () => {
     expect(snapshot?.source).toBe('scrape');
 
     // Cleanup: cascades to competitor_snapshots via FK.
-    await supabase.from('competitors').delete().eq('id', competitor?.id ?? '');
-    await supabase.from('intents').delete().eq('id', intent?.id ?? '');
+    await supabase
+      .from('competitors')
+      .delete()
+      .eq('id', competitor?.id ?? '');
+    await supabase
+      .from('intents')
+      .delete()
+      .eq('id', intent?.id ?? '');
   });
 });

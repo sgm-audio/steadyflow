@@ -17,7 +17,9 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 const hexToBytes = (hex: string): Uint8Array =>
-  new Uint8Array((hex.replace(/^\\x/, '').match(/.{1,2}/g) ?? []).map((b) => Number.parseInt(b, 16)));
+  new Uint8Array(
+    (hex.replace(/^\\x/, '').match(/.{1,2}/g) ?? []).map((b) => Number.parseInt(b, 16)),
+  );
 
 /**
  * Unwrap the provider key stored for (orgId, provider).

@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
 import { createClient } from '@supabase/supabase-js';
+import { defineConfig } from 'vitest/config';
 
 // Integration suites need a live `supabase start` on :54321.
 const integrationTests = [

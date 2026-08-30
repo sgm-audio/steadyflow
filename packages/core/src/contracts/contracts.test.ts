@@ -1,6 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import {
+  analyzeShop,
+  auditQuery,
+  intentCancel,
+  intentList,
+  keysList,
+  keysSet,
+  keysTest,
+  listInsights,
+  orgLlmConfigGet,
+  orgLlmConfigSet,
+  reportGenerate,
+} from './procedures.js';
 import { router, type ProcedureName } from './router.js';
-import { analyzeShop, listInsights, auditQuery, keysSet, keysList, keysTest, orgLlmConfigGet, orgLlmConfigSet, intentCancel, intentList, reportGenerate } from './procedures.js';
 
 describe('Router', () => {
   it('exports all 11 procedures', () => {

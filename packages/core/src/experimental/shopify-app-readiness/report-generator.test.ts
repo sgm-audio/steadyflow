@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { ReadinessCheckStatus } from './checks';
+import type { ReadinessReport } from './report-generator';
 import {
-  generateReadinessReport,
-  reportToJson,
-  reportToMarkdown,
-  reportToHtml,
   calculateStaleWarnings,
   computeOverallStatus,
+  generateReadinessReport,
+  reportToHtml,
+  reportToJson,
+  reportToMarkdown,
 } from './report-generator';
-import type { ReadinessReport } from './report-generator';
-import type { ReadinessCheckStatus } from './checks';
 
 describe('Readiness Report Generator', () => {
   const baseConfig = {
@@ -32,15 +32,35 @@ describe('Readiness Report Generator', () => {
       { requirementId: 'config-parsing', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
       { requirementId: 'api-scopes', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
       { requirementId: 'deprecated-api', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
-      { requirementId: 'oauth-installation', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
-      { requirementId: 'embedded-app', status: 'manual_review' as ReadinessCheckStatus, message: 'Manual' },
-      { requirementId: 'theme-extension', status: 'not_applicable' as ReadinessCheckStatus, message: 'N/A' },
+      {
+        requirementId: 'oauth-installation',
+        status: 'pass' as ReadinessCheckStatus,
+        message: 'OK',
+      },
+      {
+        requirementId: 'embedded-app',
+        status: 'manual_review' as ReadinessCheckStatus,
+        message: 'Manual',
+      },
+      {
+        requirementId: 'theme-extension',
+        status: 'not_applicable' as ReadinessCheckStatus,
+        message: 'N/A',
+      },
       { requirementId: 'direct-mutations', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
-      { requirementId: 'privacy-support-urls', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
+      {
+        requirementId: 'privacy-support-urls',
+        status: 'pass' as ReadinessCheckStatus,
+        message: 'OK',
+      },
       { requirementId: 'name-description', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
       { requirementId: 'dev-urls', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
       { requirementId: 'secret-detection', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
-      { requirementId: 'webhook-identification', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
+      {
+        requirementId: 'webhook-identification',
+        status: 'pass' as ReadinessCheckStatus,
+        message: 'OK',
+      },
       { requirementId: 'external-deps', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
     ],
     manualReviewResults: [
@@ -60,8 +80,16 @@ describe('Readiness Report Generator', () => {
   describe('calculateStaleWarnings', () => {
     it('returns empty array when all requirements are fresh', () => {
       const mockRequirements = [
-        { id: 'req1', title: 'Req 1', verifiedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
-        { id: 'req2', title: 'Req 2', verifiedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString() },
+        {
+          id: 'req1',
+          title: 'Req 1',
+          verifiedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 'req2',
+          title: 'Req 2',
+          verifiedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        },
       ];
       const warnings = calculateStaleWarnings(mockRequirements, new Date());
       expect(warnings.length).toBe(0);
@@ -69,7 +97,11 @@ describe('Readiness Report Generator', () => {
 
     it('detects stale requirements older than threshold', () => {
       const mockRequirements = [
-        { id: 'req1', title: 'Req 1', verifiedAt: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString() },
+        {
+          id: 'req1',
+          title: 'Req 1',
+          verifiedAt: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
+        },
       ];
       const warnings = calculateStaleWarnings(mockRequirements, new Date());
       expect(warnings.length).toBe(1);
@@ -80,55 +112,69 @@ describe('Readiness Report Generator', () => {
 
   describe('computeOverallStatus', () => {
     it('returns not_ready when static checks have failures', () => {
-      const checks = [{ requirementId: 'a', status: 'fail' as ReadinessCheckStatus, message: 'Fail' }];
+      const checks = [
+        { requirementId: 'a', status: 'fail' as ReadinessCheckStatus, message: 'Fail' },
+      ];
       const status = computeOverallStatus(checks, []);
       expect(status).toBe('not_ready');
     });
 
     it('returns needs_review when manual reviews have deferred', () => {
-      const checks = [{ requirementId: 'a', status: 'pass' as ReadinessCheckStatus, message: 'OK' }];
-      const reviews = [{
-        requirementId: 'a',
-        requirementVersion: '1.0.0',
-        reviewerId: 'r',
-        reviewerName: 'R',
-        decision: 'deferred' as const,
-        evidence: [],
-        applicabilityDecision: 'applicable' as const,
-        reviewedAt: new Date().toISOString(),
-      }];
+      const checks = [
+        { requirementId: 'a', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
+      ];
+      const reviews = [
+        {
+          requirementId: 'a',
+          requirementVersion: '1.0.0',
+          reviewerId: 'r',
+          reviewerName: 'R',
+          decision: 'deferred' as const,
+          evidence: [],
+          applicabilityDecision: 'applicable' as const,
+          reviewedAt: new Date().toISOString(),
+        },
+      ];
       const status = computeOverallStatus(checks, reviews);
       expect(status).toBe('needs_review');
     });
 
     it('returns needs_review when manual reviews have conditional', () => {
-      const checks = [{ requirementId: 'a', status: 'pass' as ReadinessCheckStatus, message: 'OK' }];
-      const reviews = [{
-        requirementId: 'a',
-        requirementVersion: '1.0.0',
-        reviewerId: 'r',
-        reviewerName: 'R',
-        decision: 'conditional' as const,
-        evidence: [],
-        applicabilityDecision: 'applicable' as const,
-        reviewedAt: new Date().toISOString(),
-      }];
+      const checks = [
+        { requirementId: 'a', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
+      ];
+      const reviews = [
+        {
+          requirementId: 'a',
+          requirementVersion: '1.0.0',
+          reviewerId: 'r',
+          reviewerName: 'R',
+          decision: 'conditional' as const,
+          evidence: [],
+          applicabilityDecision: 'applicable' as const,
+          reviewedAt: new Date().toISOString(),
+        },
+      ];
       const status = computeOverallStatus(checks, reviews);
       expect(status).toBe('needs_review');
     });
 
     it('returns ready when all pass and no pending manual', () => {
-      const checks = [{ requirementId: 'a', status: 'pass' as ReadinessCheckStatus, message: 'OK' }];
-      const reviews = [{
-        requirementId: 'a',
-        requirementVersion: '1.0.0',
-        reviewerId: 'r',
-        reviewerName: 'R',
-        decision: 'approved' as const,
-        evidence: [],
-        applicabilityDecision: 'applicable' as const,
-        reviewedAt: new Date().toISOString(),
-      }];
+      const checks = [
+        { requirementId: 'a', status: 'pass' as ReadinessCheckStatus, message: 'OK' },
+      ];
+      const reviews = [
+        {
+          requirementId: 'a',
+          requirementVersion: '1.0.0',
+          reviewerId: 'r',
+          reviewerName: 'R',
+          decision: 'approved' as const,
+          evidence: [],
+          applicabilityDecision: 'applicable' as const,
+          reviewedAt: new Date().toISOString(),
+        },
+      ];
       const status = computeOverallStatus(checks, reviews);
       expect(status).toBe('ready');
     });
@@ -137,7 +183,7 @@ describe('Readiness Report Generator', () => {
   describe('generateReadinessReport', () => {
     it('generates complete report structure', () => {
       const report = generateReadinessReport(baseConfig);
-      
+
       expect(report.metadata.app.name).toBe('Test App');
       expect(report.metadata.scan.commitSha).toBe('abc123def456');
       expect(report.summary.totalRequirements).toBeGreaterThan(0);

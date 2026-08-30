@@ -36,7 +36,11 @@ export const unwrapKey = async (dek: Uint8Array, env: Envelope): Promise<Uint8Ar
   const cryptoKey = await crypto.subtle.importKey('raw', dek, { name: 'AES-GCM' }, false, [
     'decrypt',
   ]);
-  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: env.iv }, cryptoKey, env.ciphertext);
+  const pt = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: env.iv },
+    cryptoKey,
+    env.ciphertext,
+  );
   return new Uint8Array(pt);
 };
 

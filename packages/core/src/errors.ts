@@ -28,8 +28,15 @@ export const SteadyFlowError = z.object({
 });
 export type SteadyFlowError = z.infer<typeof SteadyFlowError>;
 
-export const error = (code: ErrorCode, message: string, details?: Record<string, unknown>): SteadyFlowError => {
-  const base: { code: ErrorCode; message: string; details?: Record<string, unknown> } = { code, message };
+export const error = (
+  code: ErrorCode,
+  message: string,
+  details?: Record<string, unknown>,
+): SteadyFlowError => {
+  const base: { code: ErrorCode; message: string; details?: Record<string, unknown> } = {
+    code,
+    message,
+  };
   if (details !== undefined) base.details = details;
   return base;
 };

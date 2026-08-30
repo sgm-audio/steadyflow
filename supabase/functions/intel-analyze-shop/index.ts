@@ -9,16 +9,16 @@
 
 import { z } from 'npm:zod@3';
 import {
-  handleCors,
-  createContext,
-  parseInput,
-  checkRateLimit,
-  writeAudit,
-  enqueue,
-  ok,
-  rateLimited,
   badRequest,
+  checkRateLimit,
+  createContext,
+  enqueue,
+  handleCors,
   internalError,
+  ok,
+  parseInput,
+  rateLimited,
+  writeAudit,
 } from '../_shared/context.ts';
 
 // Zod schema inline (mirrors @steadyflow/core AnalyzeShopInput, kept in sync by contract tests)

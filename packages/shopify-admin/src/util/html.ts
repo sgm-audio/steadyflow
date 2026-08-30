@@ -30,7 +30,9 @@ export function decodeEntities(s: string): string {
   }
   // Numeric entities: &#39;
   out = out.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)));
-  out = out.replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+  out = out.replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+    String.fromCharCode(parseInt(hex, 16)),
+  );
   return out;
 }
 

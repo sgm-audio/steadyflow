@@ -37,7 +37,9 @@ export const analyzeShop = async (params: AnalyzeShopParams): Promise<AnalyzeSho
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } })) as { error?: { message?: string } };
+    const err = (await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }))) as {
+      error?: { message?: string };
+    };
     throw new Error(err.error?.message ?? `HTTP ${res.status}`);
   }
 

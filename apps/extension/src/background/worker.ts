@@ -8,8 +8,8 @@
  *   4. Relay messages between popup and content scripts
  */
 
-import { getToken, signIn, signOut } from '../lib/supabase.js';
 import { analyzeShop } from '../lib/api.js';
+import { getToken, signIn, signOut } from '../lib/supabase.js';
 
 // ── Context Menu ───────────────────────────────────────────────────────────
 
@@ -54,26 +54,38 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
 
   switch (message.type) {
     case 'GET_AUTH_STATUS':
-      void getToken().then((token) => { sendResponse({ authenticated: !!token }); });
+      void getToken().then((token) => {
+        sendResponse({ authenticated: !!token });
+      });
       return true; // async response
 
     case 'LOGIN':
       if (message.email && message.password) {
         void signIn(message.email, message.password)
-          .then(() => { sendSuccess(); })
-          .catch((err: unknown) => { sendError(err); });
+          .then(() => {
+            sendSuccess();
+          })
+          .catch((err: unknown) => {
+            sendError(err);
+          });
       }
       return true;
 
     case 'LOGOUT':
-      void signOut().then(() => { sendResponse({ success: true }); });
+      void signOut().then(() => {
+        sendResponse({ success: true });
+      });
       return true;
 
     case 'GET_PAGE_INFO':
       if (_sender.tab?.id) {
         void capturePage(_sender.tab.id)
-          .then((info) => { sendResponse(info); })
-          .catch((err: unknown) => { sendResponse({ error: err instanceof Error ? err.message : String(err) }); });
+          .then((info) => {
+            sendResponse(info);
+          })
+          .catch((err: unknown) => {
+            sendResponse({ error: err instanceof Error ? err.message : String(err) });
+          });
         return true;
       }
       sendResponse({ error: 'No tab' });
@@ -82,8 +94,12 @@ chrome.runtime.onMessage.addListener((rawMessage, _sender, sendResponse) => {
     case 'ANALYZE_CURRENT':
       if (message.url) {
         void submitAnalysis(message.url, message.platform ?? 'shopify')
-          .then((result) => { sendResponse({ success: true, ...result }); })
-          .catch((err: unknown) => { sendError(err); });
+          .then((result) => {
+            sendResponse({ success: true, ...result });
+          })
+          .catch((err: unknown) => {
+            sendError(err);
+          });
         return true;
       }
       sendResponse({ error: 'No URL' });
@@ -110,12 +126,17 @@ const capturePage = async (tabId: number): Promise<PageInfo> => {
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: () => {
-      const description = document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '';
-      const metaTags = Array.from(document.querySelectorAll('meta[name], meta[property]')).map((m) => ({
-        name: (m.getAttribute('name') ?? m.getAttribute('property') ?? ''),
-        content: m.getAttribute('content') ?? '',
-      }));
-      const productCount = document.querySelectorAll('[data-product-id], .product-item, .grid-product').length;
+      const description =
+        document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '';
+      const metaTags = Array.from(document.querySelectorAll('meta[name], meta[property]')).map(
+        (m) => ({
+          name: m.getAttribute('name') ?? m.getAttribute('property') ?? '',
+          content: m.getAttribute('content') ?? '',
+        }),
+      );
+      const productCount = document.querySelectorAll(
+        '[data-product-id], .product-item, .grid-product',
+      ).length;
 
       return {
         url: window.location.href,
@@ -158,7 +179,7 @@ const analyzeCurrentPage = async (_tabId: number, url: string) => {
       return;
     }
 
-    const result = await submitAnalysis(url, 'shopify') as { intentId: string };
+    const result = (await submitAnalysis(url, 'shopify')) as { intentId: string };
 
     // eslint-disable-next-line @typescript-eslint/no-deprecated
     chrome.notifications.create({
