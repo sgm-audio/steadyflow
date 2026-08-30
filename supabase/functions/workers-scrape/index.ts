@@ -237,8 +237,11 @@ Deno.serve(async (_req: Request) => {
         const byFlag = new Map<string, { severity: 'red' | 'yellow'; products: string[] }>();
         for (const row of audit.rows) {
           for (const flag of row.flags) {
-            const entry = byFlag.get(flag.code) ?? { severity: flag.severity, products: [] };
-            entry.products.push(row.product.title);
+            const entry = byFlag.get(flag.code) ?? {
+              severity: flag.severity as 'red' | 'yellow',
+              products: [] as string[],
+            };
+            entry.products.push(row.product.title as string);
             byFlag.set(flag.code, entry);
           }
         }

@@ -46,6 +46,7 @@ export const AuditAction = z.enum([
   'scrape.playwright',
   'enrich.tavily',
   'analyze.shopify_catalog',
+  'analyze.appstore_readiness',
   'monitor.competitor',
   'llm.chat',
   'keys.set',
@@ -54,6 +55,8 @@ export const AuditAction = z.enum([
   'keys.test',
   'intent.create',
   'intent.cancel',
+  'report.generate',
+  'org.llmConfig.set',
   'auth.login',
   'auth.logout',
 ]);

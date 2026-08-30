@@ -15,6 +15,7 @@ export const AuditAction = z.enum([
   'intent.create',
   'intent.cancel',
   'report.generate',
+  'org.llmConfig.set',
   'auth.login',
   'auth.logout',
 ]);
