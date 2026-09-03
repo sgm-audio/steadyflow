@@ -18,6 +18,7 @@ import { IntentId, IntentKind, IntentStatus } from '../schemas/intent.js';
 import { PlatformUrl } from '../schemas/platform.js';
 import { LlmProvider, LlmProviderConfig, Provider } from '../schemas/provider.js';
 import { Report } from '../schemas/report.js';
+import { TrackingVerificationOutput } from '../schemas/tracking.js';
 
 export const AuthRequirement = z.enum(['required', 'optional', 'none']);
 export type AuthRequirement = z.infer<typeof AuthRequirement>;
@@ -302,5 +303,26 @@ export const reportGenerate = defineProcedure({
   rateLimit: 'standard',
   // Idempotent: a report already generated for this intent is returned as-is
   // rather than regenerated, so repeated calls are safe.
+  idempotent: true,
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// intel.trackingCheck — verify analytics/marketing tags are firing on the
+// storefront. (B6 — contract surface only; worker wiring deferred.)
+// ──────────────────────────────────────────────────────────────────────────
+
+export const TrackingCheckInput = PlatformUrl;
+export type TrackingCheckInput = z.infer<typeof TrackingCheckInput>;
+
+export const TrackingCheckOutput = TrackingVerificationOutput;
+export type TrackingCheckOutput = z.infer<typeof TrackingCheckOutput>;
+
+export const trackingCheck = defineProcedure({
+  name: 'intel.trackingCheck',
+  input: TrackingCheckInput,
+  output: TrackingCheckOutput,
+  auth: 'required',
+  rateLimit: 'standard',
+  // Idempotent on (platform, url): same input returns the same verification.
   idempotent: true,
 });

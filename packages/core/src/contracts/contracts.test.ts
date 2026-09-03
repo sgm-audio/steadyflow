@@ -11,11 +11,12 @@ import {
   orgLlmConfigGet,
   orgLlmConfigSet,
   reportGenerate,
+  trackingCheck,
 } from './procedures.js';
 import { router, type ProcedureName } from './router.js';
 
 describe('Router', () => {
-  it('exports all 11 procedures', () => {
+  it('exports all 12 procedures', () => {
     const expected: ProcedureName[] = [
       'intel.analyzeShop',
       'insights.list',
@@ -28,6 +29,7 @@ describe('Router', () => {
       'intent.cancel',
       'intent.list',
       'report.generate',
+      'intel.trackingCheck',
     ];
     for (const name of expected) {
       expect(router[name]).toBeDefined();
@@ -41,6 +43,23 @@ describe('Router', () => {
       expect(['standard', 'strict', 'unlimited']).toContain(proc.rateLimit);
       expect(typeof proc.idempotent).toBe('boolean');
     }
+  });
+});
+
+describe('trackingCheck', () => {
+  it('accepts a shopify platform url', () => {
+    const r = trackingCheck.input.safeParse({
+      platform: 'shopify',
+      url: 'https://example.myshopify.com',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects a non-platform url', () => {
+    const r = trackingCheck.input.safeParse({
+      url: 'https://example.com',
+    });
+    expect(r.success).toBe(false);
   });
 });
 

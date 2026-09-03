@@ -4,6 +4,21 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-09-02 (part 2) — B6 + S6 + B1 + S10 chip
+
+Branch: `cursor/shopify-audit-modules`. Ponytail mode — continue the in-repo TODO list.
+
+- **B6 — tracking verification contract surface.** New `packages/core/src/schemas/tracking.ts` (TrackingProvider enum, TrackingCheck, TrackingVerificationOutput, TRACKING_PROVIDER_WEIGHTS, computeCoverageScore). New procedure `intel.trackingCheck` in `procedures.ts` + router entry (12th procedure, updated test count from 11 → 12). 13 new schema tests. No worker — B6 worker is part of B7.
+- **S6 — score_history worker writes.** Both audit pipelines now persist a `score_history` row per completed intent:
+  - `apps/edge/src/workers.ts` (Node, `pnpm dev` path): writes inline after `computeAuditScore`, derives shop_domain from input or URL, wrapped in try/catch (best-effort).
+  - `supabase/functions/workers-scrape/index.ts` (Deno, cron production path): writes via new `recordScoreHistory()` helper, derives shop_domain from URL.
+  - `packages/db/src/database.types.ts`: typed `score_history` and `app_fingerprints` table defs added so the `@steadyflow/db` Database type accepts them. Replaces the prior `supabase gen types typescript` step.
+  - `unique(intent_id)` makes re-runs idempotent at the DB level.
+- **B1 — PSI / CrUX fetcher.** New `packages/shopify-admin/src/audit/performance.ts` with `fetchPageSpeedInsights`, `fetchCrUX`, and `fetchPerformanceSignals` (all four sources in parallel). Schema in `packages/core/src/schemas/performance.ts`. BYOK `apiKey` optional. `available: false` returned for every failure mode — no CrUX record is the common case for small Shopify stores and is treated as expected, not an error. 9 new tests with mocked fetch (PSI 500, timeout, healthy mobile, missing audits, CrUX NOT_FOUND, CrUX histogram → CLS score, parallel aggregation, all-fail, apiKey pass-through). No worker — fetcher ready for B7 wiring.
+- **S10a — per-leak time-to-fix chip.** `apps/web/src/app/intents/[id]/report/page.tsx`: added `EFFORT_CHIP_COLOR` map + a colored chip ("Fix in Small (hours)" etc.) in each finding's header row. Distinct colors from the severity chip so they don't visually merge.
+- **Verified**: `pnpm typecheck` clean, `pnpm lint` clean (15/15), `pnpm test` 299/299 (223 core + 61 edge + 5 web + 9 new shopify-admin + 1 new tracking; Supabase integration tests skipped).
+- **Deliberately deferred** (documented in TODO.md): B2 theme lint, B3 app-fingerprint crawler, B7 worker wiring, S10b/c copy-leak-list + Printify-cost headline, C1–C3 + D2 (different repo), E1 (blocked on real delivery).
+
 ### Session 2026-09-02 — Ponytail sweep: push green work, add B5 migrations + D1 Square runbook
 
 Branch: `cursor/shopify-audit-modules`. Ponytail mode — ship what's cheap, defer what's not.

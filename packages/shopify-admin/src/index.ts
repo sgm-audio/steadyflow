@@ -264,6 +264,8 @@ export {
 } from './audit/impact.js';
 export type { LeakContext, LeakItem } from './audit/impact.js';
 export type { Currency, ProductMargin } from './audit/margin.js';
+export { fetchCrUX, fetchPageSpeedInsights, fetchPerformanceSignals } from './audit/performance.js';
+export type { FetchOptions } from './audit/performance.js';
 export {
   FLAG_TO_RUBRIC,
   gradeFor,

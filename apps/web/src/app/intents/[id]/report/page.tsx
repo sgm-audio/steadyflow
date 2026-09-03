@@ -16,6 +16,11 @@ const EFFORT_LABEL: Record<string, string> = {
   medium: 'Medium (days)',
   large: 'Large (weeks)',
 };
+const EFFORT_CHIP_COLOR: Record<string, string> = {
+  small: '#a3e635',
+  medium: '#fbbf24',
+  large: '#fb923c',
+};
 const SEVERITY_COLOR: Record<string, string> = {
   low: '#34d399',
   medium: '#fbbf24',
@@ -282,6 +287,19 @@ export default async function IntentReportPage({ params }: { params: Promise<{ i
                     </span>
                     <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>
                       Confidence: {Math.round(f.confidence * 100)}%
+                    </span>
+                    <span
+                      title={`Estimated time-to-fix: ${EFFORT_LABEL[f.effortEstimate] ?? f.effortEstimate}`}
+                      style={{
+                        padding: '0.125rem 0.5rem',
+                        borderRadius: '0.25rem',
+                        background: EFFORT_CHIP_COLOR[f.effortEstimate] ?? '#a1a1aa',
+                        color: '#000',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Fix in {EFFORT_LABEL[f.effortEstimate] ?? f.effortEstimate}
                     </span>
                   </div>
                   <h3 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{f.title}</h3>

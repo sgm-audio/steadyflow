@@ -13,10 +13,12 @@
 
 import { z } from 'npm:zod@3';
 import {
+  aggregateFlags,
   buildLeakList,
   computeAuditScore,
   describeFlag,
   runCatalogAudit,
+  scoreRubric,
   totalEstimatedImpact,
 } from '../_shared/shopify-admin/index.js';
 import { createServiceRoleClient } from '../_shared/supabase.ts';
@@ -34,6 +36,57 @@ const sha256Hex = async (input: string): Promise<string> => {
   return Array.from(new Uint8Array(hashBuffer))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+};
+
+/**
+ * Persist a snapshot of the audit's rubric score for S6 (recurring-audit
+ * diff). Idempotent on `intent_id` — re-running the worker on the same
+ * intent updates the row instead of duplicating.
+ *
+ * Best-effort: callers wrap with `.catch(() => {})` because score_history
+ * failure must not fail an audit that otherwise completed successfully.
+ */
+const recordScoreHistory = async (
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  args: {
+    orgId: string;
+    intentId: string;
+    url: string;
+    rubric: ReturnType<typeof scoreRubric>;
+    severityCounts: { critical: number; high: number; medium: number; low: number };
+    findingCount: number;
+  },
+): Promise<void> => {
+  // shop_domain is NOT NULL in score_history; derive it from the URL the
+  // worker was called with. If parsing fails, skip silently — better to
+  // miss one history row than to crash the audit.
+  let shopDomain: string;
+  try {
+    shopDomain = new URL(args.url).host;
+  } catch {
+    return;
+  }
+  const categoryScores: Record<string, { score: number; max: number }> = {};
+  for (const c of args.rubric.categoryScores) {
+    categoryScores[c.id] = { score: c.score, max: c.maxPoints };
+  }
+  await supabase.from('score_history').upsert(
+    {
+      org_id: args.orgId,
+      intent_id: args.intentId,
+      shop_domain: shopDomain,
+      total_score: Math.round(args.rubric.totalScore),
+      grade: args.rubric.grade,
+      category_scores: categoryScores,
+      critical_count: args.severityCounts.critical,
+      high_count: args.severityCounts.high,
+      medium_count: args.severityCounts.medium,
+      low_count: args.severityCounts.low,
+      finding_count: args.findingCount,
+      rubric_version: 'v1',
+    },
+    { onConflict: 'intent_id' },
+  );
 };
 
 /** Try to unwrap a provider key. Returns null if key is missing or invalid. */
@@ -245,6 +298,30 @@ Deno.serve(async (_req: Request) => {
             byFlag.set(flag.code, entry);
           }
         }
+
+        // Persist score snapshot for S6 (recurring-audit diff). Best-effort;
+        // failure here must not fail an audit that otherwise succeeded.
+        const rubric = scoreRubric(
+          aggregateFlags(
+            audit.rows.map((r: { flags: unknown[] }) => ({ flags: r.flags })),
+            audit.catalogFlags,
+          ),
+          audit.rows.length,
+        );
+        const severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+        for (const [, { severity }] of byFlag) {
+          if (severity === 'red') severityCounts.high++;
+          else severityCounts.medium++;
+        }
+        if (rubric.criticalCapped) severityCounts.critical = 1;
+        await recordScoreHistory(supabase, {
+          orgId,
+          intentId,
+          url,
+          rubric,
+          severityCounts,
+          findingCount: byFlag.size + audit.catalogFlags.length,
+        }).catch(() => {});
 
         for (const [code, { severity, products }] of byFlag) {
           const desc = describeFlag(code, severity);

@@ -11,6 +11,7 @@ import {
   orgLlmConfigGet,
   orgLlmConfigSet,
   reportGenerate,
+  trackingCheck,
 } from './procedures.js';
 
 /**
@@ -53,6 +54,10 @@ export interface Router {
     (typeof reportGenerate.input)['_input'],
     (typeof reportGenerate.output)['_output']
   >;
+  'intel.trackingCheck': ProcedureDef<
+    (typeof trackingCheck.input)['_input'],
+    (typeof trackingCheck.output)['_output']
+  >;
 }
 
 export const router: Router = {
@@ -67,6 +72,7 @@ export const router: Router = {
   'intent.cancel': intentCancel,
   'intent.list': intentList,
   'report.generate': reportGenerate,
+  'intel.trackingCheck': trackingCheck,
 };
 
 export type ProcedureName = keyof Router;

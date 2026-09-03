@@ -793,6 +793,119 @@ export type Database = {
           },
         ];
       };
+      app_fingerprints: {
+        Row: {
+          app_handle: string;
+          app_title: string;
+          category: string;
+          detection_source: string;
+          first_seen_at: string;
+          id: string;
+          last_seen_at: string;
+          org_id: string;
+          seen_count: number;
+          shop_domain: string;
+        };
+        Insert: {
+          app_handle: string;
+          app_title: string;
+          category: string;
+          detection_source: string;
+          first_seen_at?: string;
+          id?: string;
+          last_seen_at?: string;
+          org_id: string;
+          seen_count?: number;
+          shop_domain: string;
+        };
+        Update: {
+          app_handle?: string;
+          app_title?: string;
+          category?: string;
+          detection_source?: string;
+          first_seen_at?: string;
+          id?: string;
+          last_seen_at?: string;
+          org_id?: string;
+          seen_count?: number;
+          shop_domain?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'app_fingerprints_org_id_fkey';
+            columns: ['org_id'];
+            isOneToOne: false;
+            referencedRelation: 'orgs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      score_history: {
+        Row: {
+          captured_at: string;
+          category_scores: Json;
+          critical_count: number;
+          finding_count: number;
+          grade: string;
+          high_count: number;
+          id: string;
+          intent_id: string;
+          low_count: number;
+          medium_count: number;
+          org_id: string;
+          rubric_version: string;
+          shop_domain: string;
+          total_score: number;
+        };
+        Insert: {
+          captured_at?: string;
+          category_scores?: Json;
+          critical_count?: number;
+          finding_count?: number;
+          grade: string;
+          high_count?: number;
+          id?: string;
+          intent_id: string;
+          low_count?: number;
+          medium_count?: number;
+          org_id: string;
+          rubric_version?: string;
+          shop_domain: string;
+          total_score: number;
+        };
+        Update: {
+          captured_at?: string;
+          category_scores?: Json;
+          critical_count?: number;
+          finding_count?: number;
+          grade?: string;
+          high_count?: number;
+          id?: string;
+          intent_id?: string;
+          low_count?: number;
+          medium_count?: number;
+          org_id?: string;
+          rubric_version?: string;
+          shop_domain?: string;
+          total_score?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'score_history_intent_id_fkey';
+            columns: ['intent_id'];
+            isOneToOne: true;
+            referencedRelation: 'intents';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'score_history_org_id_fkey';
+            columns: ['org_id'];
+            isOneToOne: false;
+            referencedRelation: 'orgs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;

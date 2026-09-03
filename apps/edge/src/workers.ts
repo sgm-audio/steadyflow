@@ -7,6 +7,7 @@
 
 import type { Database, Json } from '@steadyflow/db';
 import {
+  aggregateFlags,
   analyzeStorefrontHtml,
   buildLeakList,
   buildProductFinding,
@@ -15,6 +16,7 @@ import {
   FLAG_SEVERITY,
   FLAG_TITLE,
   runCatalogAudit,
+  scoreRubric,
   totalEstimatedImpact,
   type FlagCode,
 } from '@steadyflow/shopify-admin';
@@ -568,6 +570,51 @@ const analyzeShopifyCatalog = async (
   // Matches intents.input_hash (SHA-256 of JSON {platform,url}) set by the
   // intel-analyze-shop edge function, so dedup links prior runs of the store.
   const urlHash = await sha256(JSON.stringify({ platform: 'shopify', url: storeUrl }));
+
+  // ── Persist score snapshot for S6 (recurring-audit diff) ──
+  // Best-effort: re-running the same intent updates the row by intent_id.
+  {
+    const rubric = scoreRubric(
+      aggregateFlags(
+        audit.rows.map((r) => ({ flags: r.flags })),
+        audit.catalogFlags,
+      ),
+      audit.rows.length,
+    );
+    const categoryScores: Record<string, { score: number; max: number }> = {};
+    for (const c of rubric.categoryScores) {
+      categoryScores[c.id] = { score: c.score, max: c.maxPoints };
+    }
+    const severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+    for (const row of audit.rows) {
+      for (const f of row.flags) {
+        if (f.severity === 'red') severityCounts.high++;
+        else severityCounts.medium++;
+      }
+    }
+    if (rubric.criticalCapped) severityCounts.critical = 1;
+    try {
+      await ctx.supabase.from('score_history').upsert(
+        {
+          org_id: ctx.orgId,
+          intent_id: intentId,
+          shop_domain: shopDomain ?? new URL(storeUrl).host,
+          total_score: Math.round(rubric.totalScore),
+          grade: rubric.grade,
+          category_scores: categoryScores,
+          critical_count: severityCounts.critical,
+          high_count: severityCounts.high,
+          medium_count: severityCounts.medium,
+          low_count: severityCounts.low,
+          finding_count: audit.rows.length,
+          rubric_version: 'v1',
+        },
+        { onConflict: 'intent_id' },
+      );
+    } catch {
+      // best-effort; S6 score_history failures must not fail an audit
+    }
+  }
 
   // ── Supersede prior analyses of the same store ──
   await ctx.supabase.rpc('supersede_store_insights', {

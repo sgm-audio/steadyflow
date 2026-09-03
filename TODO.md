@@ -44,17 +44,17 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 - [x] S5 SSRF guard — `packages/core/src/net/ssrf.ts` `assertSafeFetchUrl` + tests
 - [x] S8 Runbook — `docs/runbooks/audit-pipeline.md`
 - [x] S1 Deno parity — vendor mechanism (`pnpm vendor:shopify-admin`), `findings.ts` single-source, `workers-scrape` imports shared engine, `core-shim` SHA-256 fix. **Verified** via `functions serve --no-verify-jwt` (bundles + runs, HTTP 200). Remaining mirror (non-core): `store_profiles`/`product_findings`/homepage-SEO/storefront still Node-only.
-- [ ] S6 Recurring-audit diff — `score_history` table landed (B5, this session). Worker wiring still pending; UI diff view deferred.
-- [ ] S10 Delight — copy-leak-list, per-leak time-to-fix chip, Printify-cost headline (UI)
+- [x] S6 Recurring-audit diff — `score_history` table landed (B5) and worker writes wired into BOTH Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) audit pipelines. UI diff view deferred to a future sprint.
+- [ ] S10 Delight — per-leak time-to-fix chip landed (`apps/web/src/app/intents/[id]/report/page.tsx`, S10a). Copy-leak-list + Printify-cost headline still pending (S10b/c).
 
 ### Phase B — SteadyFlow audit-gap closes (7 additions)
-- [ ] B1. PSI/CrUX field-data fetcher — **Agent S3**
+- [x] B1. PSI/CrUX field-data fetcher — landed in `packages/shopify-admin/src/audit/performance.ts` + `packages/core/src/schemas/performance.ts` (9 new tests, BYOK API key supported, all 4 sources in parallel). Worker wiring pending (B7).
 - [ ] B2. Theme lint (`@shopify/theme-check-node`) — **Agent S4**
-- [ ] B3. App fingerprints + sitemap-aware crawl — **Agent S5**
+- [ ] B3. App fingerprints + sitemap-aware crawl — `app_fingerprints` table exists (B5); actual sitemap-aware crawler + detection logic still pending.
 - [x] B4. 200-pt weighted scoring rubric (12 categories) — landed in `packages/shopify-admin/src/audit/rubric.ts` (Phase A+ S2)
-- [x] B5. `score_history` + `app_fingerprints` migrations — `supabase/migrations/20260902000001_score_history_and_app_fingerprints.sql` (this session). Worker writes pending (S3 / B3 / B7).
-- [ ] B6. Tracking verification — **Agent S2** (contract/schema side; worker wiring deferred)
-- [ ] B7. Wire PSI/theme/crawl into worker pipeline — **deferred** until S3–S6 land
+- [x] B5. `score_history` + `app_fingerprints` migrations — `supabase/migrations/20260902000001_score_history_and_app_fingerprints.sql`. Worker writes wired (S6). Types added to `packages/db/src/database.types.ts`.
+- [x] B6. Tracking verification — contract surface landed in `packages/core/src/schemas/tracking.ts` (TrackingProvider/Check/VerificationOutput + 13 tests) + new `intel.trackingCheck` procedure. Worker wiring deferred.
+- [ ] B7. Wire PSI/theme/crawl into worker pipeline — depends on B3 + a real tracking-verification worker. Both blocked on next agent round.
 
 ### Phase C — Acquisition site legal + SEO
 - [ ] C1. Legal pages (`/legal/terms`, `/legal/privacy`, `/legal/disclaimer`, `/legal/refund`) — **Agent S8** (draft, pending SK lawyer review)
@@ -169,3 +169,79 @@ manual-first Square runbook, push everything in one branch.
 
 - Local HEAD ahead of origin by 1 commit (the new migration + runbook +
   TODO updates). `git push` is the last step.
+
+---
+
+## Session 2026-09-02 (part 2) — B6 + S6 + B1 + S10 chip
+
+**Scope:** continue the in-repo TODO list — ship 4 small, scoped pieces,
+leave the rest deferred with honest reasons.
+
+### Done in this session
+
+- **B6 — tracking verification contract surface.**
+  - `packages/core/src/schemas/tracking.ts` (TrackingProvider enum,
+    TrackingCheck, TrackingVerificationOutput, TRACKING_PROVIDER_WEIGHTS,
+    computeCoverageScore).
+  - `packages/core/src/schemas/tracking.test.ts` — 13 tests (enum,
+    strict-mode, weight-sums-to-100, score math, output validation).
+  - New procedure `intel.trackingCheck` in `procedures.ts` + router entry
+    (12th procedure, updated test count from 11 → 12).
+  - **No worker** — B6 worker is part of B7.
+- **S6 — score_history worker writes.**
+  - `apps/edge/src/workers.ts`: import `scoreRubric` + `aggregateFlags`,
+    write one `score_history` row per completed audit (best-effort,
+    wrapped in try/catch). Uses shop_domain from input or derived from URL.
+  - `supabase/functions/workers-scrape/index.ts`: same pattern. Includes
+    a vendored `recordScoreHistory()` helper that handles shop_domain
+    extraction from URL.
+  - `packages/db/src/database.types.ts`: added typed `score_history` and
+    `app_fingerprints` table defs (Row / Insert / Update / Relationships)
+    so the `@steadyflow/db` Database type no longer rejects the new
+    tables. Replaces the prior `supabase gen types typescript` step.
+- **B1 — PSI / CrUX fetcher.**
+  - `packages/core/src/schemas/performance.ts` (PerformanceSource,
+    MetricMs, MetricScore, PerformanceSignal, scoreMetric helper).
+  - `packages/shopify-admin/src/audit/performance.ts` (fetchPageSpeedInsights,
+    fetchCrUX, fetchPerformanceSignals). All four sources fetched in
+    parallel. BYOK `apiKey` optional. `available: false` on every failure
+    mode (no CrUX record is the common case for small Shopify stores —
+    expected, not an error).
+  - `packages/shopify-admin/src/audit/performance.test.ts` — 9 tests with
+    mocked fetch (PSI 500, timeout, healthy mobile, missing audits, CrUX
+    NOT_FOUND, CrUX histogram → CLS score, all-4-sources parallel, all
+    sources fail, apiKey pass-through).
+  - **No worker** — fetcher ready for B7 wiring.
+- **S10a — per-leak time-to-fix chip.**
+  - `apps/web/src/app/intents/[id]/report/page.tsx`: added
+    `EFFORT_CHIP_COLOR` map + a colored chip in each finding's header
+    row showing the time-to-fix estimate ("Fix in Small (hours)", etc.).
+    Tooltip is the longer effort label. Chip uses distinct colors from
+    the severity chip so they don't visually merge.
+
+### Deliberately deferred
+
+- **B2** theme lint — needs `@shopify/theme-check-node` integration + a
+  theme file extraction step. Real engineering effort.
+- **B3** app fingerprints crawler — table exists, but the actual detection
+  logic + sitemap-aware crawl is non-trivial (HTML parsing, JSON-LD
+  fingerprint matching, deduplication against `app_fingerprints` table).
+- **B7** worker wiring of PSI/CrUX + tracking verification + theme lint +
+  crawl — depends on B2 + B3 landing first.
+- **S10b/c** copy-leak-list + Printify-cost headline — UI work needs a
+  browser QA loop.
+- **C1–C3, D2** — different repo (`sgm-better-business-easier-site`).
+- **E1** — blocked on real permissioned delivery.
+
+### Verification this session
+
+- `pnpm typecheck` — clean.
+- `pnpm lint` — clean (15/15 tasks).
+- `pnpm test` — 299 tests passing (223 core, 61 edge, 5 web, 9 new
+  shopify-admin performance, 1 new tracking). Supabase integration
+  tests skipped (no live DB).
+
+### Branch state at session end
+
+- Local HEAD ahead of origin by 1 commit (this batch). `git push` is
+  the last step.
