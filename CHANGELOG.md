@@ -4,6 +4,25 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-09-02 — Ponytail sweep: push green work, add B5 migrations + D1 Square runbook
+
+Branch: `cursor/shopify-audit-modules`. Ponytail mode — ship what's cheap, defer what's not.
+
+- **Pushed** 2 already-verified commits (`b46b2c4` Deno audit-action enum fix, `6a905a4` repo-wide format sweep). Branch was 2 commits behind origin before this session.
+- **B5 migrations** — new `supabase/migrations/20260902000001_score_history_and_app_fingerprints.sql`. Two append-only tables:
+  - `score_history` — one row per completed audit intent, stores total + per-category scores + grade + severity counts + a `rubric_version` pin so future rubric revisions can't silently mix in old data. `unique(intent_id)`. Unblocks S6 (recurring-audit diff view).
+  - `app_fingerprints` — one row per detected Shopify app per detection source. `unique(shop_domain, app_handle, detection_source)`. Unblocks B3 (sitemap-aware crawl deduplication).
+  - Both tables: RLS on, member-readable via `is_member_of(org_id)`, service-role-writable only (no UPDATE/DELETE policies — history is immutable, corrections are new rows).
+  - Follow-up: regenerate `packages/db/src/database.types.ts` against a live Supabase instance (`supabase gen types typescript --local`). Not done in this session — no live DB.
+- **D1 Square runbook** — new `docs/runbooks/square.md`. Manual-first end-to-end flow: hivyr.io invoice + Square contract e-sign, $500 deposit / $1,000 balance, Saskatchewan tax matrix (GST 5% + PST 6% as separate lines, HST provinces auto-detected, QST two-line), e-sign verification checklist, refund policy, and the "what we don't invent" list (no testimonials, no revenue-lift claims). No code change — pure ops doc.
+- **TODO.md** — updated to reflect session work: B4 marked done retroactively (rubric shipped under Phase A+ S2), B5 + D1 marked done with file pointers, S6 status updated ("table landed, worker wiring pending"), new "Session 2026-09-02" block at the bottom with done/deferred/verification/branch-state.
+- **Deliberately deferred** (out of ponytail scope, all documented in TODO.md):
+  - S6 worker wiring (trivial SQL but needs to be paired with the next rubric pass).
+  - S10 Delight UI (needs a browser QA loop, not available in this session).
+  - B1 (PSI/CrUX fetcher), B2 (theme lint), B3 (app-fingerprint crawler), B6 (tracking-verification contract), B7 (worker wiring) — each is a real engineering effort, not safe to half-ship.
+  - C1-C3 + D2 — all in `sgm-better-business-easier-site` (different repo).
+- **Verified**: `pnpm typecheck` clean, `pnpm lint` clean (15/15 tasks), `pnpm test` 66/66 tests passing (61 edge + 5 web). Supabase integration tests skipped — no live DB.
+
 ### Session 2026-07-17 — Multi-platform commerce foundation + Shopify/WordPress DX
 
 - **New `@steadyflow/commerce`:** unified catalog/order/inventory/distributor schemas, adapter interfaces, live Shopify selling + Printify fulfillment adapters (wrapping `@steadyflow/shopify-admin`), Amazon SP-API / FBA / FBM + Alibaba + WooCommerce readiness stubs, `createCommerceRegistry()` + config Zod schema.

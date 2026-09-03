@@ -6,10 +6,7 @@
       "version": "0.1.0",
       "apiVersion": "2026-07",
       "embedded": true,
-      "scopes": [
-        "read_products",
-        "write_orders"
-      ],
+      "scopes": ["read_products", "write_orders"],
       "privacyPolicyUrl": "https://steadyflow.dev/privacy",
       "supportUrl": "https://steadyflow.dev/support",
       "webhooks": [
@@ -58,10 +55,7 @@
       "status": "pass",
       "message": "Scopes declared: read_products, write_orders",
       "evidence": {
-        "scopes": [
-          "read_products",
-          "write_orders"
-        ]
+        "scopes": ["read_products", "write_orders"]
       }
     },
     {

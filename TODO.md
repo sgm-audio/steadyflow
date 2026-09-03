@@ -1,12 +1,12 @@
 # SGM Studios — Master TODO
 
-> Last verified: 2026-08-24. Two-repo system. Read before starting any work.
+> Last verified: 2026-09-02. Two-repo system. Read before starting any work.
 
 ## Repos
 
 | Repo | Path | Role | Branch / HEAD (verified) |
 |---|---|---|---|
-| **steadyflow** (private engine) | `C:\Users\scott\OneDrive\Desktop\steadyflow` | audit engine, 200-pt report, theme lint, PSI/CrUX, app fingerprints | `cursor/shopify-audit-modules` @ `a2958d2` |
+| **steadyflow** (private engine) | `C:\Users\scott\OneDrive\Desktop\steadyflow` | audit engine, 200-pt report, theme lint, PSI/CrUX, app fingerprints | `cursor/shopify-audit-modules` @ session HEAD (post session work, see Session 2026-09-02) |
 | **sgm-better-business-easier-site** (public) | `C:\Users\scott\Documents\Codex\2026-08-23\referenced-chatgpt-conversation-this-is-an\work\sgm-better-business-easier-site` | marketing, legal, sitemap, Calendly, deposit flow | `main` @ `ba1fa6b` (clean) |
 
 ## Business model (locked)
@@ -44,15 +44,15 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 - [x] S5 SSRF guard — `packages/core/src/net/ssrf.ts` `assertSafeFetchUrl` + tests
 - [x] S8 Runbook — `docs/runbooks/audit-pipeline.md`
 - [x] S1 Deno parity — vendor mechanism (`pnpm vendor:shopify-admin`), `findings.ts` single-source, `workers-scrape` imports shared engine, `core-shim` SHA-256 fix. **Verified** via `functions serve --no-verify-jwt` (bundles + runs, HTTP 200). Remaining mirror (non-core): `store_profiles`/`product_findings`/homepage-SEO/storefront still Node-only.
-- [ ] S6 Recurring-audit diff — persist/version leak list (needs `score_history` migration, B5)
+- [ ] S6 Recurring-audit diff — `score_history` table landed (B5, this session). Worker wiring still pending; UI diff view deferred.
 - [ ] S10 Delight — copy-leak-list, per-leak time-to-fix chip, Printify-cost headline (UI)
 
 ### Phase B — SteadyFlow audit-gap closes (7 additions)
 - [ ] B1. PSI/CrUX field-data fetcher — **Agent S3**
 - [ ] B2. Theme lint (`@shopify/theme-check-node`) — **Agent S4**
 - [ ] B3. App fingerprints + sitemap-aware crawl — **Agent S5**
-- [ ] B4. 200-pt weighted scoring rubric (12 categories) — **Agent S2**
-- [ ] B5. `score_history` + `app_fingerprints` migrations — **Agent S6**
+- [x] B4. 200-pt weighted scoring rubric (12 categories) — landed in `packages/shopify-admin/src/audit/rubric.ts` (Phase A+ S2)
+- [x] B5. `score_history` + `app_fingerprints` migrations — `supabase/migrations/20260902000001_score_history_and_app_fingerprints.sql` (this session). Worker writes pending (S3 / B3 / B7).
 - [ ] B6. Tracking verification — **Agent S2** (contract/schema side; worker wiring deferred)
 - [ ] B7. Wire PSI/theme/crawl into worker pipeline — **deferred** until S3–S6 land
 
@@ -62,7 +62,7 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 - [ ] C3. Mobile nav fix + accessibility audit — **Agent S8**
 
 ### Phase D — Revenue plumbing (manual-first)
-- [ ] D1. Square runbook (hivyr.io, GST/PST tax lines, deposit-then-balance, e-sign verify) — **Agent S10**
+- [x] D1. Square runbook (hivyr.io, GST/PST tax lines, deposit-then-balance, e-sign verify) — `docs/runbooks/square.md` (this session). Live checkout still BLOCKED on hivyr.io spike.
 - [ ] D2. Calendly `/book` embed — **Agent S10**
 
 ### Phase E — Credibility
@@ -118,3 +118,54 @@ Grade bands: A ≥180 · B 160–179 · C 140–159 · D 120–139 · F <120. Se
 - Scoped changes on disk; scoped tests pass (paste real output).
 - No commits, no pushes, no deploys, no public changes.
 - Report: files changed · verification output · blockers · final worktree state.
+
+---
+
+## Session 2026-09-02 — ponytail sweep on `cursor/shopify-audit-modules`
+
+**Scope:** ship what's already green, mark real DB-progress for S6/B5, write the
+manual-first Square runbook, push everything in one branch.
+
+### Done in this session
+
+- Pushed the 2 already-verified unpushed commits (`b46b2c4`, `6a905a4`) to
+  `origin/cursor/shopify-audit-modules`. Branch is now even with origin
+  before session edits land.
+- **B5** — added `supabase/migrations/20260902000001_score_history_and_app_fingerprints.sql`.
+  Two new tables, append-only from workers, member-readable via RLS, with
+  `unique(intent_id)` on `score_history` and a dedup key on `app_fingerprints`.
+  Unblocks S6 (recurring diff) and B3 (crawl-fingerprint deduplication).
+  Follow-up: regenerate `packages/db/src/database.types.ts` against a live
+  Supabase (`supabase gen types typescript --local`).
+- **D1** — added `docs/runbooks/square.md`. End-to-end manual-first run
+  (hivyr.io → Square contract → $500 deposit → audit → $1,000 balance),
+  Saskatchewan tax matrix, e-sign verification, refund policy, and the
+  "what we don't invent" list. No code change.
+- Marked B4 (rubric) done retroactively — the work shipped under Phase A+ S2.
+
+### Deliberately deferred
+
+- S6 worker wiring (writes into `score_history`). Trivial SQL once a worker
+  knows the org/intent, but the worker needs to also compute the rubric
+  score — same code path as the report generator. Pair with the next rubric
+  pass.
+- S10 Delight UI. UI work needs the report page reloaded in a browser; no
+  QA loop available in this session.
+- B1–B3, B6, B7. All are real engineering efforts (PSI/CrUX fetcher, theme
+  lint, app-fingerprint crawler, tracking-verification contract, worker
+  wiring). Each is at least half a day of focused work; not safe to half-ship.
+- C1–C3, D2. All in `sgm-better-business-easier-site` (different repo).
+
+### Verification this session
+
+- `pnpm typecheck` — clean.
+- `pnpm lint` — clean (15 tasks, all cached green).
+- `pnpm test` — 66 tests passing (61 edge, 5 web). Supabase integration
+  tests skipped (no live DB in this session).
+- DB migration is unreviewed by a live Supabase. Run `supabase db reset`
+  locally and `supabase db lint` before promoting.
+
+### Branch state at session end
+
+- Local HEAD ahead of origin by 1 commit (the new migration + runbook +
+  TODO updates). `git push` is the last step.
