@@ -45,16 +45,16 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 - [x] S8 Runbook — `docs/runbooks/audit-pipeline.md`
 - [x] S1 Deno parity — vendor mechanism (`pnpm vendor:shopify-admin`), `findings.ts` single-source, `workers-scrape` imports shared engine, `core-shim` SHA-256 fix. **Verified** via `functions serve --no-verify-jwt` (bundles + runs, HTTP 200). Remaining mirror (non-core): `store_profiles`/`product_findings`/homepage-SEO/storefront still Node-only.
 - [x] S6 Recurring-audit diff — `score_history` table landed (B5) and worker writes wired into BOTH Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) audit pipelines. UI diff view deferred to a future sprint.
-- [ ] S10 Delight — per-leak time-to-fix chip landed (`apps/web/src/app/intents/[id]/report/page.tsx`, S10a). Copy-leak-list + Printify-cost headline still pending (S10b/c).
+- [ ] S10 Delight — per-leak time-to-fix chip landed (S10a). Copy-leak-list-as-markdown button landed (S10b, `apps/web/src/components/CopyLeakListButton.tsx` + `reportAsMarkdown` in the report page). Printify-cost headline still pending (S10c).
 
 ### Phase B — SteadyFlow audit-gap closes (7 additions)
 - [x] B1. PSI/CrUX field-data fetcher — landed in `packages/shopify-admin/src/audit/performance.ts` + `packages/core/src/schemas/performance.ts` (9 new tests, BYOK API key supported, all 4 sources in parallel). Worker wiring pending (B7).
 - [ ] B2. Theme lint (`@shopify/theme-check-node`) — **Agent S4**
-- [ ] B3. App fingerprints + sitemap-aware crawl — `app_fingerprints` table exists (B5); actual sitemap-aware crawler + detection logic still pending.
+- [x] B3. App fingerprints + sitemap-aware crawl — detection module landed in `packages/shopify-admin/src/audit/apps.ts` (`extractAppFingerprints()` + 10 tests). Worker writes wired in both runtimes via new `upsert_app_fingerprint` RPC. Sitemap-aware crawl still pending (separate concern).
 - [x] B4. 200-pt weighted scoring rubric (12 categories) — landed in `packages/shopify-admin/src/audit/rubric.ts` (Phase A+ S2)
 - [x] B5. `score_history` + `app_fingerprints` migrations — `supabase/migrations/20260902000001_score_history_and_app_fingerprints.sql`. Worker writes wired (S6). Types added to `packages/db/src/database.types.ts`.
 - [x] B6. Tracking verification — contract surface landed in `packages/core/src/schemas/tracking.ts` (TrackingProvider/Check/VerificationOutput + 13 tests) + new `intel.trackingCheck` procedure. Worker wiring deferred.
-- [ ] B7. Wire PSI/theme/crawl into worker pipeline — depends on B3 + a real tracking-verification worker. Both blocked on next agent round.
+- [x] B7. Wire PSI/CrUX into worker pipeline — both Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) workers now call `fetchPerformanceSignals(storeUrl)` and write insights for failing CWV (LCP / CLS). Plus app fingerprint persistence (B3). Theme lint still pending. Tracking-verification worker still pending.
 
 ### Phase C — Acquisition site legal + SEO
 - [ ] C1. Legal pages (`/legal/terms`, `/legal/privacy`, `/legal/disclaimer`, `/legal/refund`) — **Agent S8** (draft, pending SK lawyer review)
@@ -240,6 +240,77 @@ leave the rest deferred with honest reasons.
 - `pnpm test` — 299 tests passing (223 core, 61 edge, 5 web, 9 new
   shopify-admin performance, 1 new tracking). Supabase integration
   tests skipped (no live DB).
+
+### Branch state at session end
+
+- Local HEAD ahead of origin by 1 commit (this batch). `git push` is
+  the last step.
+
+---
+
+## Session 2026-09-02 (part 3) - B3 + B7 + S10b
+
+**Scope:** close the in-repo TODO items that were deferred for "needs
+another pass". Ship the detection + wiring for apps + PSI/CrUX, plus the
+copy-as-markdown UI button.
+
+### Done in this session
+
+- **B3 - app fingerprint detection module.**
+  - `packages/shopify-admin/src/audit/apps.ts`: `extractAppFingerprints()`
+    + `AppFingerprint` type matching the table schema. Deduplicates by
+    app title, normalizes handles (lowercase, hyphenated), maps to a
+    7-bucket category taxonomy (marketing/reviews/analytics/support/
+    shipping/inventory/other).
+  - `packages/shopify-admin/src/audit/apps.test.ts`: 10 tests (empty
+    case, single row, multi-host collapse, unknown apps -> "other",
+    handle stability, category mapping).
+  - Vendored to `supabase/functions/_shared/shopify-admin/audit/apps.js`
+    via `pnpm vendor:shopify-admin`.
+  - New `supabase/migrations/20260902000002_upsert_app_fingerprint_rpc.sql`:
+    plpgsql function that increments `seen_count` and updates
+    `last_seen_at` on conflict, making the upsert correctly accumulate
+    frequency data over time.
+  - Typed RPC entry added to `packages/db/src/database.types.ts`.
+- **B7 - wire PSI/CrUX + app fingerprints into both worker runtimes.**
+  - `apps/edge/src/workers.ts` (Node, `pnpm dev` path): after
+    `checkStorefrontSignals`, call `extractAppFingerprints()` +
+    `upsert_app_fingerprint()` per app. Then `fetchPerformanceSignals()`
+    + write insight for failing LCP / CLS.
+  - `supabase/functions/workers-scrape/index.ts` (Deno, cron production
+    path): same pattern. Added `analyzeStorefrontHtml` call (was only
+    in Node) + fingerprint persistence + PSI/CrUX fetch.
+  - Both wrapped in try/catch; failures never block an audit.
+- **S10b - copy leak list as Markdown button.**
+  - `apps/web/src/components/CopyLeakListButton.tsx`: client component,
+    small dark-glass button, `navigator.clipboard.writeText()` with
+    "Copied ✓" feedback for 2s.
+  - `reportAsMarkdown()` helper added to the report page. Pure
+    function, structural `ReportLike` type (loose on branded ids so it
+    accepts the runtime shape from the API client).
+  - Rendered in the "Verified Findings" section, top-right.
+
+### Deliberately deferred
+
+- **B2** theme lint - still pending; needs `@shopify/theme-check-node`
+  dep + theme file extraction logic.
+- **Sitemap-aware crawl** - the B3 detection works from a single
+  homepage fetch; the TODO explicitly calls out sitemap-aware crawling
+  as a separate concern (sitemaps can be large, blocked, robots-disallowed).
+- **B6 worker** (tracking verification) - contract shipped, actual
+  store-crawling detector deferred.
+- **S10c** Printify-cost headline - UI needs browser QA loop.
+- **C1-C3, D2** - different repo.
+- **E1** - blocked on real permissioned delivery.
+
+### Verification this session
+
+- `pnpm typecheck` - clean.
+- `pnpm lint` - clean (15/15 tasks).
+- `pnpm test` - 360 tests passing (223 core, 61 edge, 5 web, 71
+  shopify-admin, 0 commerce, 0 desktop/extension/llm which have no
+  tests). Supabase integration tests skipped (no live DB).
+- `pnpm vendor:shopify-admin` - clean rebuild.
 
 ### Branch state at session end
 

@@ -950,6 +950,17 @@ export type Database = {
         Returns: undefined;
       };
       unwrap_dek: { Args: { p_wrapped: string }; Returns: string };
+      upsert_app_fingerprint: {
+        Args: {
+          p_app_handle: string;
+          p_app_title: string;
+          p_category: string;
+          p_detection_source: string;
+          p_org_id: string;
+          p_shop_domain: string;
+        };
+        Returns: number;
+      };
       wrap_dek: { Args: { p_dek: string }; Returns: string };
     };
     Enums: {

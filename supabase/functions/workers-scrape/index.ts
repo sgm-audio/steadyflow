@@ -14,9 +14,12 @@
 import { z } from 'npm:zod@3';
 import {
   aggregateFlags,
+  analyzeStorefrontHtml,
   buildLeakList,
   computeAuditScore,
   describeFlag,
+  extractAppFingerprints,
+  fetchPerformanceSignals,
   runCatalogAudit,
   scoreRubric,
   totalEstimatedImpact,
@@ -397,6 +400,85 @@ Deno.serve(async (_req: Request) => {
           provider: 'shopify-admin',
           generated_at: new Date().toISOString(),
         });
+
+        // ── B3 — app fingerprint detection + persist ──
+        // Best-effort storefront fetch (SSRF-guarded). Mirrors the Node
+        // worker: render-blocking scripts, undimensioned images, app bloat.
+        try {
+          await assertPublicHttpUrl(url);
+          const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+          });
+          if (res.ok) {
+            const html = await res.text();
+            const storefront = analyzeStorefrontHtml(html, new URL(url).hostname);
+            if (storefront.appHosts.length > 0) {
+              const apps = storefront.appHosts.map((h: { appName?: string; host: string }) => h.appName ?? h.host).join(', ');
+              await supabase.from('insights').insert({
+                org_id: orgId,
+                intent_id: intentId,
+                category: 'conversion',
+                severity: storefront.appHosts.length >= 3 ? 'high' : 'medium',
+                title: `App bloat: ${storefront.appHosts.length} third-party app${storefront.appHosts.length === 1 ? '' : 's'} loading scripts`,
+                body: `Detected: ${apps}. Each app adds load time and a potential subscription overlap.`,
+                citations: [],
+                model: 'shopify-admin-audit-v2',
+                provider: 'shopify-admin',
+                generated_at: new Date().toISOString(),
+              });
+              const fingerprints = extractAppFingerprints(storefront, new URL(url).hostname);
+              for (const fp of fingerprints) {
+                try {
+                  await supabase.rpc('upsert_app_fingerprint', {
+                    p_org_id: orgId,
+                    p_shop_domain: fp.shop_domain,
+                    p_app_handle: fp.app_handle,
+                    p_app_title: fp.app_title,
+                    p_detection_source: fp.detection_source,
+                    p_category: fp.category,
+                  });
+                } catch {
+                  // ignore per-fingerprint failures
+                }
+              }
+            }
+          }
+        } catch {
+          // best-effort storefront analysis
+        }
+
+        // ── B7 — fetch PSI / CrUX performance signals (lab + field) ──
+        try {
+          const signals = await fetchPerformanceSignals(url, { timeoutMs: 10_000 });
+          const cwvFailures: string[] = [];
+          for (const sig of signals.signals) {
+            if (!sig.available) continue;
+            const lcp = sig.largestContentfulPaint;
+            if (lcp && lcp.p50 >= (lcp.poor ?? 4000)) {
+              cwvFailures.push(`LCP ${Math.round(lcp.p50)}ms (${sig.source})`);
+            }
+            const cls = sig.cumulativeLayoutShift;
+            if (cls && cls.score < 0.9) {
+              cwvFailures.push(`CLS ${cls.score.toFixed(2)} (${sig.source})`);
+            }
+          }
+          if (cwvFailures.length > 0) {
+            await supabase.from('insights').insert({
+              org_id: orgId,
+              intent_id: intentId,
+              category: 'conversion',
+              severity: 'high',
+              title: `Core Web Vitals failing in ${cwvFailures.length} measurement${cwvFailures.length === 1 ? '' : 's'}`,
+              body: `${cwvFailures.join('; ')}. Sourced from Google PageSpeed Insights (lab) and Chrome User Experience Report (field).`,
+              citations: [],
+              model: 'psi-crux-v1',
+              provider: 'google-pagespeed',
+              generated_at: new Date().toISOString(),
+            });
+          }
+        } catch {
+          // best-effort performance signals
+        }
 
         // Mark intent succeeded
         await supabase

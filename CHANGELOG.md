@@ -4,6 +4,17 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-09-02 (part 3) — B3 + B7 + S10b
+
+Branch: `cursor/shopify-audit-modules`. Ponytail mode — close the small items still on the TODO.
+
+- **B3 — app fingerprint detection module.** New `packages/shopify-admin/src/audit/apps.ts` with `extractAppFingerprints(analysis, shopDomain)` and `AppFingerprint` type. Deduplicates by title, normalizes handles, maps to a 7-bucket category taxonomy (marketing/reviews/analytics/support/shipping/inventory/other). 10 new tests. Vendored to `supabase/functions/_shared/shopify-admin/audit/apps.js` via `pnpm vendor:shopify-admin`.
+- **B3/B7 — app fingerprint persistence.** New `supabase/migrations/20260902000002_upsert_app_fingerprint_rpc.sql`: plpgsql RPC that increments `seen_count` and updates `last_seen_at` on conflict. Typed in `packages/db/src/database.types.ts`. Both audit workers (`apps/edge/src/workers.ts` and `supabase/functions/workers-scrape/index.ts`) call it after every successful storefront analysis. Best-effort, try/catch wrapped.
+- **B7 — PSI/CrUX wired into both workers.** `fetchPerformanceSignals(storeUrl)` is now called after the rubric write in both runtimes; a "Core Web Vitals failing" insight is written when LCP is in the poor band OR CLS is below 0.9. The Deno worker also gained a storefront-HTML fetch (SSRF-guarded via existing `assertPublicHttpUrl`) so it can do real analysis.
+- **S10b — copy leak list as Markdown.** New `apps/web/src/components/CopyLeakListButton.tsx` (client component, `navigator.clipboard.writeText` + "Copied ✓" feedback for 2s). New `reportAsMarkdown()` pure helper in the report page. Rendered in the "Verified Findings" section.
+- **Verified**: `pnpm typecheck` clean, `pnpm lint` clean (15/15), `pnpm test` 360/360 (223 core + 61 edge + 5 web + 71 shopify-admin; Supabase integration tests skipped).
+- **Deliberately deferred** (documented in TODO.md): B2 theme lint, sitemap-aware crawl (part of B3), B6 tracking-verification worker, S10c Printify-cost headline, C1-C3 + D2 (different repo), E1 (blocked on real delivery).
+
 ### Session 2026-09-02 (part 2) — B6 + S6 + B1 + S10 chip
 
 Branch: `cursor/shopify-audit-modules`. Ponytail mode — continue the in-repo TODO list.

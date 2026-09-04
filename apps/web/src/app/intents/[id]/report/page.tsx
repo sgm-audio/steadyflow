@@ -7,9 +7,78 @@
 
 import { ReportGenerateInput } from '@steadyflow/core';
 import { notFound } from 'next/navigation';
+import { CopyLeakListButton } from '../../../../components/CopyLeakListButton';
 import { StateBanner } from '../../../../components/StateBanner';
 import { classifyError } from '../../../../lib/api-client';
 import { requireOrgSession } from '../../../../lib/session';
+
+/** Structural shape the markdown renderer accepts — looser than the
+ *  branded `Report` type so it accepts the runtime shape returned by
+ *  the API client (which has plain string ids, not the branded ones). */
+interface ReportLike {
+  intentId: string;
+  generatedAt: string;
+  findingCount: number;
+  executiveSummary: string;
+  sprintRecommendation: string;
+  findings: {
+    severity: string;
+    title: string;
+    body: string;
+    category: string;
+    confidence: number;
+    remediation: string;
+    effortEstimate: string;
+    requiredAccess: string[];
+  }[];
+  firstSalePlan?:
+    | {
+        breakEvenRoas?: number | undefined;
+        grossMarginPct?: number | undefined;
+        recommendedChannel?: string | undefined;
+        dailyBudgetRange?: string | undefined;
+      }
+    | undefined;
+}
+
+/** Convert a Report into a Markdown "leak list" suitable for pasting
+ *  into a Linear ticket, Slack, or Notion. Pure function, easy to test. */
+const reportAsMarkdown = (r: ReportLike): string => {
+  const lines: string[] = [];
+  lines.push(`# Audit Report — ${r.intentId}`);
+  lines.push('');
+  lines.push(`*Generated ${r.generatedAt} · ${r.findingCount} findings*`);
+  lines.push('');
+  lines.push('## Executive summary');
+  lines.push(r.executiveSummary);
+  lines.push('');
+  lines.push('## Findings');
+  for (const f of r.findings) {
+    lines.push('');
+    lines.push(`### [${f.severity.toUpperCase()}] ${f.title}`);
+    lines.push(`**Category:** ${f.category} · **Effort:** ${f.effortEstimate} · **Confidence:** ${Math.round(f.confidence * 100)}%`);
+    lines.push('');
+    lines.push(f.body);
+    lines.push('');
+    lines.push(`**Fix:** ${f.remediation}`);
+    if (f.requiredAccess.length > 0) {
+      lines.push('');
+      lines.push(`**Needs access to:** ${f.requiredAccess.join(', ')}`);
+    }
+  }
+  lines.push('');
+  lines.push('## Sprint recommendation');
+  lines.push(r.sprintRecommendation);
+  if (r.firstSalePlan) {
+    lines.push('');
+    lines.push('## First-sale plan');
+    lines.push(`- Break-even ROAS: ${r.firstSalePlan.breakEvenRoas ?? '—'}×`);
+    lines.push(`- Gross margin: ${r.firstSalePlan.grossMarginPct ?? '—'}%`);
+    lines.push(`- Recommended channel: ${r.firstSalePlan.recommendedChannel ?? '—'}`);
+    lines.push(`- Daily budget: ${r.firstSalePlan.dailyBudgetRange ?? '—'}`);
+  }
+  return lines.join('\n');
+};
 
 const EFFORT_LABEL: Record<string, string> = {
   small: 'Small (hours)',
@@ -240,8 +309,11 @@ export default async function IntentReportPage({ params }: { params: Promise<{ i
           ) : null}
 
           <Section title={`Verified Findings (${result.data.findings.length})`}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+              <CopyLeakListButton markdown={reportAsMarkdown(result.data)} />
+           </div>
             {result.data.findings.length === 0 ? (
-              <p style={{ color: '#a1a1aa' }}>No findings to report.</p>
+              <p style={{ color: '#a1a1aa' }}>No findings to report</p>
             ) : (
               result.data.findings.map((f) => (
                 <div

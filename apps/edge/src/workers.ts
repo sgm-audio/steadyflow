@@ -12,6 +12,8 @@ import {
   buildLeakList,
   buildProductFinding,
   computeAuditScore,
+  extractAppFingerprints,
+  fetchPerformanceSignals,
   FLAG_CATEGORY,
   FLAG_SEVERITY,
   FLAG_TITLE,
@@ -838,6 +840,64 @@ const analyzeShopifyCatalog = async (
         generated_at: new Date().toISOString(),
       });
     }
+  }
+
+  // ── B3 — persist app fingerprints to the dedup table ──
+  // Upsert so re-running the same audit updates seen_count + last_seen_at
+  // instead of duplicating. `unique(shop_domain, app_handle, detection_source)`
+  // makes the upsert idempotent at the DB level.
+  if (storefront) {
+    const fingerprints = extractAppFingerprints(storefront, shopDomain ?? new URL(storeUrl).host);
+    for (const fp of fingerprints) {
+      try {
+        await ctx.supabase.rpc('upsert_app_fingerprint', {
+          p_org_id: ctx.orgId,
+          p_shop_domain: fp.shop_domain,
+          p_app_handle: fp.app_handle,
+          p_app_title: fp.app_title,
+          p_detection_source: fp.detection_source,
+          p_category: fp.category,
+        });
+      } catch {
+        // best-effort; never fail an audit because fingerprint write failed
+      }
+    }
+  }
+
+  // ── B7 — fetch PSI / CrUX performance signals (lab + field) ──
+  // Best-effort, parallel with no blocking; failure falls through to the
+  // static storefront proxy insights above.
+  try {
+    const signals = await fetchPerformanceSignals(storeUrl, { timeoutMs: 10_000 });
+    const cwvFailures: string[] = [];
+    for (const sig of signals.signals) {
+      if (!sig.available) continue;
+      if (
+        sig.largestContentfulPaint &&
+        sig.largestContentfulPaint.p50 >= (sig.largestContentfulPaint.poor ?? 4000)
+      ) {
+        cwvFailures.push(`LCP ${Math.round(sig.largestContentfulPaint.p50)}ms (${sig.source})`);
+      }
+      if (sig.cumulativeLayoutShift && sig.cumulativeLayoutShift.score < 0.9) {
+        cwvFailures.push(`CLS ${sig.cumulativeLayoutShift.score.toFixed(2)} (${sig.source})`);
+      }
+    }
+    if (cwvFailures.length > 0) {
+      await ctx.supabase.from('insights').insert({
+        org_id: ctx.orgId,
+        intent_id: intentId,
+        category: 'conversion',
+        severity: 'high',
+        title: `Core Web Vitals failing in ${cwvFailures.length} measurement${cwvFailures.length === 1 ? '' : 's'}`,
+        body: `${cwvFailures.join('; ')}. Sourced from Google PageSpeed Insights (lab) and Chrome User Experience Report (field). The static HTML proxy above flags render-blocking JS and undimensioned images — these are the typical causes.`,
+        citations: [],
+        model: 'psi-crux-v1',
+        provider: 'google-pagespeed',
+        generated_at: new Date().toISOString(),
+      });
+    }
+  } catch {
+    // best-effort
   }
 
   // ── Catalog-wide summaries ──

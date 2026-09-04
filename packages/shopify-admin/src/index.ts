@@ -254,6 +254,8 @@ export type ProductFinding = ReturnType<typeof buildProductFinding>;
 export { describeFlag, FLAG_CATEGORY, FLAG_SEVERITY, FLAG_TITLE } from './audit/findings.js';
 export type { FlagInsight } from './audit/findings.js';
 export type { Flag, FlagCode, FlagSeverity } from './audit/flags.js';
+export { extractAppFingerprints } from './audit/apps.js';
+export type { AppFingerprint } from './audit/apps.js';
 export {
   aggregateFlags,
   buildLeakList,
