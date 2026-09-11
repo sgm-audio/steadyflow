@@ -12,11 +12,13 @@ import {
   buildLeakList,
   buildProductFinding,
   computeAuditScore,
+  crawlSitemapUrls,
   extractAppFingerprints,
   fetchPerformanceSignals,
   FLAG_CATEGORY,
   FLAG_SEVERITY,
   FLAG_TITLE,
+  lintThemeHtml,
   runCatalogAudit,
   scoreRubric,
   totalEstimatedImpact,
@@ -506,7 +508,7 @@ const checkPageSeoSignals = async (storeUrl: string): Promise<PageSeoSignals> =>
  */
 const checkStorefrontSignals = async (
   storeUrl: string,
-): Promise<ReturnType<typeof analyzeStorefrontHtml> | null> => {
+): Promise<{ analysis: ReturnType<typeof analyzeStorefrontHtml>; html: string } | null> => {
   const base = storeUrl.replace(/\/+$/, '');
   try {
     await assertPublicHttpUrl(base);
@@ -515,7 +517,7 @@ const checkStorefrontSignals = async (
     });
     if (!res.ok) return null;
     const html = await res.text();
-    return analyzeStorefrontHtml(html, new URL(base).hostname);
+    return { analysis: analyzeStorefrontHtml(html, new URL(base).hostname), html };
   } catch {
     return null;
   }
@@ -794,8 +796,9 @@ const analyzeShopifyCatalog = async (
   }
 
   // ── Speed / friction + app bloat (static storefront analysis) ──
-  const storefront = await checkStorefrontSignals(storeUrl);
-  if (storefront) {
+  const storefrontFetch = await checkStorefrontSignals(storeUrl);
+  const storefront = storefrontFetch?.analysis ?? null;
+  if (storefrontFetch && storefront) {
     if (storefront.appHosts.length > 0) {
       const apps = storefront.appHosts.map((h) => h.appName ?? h.host).join(', ');
       await ctx.supabase.from('insights').insert({
@@ -840,6 +843,27 @@ const analyzeShopifyCatalog = async (
         generated_at: new Date().toISOString(),
       });
     }
+
+    // ── B2 — theme lint from rendered homepage HTML ──
+    const themeLint = lintThemeHtml(storefrontFetch.html);
+    if (themeLint.issueCount > 0) {
+      const top = themeLint.issues
+        .slice(0, 6)
+        .map((i: { code: string; message: string }) => `${i.code}: ${i.message}`)
+        .join(' ');
+      await ctx.supabase.from('insights').insert({
+        org_id: ctx.orgId,
+        intent_id: intentId,
+        category: 'seo',
+        severity: themeLint.highCount > 0 ? 'high' : 'medium',
+        title: `Theme lint: ${themeLint.issueCount} issue${themeLint.issueCount === 1 ? '' : 's'} on homepage HTML`,
+        body: `${top} Static HTML proxy for theme-check (no Liquid source).`,
+        citations: [],
+        model: 'theme-lint-v1',
+        provider: 'shopify-admin',
+        generated_at: new Date().toISOString(),
+      });
+    }
   }
 
   // ── B3 — persist app fingerprints to the dedup table ──
@@ -862,6 +886,89 @@ const analyzeShopifyCatalog = async (
         // best-effort; never fail an audit because fingerprint write failed
       }
     }
+  }
+
+  // ── P2 sitemap-aware crawl — extends B3 with product/collection pages ──
+  // Caps: 20 URLs, 5s timeout each, skips robots-disallowed, fail-closed.
+  // Re-runs extractAppFingerprints on each crawled HTML and upserts via the
+  // same dedup RPC (seen_count accumulates). Best-effort, never fails audit.
+  try {
+    const base = storeUrl.replace(/\/+$/, '');
+    const sitemapGuard = `${base}/sitemap.xml`;
+    try {
+      await assertPublicHttpUrl(sitemapGuard);
+    } catch {
+      throw new Error('sitemap SSRF blocked');
+    }
+    const sitemapTargets = await crawlSitemapUrls(storeUrl, { timeoutMs: 5_000 });
+    const withTimeoutFetch = (ms: number): typeof fetch =>
+      ((input: string | URL, init?: RequestInit) =>
+        Promise.race([
+          fetch(input as unknown as string, init),
+          new Promise<Response>((_, reject) =>
+            setTimeout(() => {
+              reject(new Error(`Fetch timed out after ${ms}ms`));
+            }, ms),
+          ),
+        ])) as typeof fetch;
+    const f = withTimeoutFetch(5_000);
+    const crawledApps = new Map<string, ReturnType<typeof extractAppFingerprints>[number]>();
+    // Seed with homepage fingerprints so dedup is cross-page
+    if (storefront) {
+      for (const fp of extractAppFingerprints(storefront, shopDomain ?? new URL(storeUrl).host)) {
+        crawledApps.set(fp.app_handle, fp);
+      }
+    }
+    for (const pageUrl of sitemapTargets) {
+      try {
+        await assertPublicHttpUrl(pageUrl);
+        const res = await f(pageUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+        });
+        if (!res.ok) continue;
+        const html = await res.text();
+        if (html.length > 500_000) continue;
+        const analysis = analyzeStorefrontHtml(html, new URL(pageUrl).hostname);
+        for (const fp of extractAppFingerprints(analysis, shopDomain ?? new URL(storeUrl).host)) {
+          const prev = crawledApps.get(fp.app_handle);
+          if (prev) {
+            prev.host_count = Math.max(prev.host_count, fp.host_count);
+            prev.script_count += fp.script_count;
+          } else {
+            crawledApps.set(fp.app_handle, { ...fp });
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+    // Only upsert apps that weren't already persisted from the homepage pass
+    // (homepage apps already upserted above; re-upserting is harmless due to dedup,
+    // but we avoid duplicate RPCs by checking).
+    const homepageHandles = new Set(
+      storefront
+        ? extractAppFingerprints(storefront, shopDomain ?? new URL(storeUrl).host).map(
+            (fp) => fp.app_handle,
+          )
+        : [],
+    );
+    for (const fp of crawledApps.values()) {
+      if (homepageHandles.has(fp.app_handle)) continue;
+      try {
+        await ctx.supabase.rpc('upsert_app_fingerprint', {
+          p_org_id: ctx.orgId,
+          p_shop_domain: fp.shop_domain,
+          p_app_handle: fp.app_handle,
+          p_app_title: fp.app_title,
+          p_detection_source: fp.detection_source,
+          p_category: fp.category,
+        });
+      } catch {
+        // best-effort
+      }
+    }
+  } catch {
+    // best-effort; sitemap failures never block audit
   }
 
   // ── B7 — fetch PSI / CrUX performance signals (lab + field) ──

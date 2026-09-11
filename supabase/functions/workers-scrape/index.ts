@@ -17,9 +17,11 @@ import {
   analyzeStorefrontHtml,
   buildLeakList,
   computeAuditScore,
+  crawlSitemapUrls,
   describeFlag,
   extractAppFingerprints,
   fetchPerformanceSignals,
+  lintThemeHtml,
   runCatalogAudit,
   scoreRubric,
   totalEstimatedImpact,
@@ -412,8 +414,29 @@ Deno.serve(async (_req: Request) => {
           if (res.ok) {
             const html = await res.text();
             const storefront = analyzeStorefrontHtml(html, new URL(url).hostname);
+            const themeLint = lintThemeHtml(html);
+            if (themeLint.issueCount > 0) {
+              const top = themeLint.issues
+                .slice(0, 6)
+                .map((i: { code: string; message: string }) => `${i.code}: ${i.message}`)
+                .join(' ');
+              await supabase.from('insights').insert({
+                org_id: orgId,
+                intent_id: intentId,
+                category: 'seo',
+                severity: themeLint.highCount > 0 ? 'high' : 'medium',
+                title: `Theme lint: ${themeLint.issueCount} issue${themeLint.issueCount === 1 ? '' : 's'} on homepage HTML`,
+                body: `${top} Static HTML proxy for theme-check (no Liquid source).`,
+                citations: [],
+                model: 'theme-lint-v1',
+                provider: 'shopify-admin',
+                generated_at: new Date().toISOString(),
+              });
+            }
             if (storefront.appHosts.length > 0) {
-              const apps = storefront.appHosts.map((h: { appName?: string; host: string }) => h.appName ?? h.host).join(', ');
+              const apps = storefront.appHosts
+                .map((h: { appName?: string; host: string }) => h.appName ?? h.host)
+                .join(', ');
               await supabase.from('insights').insert({
                 org_id: orgId,
                 intent_id: intentId,
@@ -445,6 +468,78 @@ Deno.serve(async (_req: Request) => {
           }
         } catch {
           // best-effort storefront analysis
+        }
+
+        // ── P2 sitemap-aware crawl — extends B3 with product/collection pages ──
+        // Caps: 20 URLs, 5s timeout each, skips robots-disallowed, fail-closed.
+        try {
+          const base = url.replace(/\/+$/, '');
+          const sitemapGuard = `${base}/sitemap.xml`;
+          try {
+            await assertPublicHttpUrl(sitemapGuard);
+          } catch {
+            throw new Error('sitemap SSRF blocked');
+          }
+          const sitemapTargets = await crawlSitemapUrls(url, { timeoutMs: 5_000 });
+          const withTimeoutFetch = (ms: number): typeof fetch =>
+            ((input: string | URL, init?: RequestInit) =>
+              Promise.race([
+                fetch(input as unknown as string, init),
+                new Promise<Response>((_, reject) =>
+                  setTimeout(() => {
+                    reject(new Error(`Fetch timed out after ${ms}ms`));
+                  }, ms),
+                ),
+              ])) as typeof fetch;
+          const f2 = withTimeoutFetch(5_000);
+          // Homepage handles already upserted above; track to avoid duplicate RPCs
+          const seen = new Set<string>();
+          try {
+            const hpRes = await fetch(url, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+            });
+            if (hpRes.ok) {
+              const hpHtml = await hpRes.text();
+              const hpAnalysis = analyzeStorefrontHtml(hpHtml, new URL(url).hostname);
+              for (const fp of extractAppFingerprints(hpAnalysis, new URL(url).hostname)) {
+                seen.add(fp.app_handle);
+              }
+            }
+          } catch {
+            // best-effort
+          }
+          for (const pageUrl of sitemapTargets) {
+            try {
+              await assertPublicHttpUrl(pageUrl);
+              const res = await f2(pageUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+              });
+              if (!res.ok) continue;
+              const html = await res.text();
+              if (html.length > 500_000) continue;
+              const analysis = analyzeStorefrontHtml(html, new URL(pageUrl).hostname);
+              for (const fp of extractAppFingerprints(analysis, new URL(url).hostname)) {
+                if (seen.has(fp.app_handle)) continue;
+                seen.add(fp.app_handle);
+                try {
+                  await supabase.rpc('upsert_app_fingerprint', {
+                    p_org_id: orgId,
+                    p_shop_domain: fp.shop_domain,
+                    p_app_handle: fp.app_handle,
+                    p_app_title: fp.app_title,
+                    p_detection_source: fp.detection_source,
+                    p_category: fp.category,
+                  });
+                } catch {
+                  // best-effort
+                }
+              }
+            } catch {
+              continue;
+            }
+          }
+        } catch {
+          // best-effort; sitemap failures never block audit
         }
 
         // ── B7 — fetch PSI / CrUX performance signals (lab + field) ──

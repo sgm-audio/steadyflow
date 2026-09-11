@@ -18,7 +18,10 @@ interface CopyLeakListButtonProps {
  * hidden-textarea + `execCommand('copy')` fallback for older browsers
  * (still required for some sandboxed iframe contexts).
  */
-export function CopyLeakListButton({ markdown, label = 'Copy as Markdown' }: CopyLeakListButtonProps) {
+export function CopyLeakListButton({
+  markdown,
+  label = 'Copy as Markdown',
+}: CopyLeakListButtonProps) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(false);
 
@@ -55,6 +58,6 @@ export function CopyLeakListButton({ markdown, label = 'Copy as Markdown' }: Cop
       }}
     >
       {error ? 'Copy failed' : copied ? 'Copied ✓' : label}
-  </button>
+    </button>
   );
 }

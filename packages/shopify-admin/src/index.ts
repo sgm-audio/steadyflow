@@ -251,11 +251,11 @@ export function buildProductFinding(row: AuditRow) {
 
 export type ProductFinding = ReturnType<typeof buildProductFinding>;
 
+export { extractAppFingerprints } from './audit/apps.js';
+export type { AppFingerprint } from './audit/apps.js';
 export { describeFlag, FLAG_CATEGORY, FLAG_SEVERITY, FLAG_TITLE } from './audit/findings.js';
 export type { FlagInsight } from './audit/findings.js';
 export type { Flag, FlagCode, FlagSeverity } from './audit/flags.js';
-export { extractAppFingerprints } from './audit/apps.js';
-export type { AppFingerprint } from './audit/apps.js';
 export {
   aggregateFlags,
   buildLeakList,
@@ -282,6 +282,20 @@ export type {
   RubricCategoryId,
   RubricResult,
 } from './audit/rubric.js';
+export {
+  crawlSitemapUrls,
+  extractSitemapUrls,
+  isAllowedByRobots,
+  isSitemapIndex,
+  MAX_CRAWL_TARGETS,
+  MAX_SITEMAP_BYTES,
+  parseRobotsDisallows,
+  selectCrawlTargets,
+  SITEMAP_TIMEOUT_MS,
+} from './audit/sitemap.js';
+export type { CrawlOptions } from './audit/sitemap.js';
+export { lintThemeHtml } from './audit/theme.js';
+export type { ThemeLintIssue, ThemeLintResult, ThemeLintSeverity } from './audit/theme.js';
 export { PrintifyClient } from './printify/client.js';
 export type { PrintifyShop, PrintifyVariant } from './printify/schema.js';
 export { ShopifyClient } from './shopify/client.js';

@@ -10,6 +10,11 @@ import { notFound } from 'next/navigation';
 import { CopyLeakListButton } from '../../../../components/CopyLeakListButton';
 import { StateBanner } from '../../../../components/StateBanner';
 import { classifyError } from '../../../../lib/api-client';
+import {
+  hasPrintifyCostHeadline,
+  parsePrintifyCostHeadline,
+} from '../../../../lib/printifyCostHeadline';
+import { computeScoreDelta, formatDelta } from '../../../../lib/scoreDelta';
 import { requireOrgSession } from '../../../../lib/session';
 
 /** Structural shape the markdown renderer accepts — looser than the
@@ -56,7 +61,9 @@ const reportAsMarkdown = (r: ReportLike): string => {
   for (const f of r.findings) {
     lines.push('');
     lines.push(`### [${f.severity.toUpperCase()}] ${f.title}`);
-    lines.push(`**Category:** ${f.category} · **Effort:** ${f.effortEstimate} · **Confidence:** ${Math.round(f.confidence * 100)}%`);
+    lines.push(
+      `**Category:** ${f.category} · **Effort:** ${f.effortEstimate} · **Confidence:** ${Math.round(f.confidence * 100)}%`,
+    );
     lines.push('');
     lines.push(f.body);
     lines.push('');
@@ -98,12 +105,42 @@ const SEVERITY_COLOR: Record<string, string> = {
 
 export default async function IntentReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId, api } = await requireOrgSession();
+  const { orgId, api, supabase } = await requireOrgSession();
 
   const input = ReportGenerateInput.safeParse({ intentId: id });
   if (!input.success) notFound();
 
   const result = orgId ? await api.reportGenerate(input.data) : null;
+  const costHeadline = result?.ok ? parsePrintifyCostHeadline(result.data) : null;
+
+  let scoreDelta: ReturnType<typeof computeScoreDelta> = null;
+  if (orgId) {
+    const { data: currentHistory } = await supabase
+      .from('score_history')
+      .select('total_score, grade, captured_at, shop_domain')
+      .eq('intent_id', id)
+      .maybeSingle();
+    if (currentHistory) {
+      const { data: prevRows } = await supabase
+        .from('score_history')
+        .select('total_score, grade, captured_at')
+        .eq('org_id', orgId)
+        .eq('shop_domain', currentHistory.shop_domain)
+        .lt('captured_at', currentHistory.captured_at)
+        .order('captured_at', { ascending: false })
+        .limit(1);
+      const prev = prevRows?.[0] ?? null;
+      const curSnap = {
+        total_score: currentHistory.total_score,
+        grade: currentHistory.grade,
+        captured_at: currentHistory.captured_at,
+      };
+      const prevSnap = prev
+        ? { total_score: prev.total_score, grade: prev.grade, captured_at: prev.captured_at }
+        : null;
+      scoreDelta = computeScoreDelta(curSnap, prevSnap);
+    }
+  }
 
   return (
     <div style={{ padding: '2rem', maxWidth: 900, margin: '0 auto' }}>
@@ -123,6 +160,92 @@ export default async function IntentReportPage({ params }: { params: Promise<{ i
             {result.data.findingCount} finding
             {result.data.findingCount === 1 ? '' : 's'}
           </p>
+
+          {costHeadline && hasPrintifyCostHeadline(costHeadline) ? (
+            <Section title="Printify cost">
+              <div
+                style={{
+                  padding: '1.25rem',
+                  marginBottom: '1rem',
+                  background: '#18181b',
+                  border: '1px solid #27272a',
+                  borderRadius: '0.5rem',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <MetricBlock
+                    label="Avg gross margin"
+                    value={
+                      costHeadline.avgMarginPct != null
+                        ? `${costHeadline.avgMarginPct.toFixed(0)}%`
+                        : '—'
+                    }
+                  />
+                  <MetricBlock
+                    label="Est. recoverable / yr"
+                    value={
+                      costHeadline.recoverableAnnual != null
+                        ? `$${costHeadline.recoverableAnnual.toLocaleString()}`
+                        : '—'
+                    }
+                  />
+                  <MetricBlock
+                    label="Break-even ROAS"
+                    value={
+                      costHeadline.breakEvenRoas != null
+                        ? `${costHeadline.breakEvenRoas.toFixed(1)}×`
+                        : '—'
+                    }
+                  />
+                </div>
+              </div>
+            </Section>
+          ) : null}
+
+          {scoreDelta ? (
+            <Section title="Score change since last audit">
+              <div
+                style={{
+                  padding: '1.25rem',
+                  marginBottom: '1rem',
+                  background: '#18181b',
+                  border: '1px solid #27272a',
+                  borderRadius: '0.5rem',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <MetricBlock
+                    label={`Previous · ${new Date(scoreDelta.previous.captured_at).toLocaleDateString()} · ${scoreDelta.previous.grade}`}
+                    value={`${scoreDelta.previous.total_score}/200`}
+                  />
+                  <MetricBlock
+                    label={`Current · ${new Date(scoreDelta.current.captured_at).toLocaleDateString()} · ${scoreDelta.current.grade}`}
+                    value={`${scoreDelta.current.total_score}/200`}
+                  />
+                  <MetricBlock label="Delta" value={formatDelta(scoreDelta.delta)} />
+                </div>
+                <p style={{ fontSize: '0.6875rem', color: '#71717a', marginTop: '0.75rem' }}>
+                  {scoreDelta.direction === 'up'
+                    ? 'Score improved since the last audit for this store.'
+                    : scoreDelta.direction === 'down'
+                      ? 'Score declined since the last audit for this store.'
+                      : 'Score unchanged since the last audit.'}
+                </p>
+              </div>
+            </Section>
+          ) : null}
 
           <Section title="Executive Summary">
             <p style={{ lineHeight: 1.6 }}>{result.data.executiveSummary}</p>
@@ -311,7 +434,7 @@ export default async function IntentReportPage({ params }: { params: Promise<{ i
           <Section title={`Verified Findings (${result.data.findings.length})`}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
               <CopyLeakListButton markdown={reportAsMarkdown(result.data)} />
-           </div>
+            </div>
             {result.data.findings.length === 0 ? (
               <p style={{ color: '#a1a1aa' }}>No findings to report</p>
             ) : (

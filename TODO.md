@@ -44,17 +44,17 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 - [x] S5 SSRF guard — `packages/core/src/net/ssrf.ts` `assertSafeFetchUrl` + tests
 - [x] S8 Runbook — `docs/runbooks/audit-pipeline.md`
 - [x] S1 Deno parity — vendor mechanism (`pnpm vendor:shopify-admin`), `findings.ts` single-source, `workers-scrape` imports shared engine, `core-shim` SHA-256 fix. **Verified** via `functions serve --no-verify-jwt` (bundles + runs, HTTP 200). Remaining mirror (non-core): `store_profiles`/`product_findings`/homepage-SEO/storefront still Node-only.
-- [x] S6 Recurring-audit diff — `score_history` table landed (B5) and worker writes wired into BOTH Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) audit pipelines. UI diff view deferred to a future sprint.
-- [ ] S10 Delight — per-leak time-to-fix chip landed (S10a). Copy-leak-list-as-markdown button landed (S10b, `apps/web/src/components/CopyLeakListButton.tsx` + `reportAsMarkdown` in the report page). Printify-cost headline still pending (S10c).
+- [x] S6 Recurring-audit diff — `score_history` table landed (B5) and worker writes wired into BOTH Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) audit pipelines. UI diff view landed in `apps/web/src/lib/scoreDelta.ts` + report page dark-glass block (`apps/web/src/app/intents/[id]/report/page.tsx`).
+- [x] S10 Delight — per-leak time-to-fix chip landed (S10a). Copy-leak-list-as-markdown button landed (S10b). Printify-cost headline landed (S10c, `apps/web/src/lib/printifyCostHeadline.ts` + report page block).
 
 ### Phase B — SteadyFlow audit-gap closes (7 additions)
 - [x] B1. PSI/CrUX field-data fetcher — landed in `packages/shopify-admin/src/audit/performance.ts` + `packages/core/src/schemas/performance.ts` (9 new tests, BYOK API key supported, all 4 sources in parallel). Worker wiring pending (B7).
-- [ ] B2. Theme lint (`@shopify/theme-check-node`) — **Agent S4**
-- [x] B3. App fingerprints + sitemap-aware crawl — detection module landed in `packages/shopify-admin/src/audit/apps.ts` (`extractAppFingerprints()` + 10 tests). Worker writes wired in both runtimes via new `upsert_app_fingerprint` RPC. Sitemap-aware crawl still pending (separate concern).
+- [x] B2. Theme lint — HTML proxy in `packages/shopify-admin/src/audit/theme.ts` (`lintThemeHtml`, 5 tests). Wired into Node + Deno workers. Not `@shopify/theme-check-node` (needs Liquid / `read_themes`; add when Admin theme files are in the audit path).
+- [x] B3. App fingerprints + sitemap-aware crawl — detection module landed in `packages/shopify-admin/src/audit/apps.ts` (`extractAppFingerprints()` + 10 tests). Worker writes wired in both runtimes via new `upsert_app_fingerprint` RPC. Sitemap-aware crawl landed in `packages/shopify-admin/src/audit/sitemap.ts` (`crawlSitemapUrls`, 16 tests, capped 20 URLs / 5s timeout / robots-disallowed / fail-closed) + Node/Deno wiring. Vendored.
 - [x] B4. 200-pt weighted scoring rubric (12 categories) — landed in `packages/shopify-admin/src/audit/rubric.ts` (Phase A+ S2)
 - [x] B5. `score_history` + `app_fingerprints` migrations — `supabase/migrations/20260902000001_score_history_and_app_fingerprints.sql`. Worker writes wired (S6). Types added to `packages/db/src/database.types.ts`.
 - [x] B6. Tracking verification — contract surface landed in `packages/core/src/schemas/tracking.ts` (TrackingProvider/Check/VerificationOutput + 13 tests) + new `intel.trackingCheck` procedure. Worker wiring deferred.
-- [x] B7. Wire PSI/CrUX into worker pipeline — both Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) workers now call `fetchPerformanceSignals(storeUrl)` and write insights for failing CWV (LCP / CLS). Plus app fingerprint persistence (B3). Theme lint still pending. Tracking-verification worker still pending.
+- [x] B7. Wire PSI/CrUX into worker pipeline — both Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) workers now call `fetchPerformanceSignals(storeUrl)` and write insights for failing CWV (LCP / CLS). Plus app fingerprint persistence (B3) and theme-lint HTML proxy (B2). Tracking-verification worker still pending.
 
 ### Phase C — Acquisition site legal + SEO
 - [ ] C1. Legal pages (`/legal/terms`, `/legal/privacy`, `/legal/disclaimer`, `/legal/refund`) — **Agent S8** (draft, pending SK lawyer review)
@@ -316,3 +316,72 @@ copy-as-markdown UI button.
 
 - Local HEAD ahead of origin by 1 commit (this batch). `git push` is
   the last step.
+
+---
+
+## Session 2026-09-10 — B2 + S10c
+
+**Scope:** close the two remaining unblocked in-repo TODOs. No commit.
+
+### Done
+
+- **S10c — Printify-cost headline.** `apps/web/src/lib/printifyCostHeadline.ts` parses leak-list title + catalog-margin body (prefers `firstSalePlan` when present). Report page renders a 3-metric block. 3 tests.
+- **B2 — theme lint HTML proxy.** `packages/shopify-admin/src/audit/theme.ts` `lintThemeHtml()` (lang/viewport/alt/skip/canonical/document.write/stylesheets/OS2.0). 5 tests. Wired into Node + Deno workers. Vendored.
+
+### Skipped
+
+- `@shopify/theme-check-node` — needs Liquid / `read_themes`. Add when Admin theme files are in the audit path.
+- B6 tracking-verification worker, sitemap crawl, S6 UI diff, C1–C3/D2 (other repo), E1/A1 (blocked).
+
+### Verification
+
+- `pnpm --filter @steadyflow/shopify-admin test` — 76 pass
+- `pnpm --filter @steadyflow/web test` — 8 pass
+- `pnpm --filter @steadyflow/edge test` — 27 pass (integration skipped)
+- typecheck + lint on shopify-admin / web / edge — clean
+- `pnpm vendor:shopify-admin` — clean
+
+---
+
+## Session 2026-09-10 (part 2) — P2 sitemap-aware crawl
+
+**Scope:** P2 per PROMPTS.md — sitemap-aware crawl as separate module. No commit.
+
+### Done
+
+- **P2 — sitemap-aware crawl.** `packages/shopify-admin/src/audit/sitemap.ts` `crawlSitemapUrls` + helpers (`extractSitemapUrls`, `isSitemapIndex`, `parseRobotsDisallows`, `isAllowedByRobots`, `selectCrawlTargets`). Caps: first 20 product/collection URLs, 5s timeout each, skip robots-disallowed, fail-closed on huge/blocked sitemaps ( >1MB or >5000 locs → []), sameHost filter. 16 tests with fixture sitemap XML + HTML (mock fetch, no live network).
+- Wired Node `apps/edge/src/workers.ts` AND Deno `supabase/functions/workers-scrape/index.ts`: SSRF-guarded sitemap.xml fetch, crawl targets, per-page 5s timeout + SSRF + html size guard, re-run `extractAppFingerprints` + dedup via `upsert_app_fingerprint` (best-effort try/catch, never fails audit). Vendored via `pnpm vendor:shopify-admin`.
+
+### Skipped
+
+- B6 tracking-verification worker, S6 UI diff, C1–C3/D2 (other repo), E1/A1 (blocked).
+
+### Verification
+
+- `pnpm --filter @steadyflow/shopify-admin typecheck` — clean
+- `pnpm --filter @steadyflow/shopify-admin lint` — clean
+- `pnpm --filter @steadyflow/shopify-admin test` — 92 pass ( +16 sitemap)
+- `pnpm --filter @steadyflow/edge typecheck` — clean
+- `pnpm --filter @steadyflow/edge lint` — clean
+- `pnpm --filter @steadyflow/edge test` — 27 pass
+- `pnpm vendor:shopify-admin` — clean
+
+---
+
+## Session 2026-09-10 (part 3) — P3 score-history UI diff
+
+**Scope:** P3 per PROMPTS.md — score_history UI diff. No commit.
+
+### Done
+
+- **P3 — score-history diff UI.** `apps/web/src/lib/scoreDelta.ts` `computeScoreDelta` + `formatDelta` (pure helper, 9 tests). First-audit hides block (null when previous missing). Second audit shows previous score vs current, delta, date, grade. Report page `apps/web/src/app/intents/[id]/report/page.tsx` fetches current `score_history` by intent_id and previous by same shop_domain + captured_at lt current, reuses dark-glass MetricBlock grid (same as Printify headline). No chart library.
+
+### Skipped
+
+- B6 tracking-verification worker, C1–C3/D2 (other repo), E1/A1 (blocked).
+
+### Verification
+
+- `pnpm --filter @steadyflow/web typecheck` — clean
+- `pnpm --filter @steadyflow/web lint` — clean
+- `pnpm --filter @steadyflow/web test` — 17 pass ( +9 scoreDelta, total 3 files)
