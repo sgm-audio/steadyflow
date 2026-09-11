@@ -25,6 +25,7 @@ import {
   runCatalogAudit,
   scoreRubric,
   totalEstimatedImpact,
+  verifyTracking,
 } from '../_shared/shopify-admin/index.js';
 import { createServiceRoleClient } from '../_shared/supabase.ts';
 
@@ -540,6 +541,41 @@ Deno.serve(async (_req: Request) => {
           }
         } catch {
           // best-effort; sitemap failures never block audit
+        }
+
+        // ── B6 — tracking verification from homepage HTML ──
+        try {
+          await assertPublicHttpUrl(url);
+          const trRes = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SteadyFlow/1.0)' },
+          });
+          if (trRes.ok) {
+            const html = await trRes.text();
+            const tracking = verifyTracking(url, html);
+            if (tracking.coverageScore < 80) {
+              const missing = tracking.checks
+                .filter((c: { detected: boolean }) => !c.detected)
+                .map((c: { provider: string }) => c.provider)
+                .join(', ');
+              await supabase.from('insights').insert({
+                org_id: orgId,
+                intent_id: intentId,
+                category: 'analytics',
+                severity: tracking.coverageScore < 40 ? 'high' : 'medium',
+                title: `Tracking coverage ${tracking.coverageScore}/100 — ${tracking.checks.filter((c: { detected: boolean }) => c.detected).length}/10 providers firing`,
+                body: `Missing: ${missing || 'none'}. Coverage uses weights ga4(25) meta(20) ads(15) shopify(15) gtm(10) klaviyo(5) tiktok(5) pinterest(3) snap(1) segment(1). Recommendations: ${tracking.recommendations
+                  .slice(0, 3)
+                  .map((r: { message: string }) => r.message)
+                  .join(' ')}`,
+                citations: [],
+                model: 'tracking-verify-v1',
+                provider: 'storefront-html',
+                generated_at: new Date().toISOString(),
+              });
+            }
+          }
+        } catch {
+          // best-effort
         }
 
         // ── B7 — fetch PSI / CrUX performance signals (lab + field) ──

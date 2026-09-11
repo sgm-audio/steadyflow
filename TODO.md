@@ -53,8 +53,8 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 - [x] B3. App fingerprints + sitemap-aware crawl — detection module landed in `packages/shopify-admin/src/audit/apps.ts` (`extractAppFingerprints()` + 10 tests). Worker writes wired in both runtimes via new `upsert_app_fingerprint` RPC. Sitemap-aware crawl landed in `packages/shopify-admin/src/audit/sitemap.ts` (`crawlSitemapUrls`, 16 tests, capped 20 URLs / 5s timeout / robots-disallowed / fail-closed) + Node/Deno wiring. Vendored.
 - [x] B4. 200-pt weighted scoring rubric (12 categories) — landed in `packages/shopify-admin/src/audit/rubric.ts` (Phase A+ S2)
 - [x] B5. `score_history` + `app_fingerprints` migrations — `supabase/migrations/20260902000001_score_history_and_app_fingerprints.sql`. Worker writes wired (S6). Types added to `packages/db/src/database.types.ts`.
-- [x] B6. Tracking verification — contract surface landed in `packages/core/src/schemas/tracking.ts` (TrackingProvider/Check/VerificationOutput + 13 tests) + new `intel.trackingCheck` procedure. Worker wiring deferred.
-- [x] B7. Wire PSI/CrUX into worker pipeline — both Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) workers now call `fetchPerformanceSignals(storeUrl)` and write insights for failing CWV (LCP / CLS). Plus app fingerprint persistence (B3) and theme-lint HTML proxy (B2). Tracking-verification worker still pending.
+- [x] B6. Tracking verification — contract surface landed in `packages/core/src/schemas/tracking.ts` (TrackingProvider/Check/VerificationOutput + 13 tests) + new `intel.trackingCheck` procedure. Worker wiring landed in `packages/shopify-admin/src/audit/tracking.ts` (`detectTracking`/`verifyTracking`, 9 tests, 10 providers) and wired into both workers (homepage HTML, SSRF-guarded, fail-closed; one insight when coverage <80). Vendored.
+- [x] B7. Wire PSI/CrUX into worker pipeline — both Node (`apps/edge/src/workers.ts`) and Deno (`supabase/functions/workers-scrape/index.ts`) workers now call `fetchPerformanceSignals(storeUrl)` and write insights for failing CWV (LCP / CLS). Plus app fingerprint persistence (B3) and theme-lint HTML proxy (B2). All worker wiring now complete.
 
 ### Phase C — Acquisition site legal + SEO
 - [ ] C1. Legal pages (`/legal/terms`, `/legal/privacy`, `/legal/disclaimer`, `/legal/refund`) — **Agent S8** (draft, pending SK lawyer review)
@@ -378,10 +378,33 @@ copy-as-markdown UI button.
 
 ### Skipped
 
-- B6 tracking-verification worker, C1–C3/D2 (other repo), E1/A1 (blocked).
+- C1–C3/D2 (other repo), E1/A1 (blocked).
 
 ### Verification
 
 - `pnpm --filter @steadyflow/web typecheck` — clean
 - `pnpm --filter @steadyflow/web lint` — clean
 - `pnpm --filter @steadyflow/web test` — 17 pass ( +9 scoreDelta, total 3 files)
+
+---
+
+## Session 2026-09-10 (part 4) — P1 B6 tracking + final sweep
+
+**Scope:** finish last in-repo unblocked (P1 B6) + polish pass. No commit yet.
+
+### Done
+
+- **P1 — B6 tracking-verification worker.** `packages/shopify-admin/src/audit/tracking.ts` `detectTracking`/`verifyTracking`/`computeCoverageScore` (10 providers: ga4/gtm/meta/google_ads/shopify/segment/klaviyo/tiktok/pinterest/snap, evidence ≤200, id capture, weights sum 100). 9 tests with fixture HTML (mock, no network). Wired Node `apps/edge/src/workers.ts` and Deno `supabase/functions/workers-scrape/index.ts`: SSRF-guarded homepage HTML, fail-closed try/catch, one insight when coverage <80 (high <40 else medium). Reuses storefront/theme pattern, no new dep. Vendored.
+- TODO.md B6/B7 marked complete.
+
+### Skipped
+
+- C1–C3/D2 (other repo — branch main, done on disk but not pushed per boundary until user says), E1/A1 (blocked), live Square (spike pending), theme-check-node (needs read_themes).
+
+### Verification
+
+- `pnpm --filter @steadyflow/shopify-admin typecheck` — clean
+- `pnpm --filter @steadyflow/shopify-admin lint` — clean
+- `pnpm --filter @steadyflow/shopify-admin test` — 101 pass (+9 tracking)
+- `pnpm --filter @steadyflow/edge typecheck/lint/test` — clean / 27 pass
+- `pnpm vendor:shopify-admin` — clean

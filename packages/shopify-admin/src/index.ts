@@ -296,6 +296,8 @@ export {
 export type { CrawlOptions } from './audit/sitemap.js';
 export { lintThemeHtml } from './audit/theme.js';
 export type { ThemeLintIssue, ThemeLintResult, ThemeLintSeverity } from './audit/theme.js';
+export { detectTracking, verifyTracking, computeCoverageScore as computeTrackingCoverage } from './audit/tracking.js';
+export type { TrackingCheck, TrackingProvider, TrackingSource, TrackingVerificationOutput } from './audit/tracking.js';
 export { PrintifyClient } from './printify/client.js';
 export type { PrintifyShop, PrintifyVariant } from './printify/schema.js';
 export { ShopifyClient } from './shopify/client.js';
