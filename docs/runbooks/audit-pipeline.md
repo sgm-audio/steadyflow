@@ -17,6 +17,12 @@
 
 ## Failure modes and responses
 
+### 0. Shopify Admin GraphQL `ACCESS_DENIED` / missing scope
+- **Symptom:** catalog audit fails with `ACCESS_DENIED` or returns partial/empty product or media data.
+- **Cause:** the merchant collaborator grant is missing a scope the query needs. The catalog query is modernized to **2026-07** and uses the `media` union, which broadens scopes.
+- **Required scopes:** `read_products`, `read_files`, `read_images`, `read_themes` (+ `read_orders` when the sales summary runs). Re-issue the collaborator request with these and re-run.
+- **Note:** `SALES_SUMMARY_QUERY` additionally requires `read_orders`; without it the sales summary returns `null` and the audit falls back to documented assumptions (this is expected, not an error).
+
 ### 1. Audit stuck in `queued`
 - **Symptom:** `intents` rows sitting in `queued` >30 min.
 - **Check:** worker logs for unhandled rejections; `pgmq` queue health.

@@ -198,7 +198,15 @@ export function computeAuditScore(rows: AuditRow[]): number {
 export function buildProductFinding(row: AuditRow) {
   const product = row.product;
   const variants = product.variants.edges.map((e) => e.node);
-  const images = product.images.edges.map((e) => e.node);
+  // media union: only MediaImage nodes carry image{altText}; fall back to
+  // legacy images connection when media absent (fixtures/older tests).
+  const mediaNodes = product.media?.edges.map((e) => e.node) ?? [];
+  const images =
+    mediaNodes.length > 0
+      ? mediaNodes
+          .map((m) => m.image)
+          .filter((img): img is { url: string; altText?: string | null } => img != null)
+      : product.images.edges.map((e) => e.node);
   const reds = row.flags.filter((f) => f.severity === 'red').length;
   const yellows = row.flags.filter((f) => f.severity === 'yellow').length;
   const primaryVariant = variants[0];

@@ -1160,7 +1160,7 @@ const analyzeShopifyCatalog = async (
           `${r.product.title} | ${r.product.productType || 'no-type'} | $${r.margin.priceMinCAD} | ${r.margin.marginPct?.toFixed(0) ?? '?'}% margin | ${r.flags.length} flags`,
       );
 
-    const llmPrompt = `You are auditing a Shopify store named "${audit.shop.name}" (${storeUrl}) with ${audit.totalProducts} products in ${audit.totalCollections} collections, operating in ${audit.shopCurrency}. Plan: ${audit.shop.plan?.displayName ?? 'unknown'}.
+    const llmPrompt = `You are auditing a Shopify store named "${audit.shop.name}" (${storeUrl}) with ${audit.totalProducts} products in ${audit.totalCollections} collections, operating in ${audit.shopCurrency}. Plan: ${audit.shop.plan?.publicDisplayName ?? 'unknown'}.
 
 Store-level SEO: homepage meta description ${seoSignals.hasMetaDescription ? `present (${seoSignals.metaDescriptionLength} chars)` : 'MISSING'}, structured data ${seoSignals.hasStructuredData ? 'present' : 'MISSING'}, sitemap ${seoSignals.hasSitemap ? 'OK' : 'MISSING'}, robots.txt ${seoSignals.hasRobotsTxt ? 'OK' : 'MISSING'}.
 

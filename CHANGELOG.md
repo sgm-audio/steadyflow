@@ -4,6 +4,15 @@ All notable changes to SteadyFlow will be documented in this file.
 
 ## [Unreleased]
 
+### Session 2026-09-11 — Admin GraphQL 2026-07 modernization + docs/CI/release surface
+
+Branch: `cursor/shopify-audit-modules`.
+
+- **Admin GraphQL modernized to 2026-07** — `packages/shopify-admin/src/shopify/queries.ts` no longer uses any deprecated field. `ShopPlan.displayName → publicDisplayName`, `Shop.billingAddress → shopAddress`, `Product.featuredImage → featuredMedia { preview { image } }`, `Product.images → media { ... on MediaImage { image } }`. Zod schemas in `shopify/schema.ts` updated to match (`FeaturedMediaSchema`, `MediaConnectionSchema`, renamed plan/address fields). Consumers updated: `audit/flags.ts` (alt-text flag reads `media[].image.altText`, legacy `images` fallback kept), `index.ts` `buildProductFinding` (same fallback), `apps/edge/src/workers.ts` (LLM prompt `publicDisplayName`). Both queries validated against the live 2026-07 schema via the shopify-admin skill — catalog `SUCCESS` (zero deprecation warnings), sales summary `SUCCESS`. **Scope note:** the `media` union broadens required scopes from `read_products` to `read_products, read_files, read_images, read_themes` (+ `read_orders` for sales summary) — the merchant grant must include these.
+- **Docs:** README rewritten — status/CI/release badges, real screenshot of the readiness report (`docs/images/audit-report.png`, rendered from the actual generated `SAMPLE_REPORT.html` via headless Edge), "What it does" module table, Shopify Admin API section (version pin + scopes), 12-procedure contract list, testing + CI/CD sections. Screenshot is genuine product output, not a mockup.
+- **CI/CD:** new `.github/workflows/release.yml` — on `v*` tags runs `pnpm check` then creates a GitHub Release with auto-generated notes. Existing `ci.yml` (typecheck/lint/test + Gitleaks + dep audit + gated Supabase deploy) left as-is.
+- **Verified:** shopify-admin 101 tests, edge 27 tests, typecheck + lint clean on both, `pnpm vendor:shopify-admin` clean, graphify 2347 nodes / 3658 edges.
+
 ### Session 2026-09-02 (part 3) — B3 + B7 + S10b
 
 Branch: `cursor/shopify-audit-modules`. Ponytail mode — close the small items still on the TODO.

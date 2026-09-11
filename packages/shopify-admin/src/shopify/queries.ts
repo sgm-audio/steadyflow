@@ -4,6 +4,14 @@
  * across all pages. New fields added in v2 audit: updatedAt, tracksInventory,
  * isGiftCard, requiresShipping (product + variant), taxable, barcode,
  * inventoryPolicy, position, vendor, onlineStoreUrl, giftCardTemplateSuffix.
+ *
+ * Modernized to 2026-07 (removed deprecated fields):
+ *   ShopPlan.displayName    → publicDisplayName
+ *   Shop.billingAddress     → shopAddress
+ *   Product.featuredImage   → featuredMedia { preview { image } }
+ *   Product.images          → media { ... on MediaImage { image } }
+ * Required scopes broaden from read_products to include read_files, read_images,
+ * read_themes (the media/featuredMedia union). Documented in the audit runbook.
  */
 
 export const CATALOG_PAGE_QUERY = /* GraphQL */ `
@@ -14,7 +22,7 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
       currencyCode
       description
       plan {
-        displayName
+        publicDisplayName
         partnerDevelopment
         shopifyPlus
       }
@@ -23,7 +31,7 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
         host
       }
       timezoneAbbreviation
-      billingAddress {
+      shopAddress {
         country
         city
         province
@@ -71,11 +79,15 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
             title
             description
           }
-          featuredImage {
-            url
-            altText
-            width
-            height
+          featuredMedia {
+            preview {
+              image {
+                url
+                altText
+                width
+                height
+              }
+            }
           }
           options {
             id
@@ -98,14 +110,18 @@ export const CATALOG_PAGE_QUERY = /* GraphQL */ `
               }
             }
           }
-          images(first: 50) {
+          media(first: 50) {
             edges {
               node {
-                id
-                altText
-                url
-                width
-                height
+                ... on MediaImage {
+                  id
+                  image {
+                    url
+                    altText
+                    width
+                    height
+                  }
+                }
               }
             }
           }

@@ -30,12 +30,23 @@ const SeoSchema = z
   })
   .optional();
 
-const FeaturedImageSchema = z
+const ImageFieldsSchema = z.object({
+  url: z.string(),
+  altText: z.string().nullable().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+});
+
+const FeaturedImageSchema = ImageFieldsSchema.nullish();
+
+/** featuredMedia.preview.image — replaces deprecated Product.featuredImage. */
+const FeaturedMediaSchema = z
   .object({
-    url: z.string(),
-    altText: z.string().nullable().optional(),
-    width: z.number().optional(),
-    height: z.number().optional(),
+    preview: z
+      .object({
+        image: ImageFieldsSchema.nullish(),
+      })
+      .nullish(),
   })
   .nullish();
 
@@ -81,6 +92,16 @@ const ImagesConnectionSchema = z.object({
   edges: z.array(z.object({ node: ImageNodeSchema })),
 });
 
+/** media { ... on MediaImage { image } } — replaces deprecated Product.images. */
+const MediaImageNodeSchema = z.object({
+  id: z.string(),
+  image: ImageFieldsSchema.nullish(),
+});
+
+const MediaConnectionSchema = z.object({
+  edges: z.array(z.object({ node: MediaImageNodeSchema })),
+});
+
 const CollectionNodeSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -115,9 +136,11 @@ const ProductNodeSchema = z.object({
   compareAtPriceRange: CompareAtPriceRangeSchema.nullable().optional(),
   seo: SeoSchema,
   featuredImage: FeaturedImageSchema,
+  featuredMedia: FeaturedMediaSchema,
   options: z.array(OptionSchema).default([]),
   variants: VariantsConnectionSchema,
   images: ImagesConnectionSchema,
+  media: MediaConnectionSchema.optional(),
   collections: CollectionsConnectionSchema,
   totalInventory: z.number().optional(),
   availableForSale: z.boolean().optional(),
@@ -149,7 +172,7 @@ const ShopSchema = z.object({
   description: z.string().optional(),
   plan: z
     .object({
-      displayName: z.string(),
+      publicDisplayName: z.string(),
       partnerDevelopment: z.boolean().optional(),
       shopifyPlus: z.boolean().optional(),
     })
@@ -163,7 +186,7 @@ const ShopSchema = z.object({
   timezoneAbbreviation: z.string().nullable().optional(),
   timezoneOffsetMinutes: z.number().optional(),
   ianaTimezone: z.string().optional(),
-  billingAddress: z
+  shopAddress: z
     .object({
       country: z.string().optional(),
       city: z.string().nullable().optional(),

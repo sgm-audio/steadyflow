@@ -4,6 +4,10 @@
 
 **Validation account:** Making Madi
 
+## Shopify Admin API
+
+GraphQL queries in `packages/shopify-admin/src/shopify/queries.ts`, validated against **Admin GraphQL 2026-07** (pinned in `client.ts` `API_VERSION`). Modernized to 2026-07 — no deprecated fields (`publicDisplayName`, `shopAddress`, `featuredMedia.preview.image`, `media { ... on MediaImage }`). **Required scopes** (the `media` union broadens them): `read_products`, `read_files`, `read_images`, `read_themes` (+ `read_orders` when the sales summary runs). The merchant collaborator grant must include all of these.
+
 ## Commands (run from root)
 
 | Command | What |
@@ -67,7 +71,7 @@ tooling/devkit         → Shopify + WordPress scaffolding CLI
 
 ## Contracts (the API surface)
 
-Procedure definitions live in `packages/core/src/contracts/procedures.ts`. The `Router` type in `router.ts` is the single source of truth — all 11 procedures (`intel.analyzeShop`, `insights.list`, `audit.query`, `keys.set`, `keys.list`, `keys.test`, `org.llmConfig.get`, `org.llmConfig.set`, `intent.cancel`, `intent.list`, `report.generate`). Adding one requires: input Zod schema, output Zod schema, `defineProcedure()`, and a `Router` entry.
+Procedure definitions live in `packages/core/src/contracts/procedures.ts`. The `Router` type in `router.ts` is the single source of truth — all 12 procedures (`intel.analyzeShop`, `intel.trackingCheck`, `insights.list`, `audit.query`, `keys.set`, `keys.list`, `keys.test`, `org.llmConfig.get`, `org.llmConfig.set`, `intent.cancel`, `intent.list`, `report.generate`). Adding one requires: input Zod schema, output Zod schema, `defineProcedure()`, and a `Router` entry.
 
 Every procedure declares `auth`, `rateLimit`, `idempotent`. Every input/output uses `z.strictObject` or `.strict()` — unknown keys are rejected.
 

@@ -73,8 +73,16 @@ export function evaluateFlags(ctx: AuditContext): Flag[] {
     });
   }
 
-  // 2. missing_alt_text
-  const images = product.images.edges.map((e) => e.node);
+  // 2. missing_alt_text — media is a union (MediaImage|Video|...); only
+  // MediaImage nodes carry an `image` payload with altText. Fall back to the
+  // legacy images connection when media is absent (older fixtures/tests).
+  const mediaNodes = product.media?.edges.map((e) => e.node) ?? [];
+  const images =
+    mediaNodes.length > 0
+      ? mediaNodes
+          .map((m) => m.image)
+          .filter((img): img is { url: string; altText?: string | null } => img != null)
+      : product.images.edges.map((e) => e.node);
   const missingAltImages = images.filter((img) => isMissingAlt(img.altText));
   if (images.length > 0 && missingAltImages.length > 0) {
     flags.push({
