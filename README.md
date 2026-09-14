@@ -10,9 +10,9 @@
 ![License](https://img.shields.io/badge/license-UNLICENSED-lightgrey)
 ![Status](https://img.shields.io/badge/status-v0.x%20internal%20pilot-orange)
 
-SteadyFlow runs a **200-point Shopify Revenue Leak Audit** against a merchant store, then surfaces a ranked, evidence-backed fix plan. Shopify Admin GraphQL + Printify costs are the primary live data path; Supabase (Postgres + RLS + Edge Functions) is the single source of truth.
+SteadyFlow runs a **200-point Shopify Revenue Leak Audit** against a merchant store, then surfaces a ranked, evidence-backed fix plan. Shopify Admin GraphQL + Printify costs + Amazon SP-API are the primary live data path; Supabase (Postgres + RLS + Edge Functions) is the single source of truth.
 
-- **Primary platforms:** Shopify + Printify (fulfillment)
+- **Primary platforms:** Shopify + Printify (fulfillment) + Amazon (selling + FBA/FBM)
 - **Status:** v0.x internal pilot (not yet public v1.0.0)
 - **Validation account:** Making Madi
 
@@ -68,7 +68,7 @@ steadyflow/
 │   ├── db/            # Generated Supabase types
 │   ├── llm/           # LLM adapter pattern (OpenAI-compatible)
 │   ├── shopify-admin/ # Shopify Admin GraphQL + Printify cost audit
-│   └── commerce/      # Multi-platform adapters (Shopify/Printify live)
+│   └── commerce/      # Multi-platform adapters (Shopify/Printify/Amazon live)
 ├── supabase/          # migrations, functions (Deno), scripts
 ├── tooling/devkit/    # Shopify + WordPress scaffolding CLI
 └── turbo.json
