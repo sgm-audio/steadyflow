@@ -22,7 +22,7 @@ export const SUPABASE_URL =
 
 export const SUPABASE_ANON_KEY =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ??
-  'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
+  'sb_publishable_dev_replace_me';
 
 export interface ExtensionConfig {
   supabaseUrl: string;
