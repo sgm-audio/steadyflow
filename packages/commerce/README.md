@@ -7,7 +7,7 @@ fulfillment providers, and distributors plug in without rewriting core.
 
 | Role | Platforms | Status |
 |------|-----------|--------|
-| Selling | Shopify, Amazon, WooCommerce | Shopify live; Amazon/Woo stubs |
+| Selling | Shopify, Amazon, WooCommerce | Shopify + Amazon live; WooCommerce stub |
 | Fulfillment | Printify, Amazon FBA/FBM | Printify live; FBA/FBM stubs |
 | Distributor | Alibaba, Printify (cost catalog) | Alibaba stub; Printify live via `@steadyflow/shopify-admin` |
 

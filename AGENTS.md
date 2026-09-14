@@ -114,6 +114,7 @@ Every external action **must** call `buildAuditEvent()` and write to `audit_log`
 - `steadyflow-pr-*/` at repo root are git-worktree/parallel-agent snapshots (gitignored). Ignore them in searches; never commit them into `main`.
 - `supabase/functions/_shared/shopify-admin/` is **vendored** — regenerate via `pnpm vendor:shopify-admin`, don't hand-edit.
 - `apps/desktop` and `apps/extension` are EXPERIMENTAL and outside v0.x scope — don't spend effort there unless asked.
+- `apps/extension` has real auth/API functionality (config.ts, supabase.ts, api.ts, popup.ts) — Chrome MV3 capture, still experimental.
 
 ## Setup
 
