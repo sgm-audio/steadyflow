@@ -4,6 +4,12 @@ import type {
   FulfillmentProviderId,
   SellingPlatformId,
 } from '../schemas/roles.js';
+import { parseAmazonSpApiCredentials } from './amazon/credential.js';
+import {
+  AmazonFbaFulfillmentAdapter,
+  AmazonFbmFulfillmentAdapter,
+} from './amazon/fulfillment.js';
+import { createAmazonSellingAdapter } from './amazon/selling.js';
 import { createPrintifyFulfillmentAdapter } from './printify/fulfillment.js';
 import { createShopifySellingAdapter } from './shopify/selling.js';
 import type { DistributorAdapter, FulfillmentAdapter, SellingPlatformAdapter } from './types.js';
@@ -37,6 +43,11 @@ export interface CreateCommerceRegistryOptions {
  */
 export function createCommerceRegistry(opts: CreateCommerceRegistryOptions): CommerceRegistry {
   const { config, credentials = {} } = opts;
+  // Validate the SP-API envelope eagerly — an invalid credential throws loudly,
+  // never silently skips construction.
+  const spApiCreds = credentials['amazon-sp-api']
+    ? parseAmazonSpApiCredentials(credentials['amazon-sp-api'])
+    : null;
   const selling = new Map<SellingPlatformId, SellingPlatformAdapter>();
   const fulfillment = new Map<FulfillmentProviderId, FulfillmentAdapter>();
   const distributors = new Map<DistributorProviderId, DistributorAdapter>();
@@ -61,7 +72,16 @@ export function createCommerceRegistry(opts: CreateCommerceRegistryOptions): Com
         }
         break;
       }
-      case 'amazon':
+      case 'amazon': {
+        if (spApiCreds) {
+          const adapter = createAmazonSellingAdapter(spApiCreds);
+          selling.set('amazon', adapter);
+          readySelling.push('amazon');
+        } else {
+          stubAdapters.push('amazon');
+        }
+        break;
+      }
       case 'woocommerce':
       case 'etsy': {
         // v0.x trim: experimental selling platforms not instantiated.
@@ -97,8 +117,22 @@ export function createCommerceRegistry(opts: CreateCommerceRegistryOptions): Com
         }
         break;
       }
-      case 'amazon-fba':
-      case 'amazon-fbm':
+      case 'amazon-fba': {
+        if (spApiCreds) {
+          fulfillment.set('amazon-fba', new AmazonFbaFulfillmentAdapter());
+        } else {
+          stubAdapters.push('amazon-fba');
+        }
+        break;
+      }
+      case 'amazon-fbm': {
+        if (spApiCreds) {
+          fulfillment.set('amazon-fbm', new AmazonFbmFulfillmentAdapter());
+        } else {
+          stubAdapters.push('amazon-fbm');
+        }
+        break;
+      }
       case 'manual': {
         // v0.x trim: experimental fulfillment not instantiated.
         stubAdapters.push(channel.provider);

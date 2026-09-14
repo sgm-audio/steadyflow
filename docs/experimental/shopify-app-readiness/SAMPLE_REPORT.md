@@ -1,9 +1,9 @@
 # Shopify App Readiness Report
 
 **App:** SteadyFlow Validation App v0.1.0
-**Scan:** 2026-08-27T23:48:08.352Z (0123456)
+**Scan:** 2026-09-13T19:04:32.834Z (0123456)
 **Registry:** v1.0.0
-**Generated:** 2026-08-27T23:48:08.391Z
+**Generated:** 2026-09-13T19:04:32.837Z
 
 ## Summary
 
@@ -113,7 +113,7 @@
 
 ### ✅ embedded-app — APPROVED
 - **Reviewer:** SteadyFlow Validation (validation@steadyflow.dev)
-- **Reviewed:** 2026-08-27T23:48:08.336Z
+- **Reviewed:** 2026-09-13T19:04:32.826Z
 - **Applicability:** applicable
 - **Reason:** Embedded public app
 

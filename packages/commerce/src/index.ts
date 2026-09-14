@@ -1,12 +1,33 @@
 /**
  * @steadyflow/commerce — v0.x live surface
  *
- * Shopify + Printify only. Other platforms (Amazon, Alibaba, WooCommerce, Etsy)
- * are experimental and live in `adapters/*` as stubs — not exported from the
- * package index to keep the v0.x bundle trim. Import them directly if needed:
- * `import { createAmazonSellingAdapter } from '@steadyflow/commerce/src/adapters/amazon/selling.js'`
+ * Shopify + Printify + Amazon. Amazon is backed by SP-API (LWA + SigV4) in
+ * `adapters/amazon/` — catalog, orders, FBA inventory, inventory push.
+ * Remaining platforms (Alibaba, WooCommerce, Etsy) are experimental stubs.
  */
 
+export {
+  AmazonFbaFulfillmentAdapter,
+  AmazonFbmFulfillmentAdapter,
+} from './adapters/amazon/fulfillment.js';
+export {
+  AmazonSellingAdapter,
+  createAmazonSellingAdapter,
+  type AmazonPushInventoryResult,
+  type AmazonSellingAdapterOptions,
+} from './adapters/amazon/selling.js';
+export {
+  AmazonSpApiCredentialsSchema,
+  parseAmazonSpApiCredentials,
+  type SpApiCredentials,
+} from './adapters/amazon/credential.js';
+export {
+  mapAmazonCatalogItem,
+  mapAmazonInventorySummary,
+  mapAmazonOrder,
+  mapAmazonOrderItems,
+} from './adapters/amazon/mappers.js';
+export { SpApiClient, SP_API_REGIONS } from './adapters/amazon/spapi/client.js';
 export {
   PrintifyFulfillmentAdapter,
   createPrintifyFulfillmentAdapter,

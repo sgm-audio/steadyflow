@@ -6,11 +6,11 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { getExtensionConfig } from './config.js';
 
-const SUPABASE_URL = 'http://127.0.0.1:54321';
-const SUPABASE_ANON_KEY = 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
+const { supabaseUrl, anonKey } = getExtensionConfig();
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient(supabaseUrl, anonKey, {
   auth: {
     storage: {
       async getItem(key: string) {

@@ -60,7 +60,7 @@ packages/core     → Zod schemas, audit, crypto, contract definitions ← START
 packages/db       → Generated Supabase types (Drizzle ORM not implemented)
 packages/llm      → LLM adapter pattern (OpenAI-compatible providers)
 packages/shopify-admin → Shopify Admin GraphQL + Printify cost audit
-packages/commerce      → Multi-platform adapters (Shopify/Printify live; others experimental)
+packages/commerce      → Multi-platform adapters (Shopify/Printify/Amazon live; others experimental)
 tooling/devkit         → Shopify + WordPress scaffolding CLI
 ```
 

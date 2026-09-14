@@ -2,6 +2,7 @@ import { StateBanner } from '../../components/StateBanner';
 import { classifyError } from '../../lib/api-client';
 import { requireOrgSession } from '../../lib/session';
 import RemoveKeyButton from './RemoveKeyButton';
+import SetKeyForm from './SetKeyForm';
 import TestKeyButton from './TestKeyButton';
 
 const ALL_PROVIDERS = [
@@ -36,6 +37,8 @@ export default async function KeysPage() {
       ) : result && !result.ok ? (
         <StateBanner state={classifyError(result.error)} message={result.error.message} />
       ) : null}
+
+      <SetKeyForm />
 
       <div style={{ display: 'grid', gap: '0.75rem', maxWidth: 600 }}>
         {ALL_PROVIDERS.map((provider) => (

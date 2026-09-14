@@ -92,3 +92,8 @@ supabase/functions/_shared/shopify-admin/
 steadyflow-pr-*/
 # Agent scratch / writing-block session files
 writing-block*.md
+
+# IDE
+.cursor/
+# Internal workflow prompts
+PROMPTS.md

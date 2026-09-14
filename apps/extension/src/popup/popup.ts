@@ -2,7 +2,10 @@
  * Popup UI — auth, page info, submit analysis.
  */
 
+import { getExtensionConfig } from '../lib/config.js';
 import { getSession, getToken, signIn, signOut } from '../lib/supabase.js';
+
+const { dashboardUrl: DASHBOARD_URL, functionsUrl: FUNCTIONS_URL } = getExtensionConfig();
 
 // ── DOM Element helpers ─────────────────────────────────────────────────────
 
@@ -73,7 +76,7 @@ const onReady = () => {
   });
 
   // Dashboard links
-  const dashUrl = 'http://127.0.0.1:3000/dashboard';
+  const dashUrl = `${DASHBOARD_URL}/dashboard`;
   $('dashboard-link').setAttribute('href', dashUrl);
   viewDashboard.setAttribute('href', dashUrl);
 };
@@ -135,7 +138,7 @@ const handleAnalyze = async () => {
     const token = await getToken();
     if (!token) throw new Error('Not authenticated');
 
-    const res = await fetch('http://127.0.0.1:54321/functions/v1/intel-analyze-shop', {
+    const res = await fetch(`${FUNCTIONS_URL}/intel-analyze-shop`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -159,3 +159,62 @@ describe('stub adapters', () => {
     await expect(alibaba.listOffers()).rejects.toBeInstanceOf(AdapterNotImplementedError);
   });
 });
+
+describe('amazon registry integration', () => {
+  const spApiCred = JSON.stringify({
+    clientId: 'amzn1.application-oa2-client.test',
+    clientSecret: 'amzn1.otoken.test',
+    refreshToken: 'Atzr|refresh-token',
+    awsAccessKeyId: 'AKIDEXAMPLE',
+    awsSecretAccessKey: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
+    sellerId: 'A1SELLERID',
+    marketplaceIds: ['ATVPDKIKX0DER'],
+  });
+
+  function amazonConfig() {
+    return CommerceConfigSchema.parse({
+      orgId,
+      primarySelling: 'shopify',
+      selling: [
+        { platform: 'shopify', enabled: true, storeUrl: 'https://demo.myshopify.com' },
+        { platform: 'amazon', enabled: true, region: 'NA' },
+      ],
+      fulfillment: [
+        { provider: 'amazon-fba', enabled: true },
+        { provider: 'amazon-fbm', enabled: true },
+      ],
+    });
+  }
+
+  it('constructs live Amazon selling + FBA/FBM fulfillment adapters with SP-API credentials', () => {
+    const registry = createCommerceRegistry({
+      config: amazonConfig(),
+      credentials: { 'amazon-sp-api': spApiCred },
+    });
+
+    const amazon = registry.selling.get('amazon');
+    expect(amazon).toBeDefined();
+    expect(amazon?.meta.stub).toBe(false);
+    expect(amazon?.meta.id).toBe('amazon');
+    expect(registry.fulfillment.has('amazon-fba')).toBe(true);
+    expect(registry.fulfillment.has('amazon-fbm')).toBe(true);
+    expect(registry.readySelling).toContain('amazon');
+  });
+
+  it('skips Amazon live construction without credentials but keeps it tracked', () => {
+    const registry = createCommerceRegistry({ config: amazonConfig(), credentials: {} });
+
+    expect(registry.selling.has('amazon')).toBe(false);
+    expect(registry.fulfillment.has('amazon-fba')).toBe(false);
+    expect(registry.stubAdapters).toEqual(expect.arrayContaining(['amazon', 'amazon-fba', 'amazon-fbm']));
+  });
+
+  it('throws loudly on an invalid SP-API credential envelope (no silent skip)', () => {
+    expect(() =>
+      createCommerceRegistry({
+        config: amazonConfig(),
+        credentials: { 'amazon-sp-api': '{broken' },
+      }),
+    ).toThrow();
+  });
+});

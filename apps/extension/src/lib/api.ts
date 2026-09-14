@@ -4,9 +4,10 @@
  * Calls Edge Functions through the Supabase API gateway.
  */
 
-const API_URL = 'http://127.0.0.1:54321/functions/v1';
-
+import { getExtensionConfig } from './config.js';
 import { getToken } from './supabase.js';
+
+const { functionsUrl: API_URL } = getExtensionConfig();
 
 export interface AnalyzeShopParams {
   platform: string;
