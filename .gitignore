@@ -98,3 +98,12 @@ writing-block*.md
 .cursor/
 # Internal workflow prompts
 PROMPTS.md
+
+# Local agent/tool files
+.claude/
+.opencode/
+.codegraph.yml
+CLAUDE.md
+AGENTS.md
+*_reply*.md
+.gh_reply_*.md
