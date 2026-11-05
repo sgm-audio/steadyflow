@@ -1,13 +1,13 @@
 # SGM Studios — Master TODO
 
-> Last verified: 2026-09-02. Two-repo system. Read before starting any work.
+> Last verified: 2026-09-02. Covers two repos.
 
 ## Repos
 
-| Repo | Path | Role | Branch / HEAD (verified) |
-|---|---|---|---|
-| **steadyflow** (private engine) | `C:\Users\scott\OneDrive\Desktop\steadyflow` | audit engine, 200-pt report, theme lint, PSI/CrUX, app fingerprints | `cursor/shopify-audit-modules` @ session HEAD (post session work, see Session 2026-09-02) |
-| **sgm-better-business-easier-site** (public) | `C:\Users\scott\Documents\Codex\2026-08-23\referenced-chatgpt-conversation-this-is-an\work\sgm-better-business-easier-site` | marketing, legal, sitemap, Calendly, deposit flow | `main` @ `ba1fa6b` (clean) |
+| Repo | Role | Branch / HEAD (verified) |
+|---|---|---|
+| **steadyflow** (private engine) | audit engine, 200-pt report, theme lint, PSI/CrUX, app fingerprints | `cursor/shopify-audit-modules` @ session HEAD (post session work, see Session 2026-09-02) |
+| **sgm-better-business-easier-site** (public) | marketing, legal, sitemap, Calendly, deposit flow | `main` @ `ba1fa6b` (clean) |
 
 ## Business model (locked)
 
@@ -15,7 +15,7 @@ Services-led agency. **Shopify Revenue Leak Audit** — $1,500 USD, $500 deposit
 
 ## ⚠️ Do not touch (existing uncommitted/untracked work in steadyflow)
 
-- Modified: `AGENTS.md`, `apps/web/src/app/dashboard/page.tsx`, `docs/experimental/shopify-app-readiness/SAMPLE_REPORT.{html,json,md}`
+- Modified: `AGENTS.md` (now `docs/DEVELOPMENT.md`), `apps/web/src/app/dashboard/page.tsx`, `docs/experimental/shopify-app-readiness/SAMPLE_REPORT.{html,json,md}`
 - Untracked: `apps/web/src/components/Charts.tsx`, `jest.config.js`, `output/`, `steadyflow-pr-a/`…`steadyflow-pr-e/`, `writing-block*.md`, `writing-block.md`
 - **Never** `git reset/clean/stash/checkout`, never delete the above. They may be another agent's or the user's work.
 

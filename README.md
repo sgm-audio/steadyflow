@@ -1,6 +1,6 @@
 # SteadyFlow
 
-> An auditable, multi-platform **Shopify revenue-optimization platform**.
+> A Shopify revenue-leak audit tool. Every action is written to an audit log.
 
 [![CI](https://github.com/sgm-audio/steadyflow/actions/workflows/ci.yml/badge.svg)](https://github.com/sgm-audio/steadyflow/actions/workflows/ci.yml)
 [![Release](https://github.com/sgm-audio/steadyflow/actions/workflows/release.yml/badge.svg)](https://github.com/sgm-audio/steadyflow/actions/workflows/release.yml)
@@ -15,6 +15,7 @@ SteadyFlow runs a **200-point Shopify Revenue Leak Audit** against a merchant st
 - **Primary platforms:** Shopify + Printify (fulfillment)
 - **Status:** v0.x internal pilot (not yet public v1.0.0)
 - **Validation account:** Making Madi
+- **Known issue:** `pnpm test` fails right now. `packages/shopify-admin` imports `@steadyflow/core/schemas` but doesn't list `@steadyflow/core` as a dependency, so its build can't find the module (TS2307 in `src/audit/performance.ts`).
 
 ![SteadyFlow audit readiness report](docs/images/audit-report.png)
 

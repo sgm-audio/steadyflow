@@ -77,7 +77,7 @@ describe('E2E Audit Lifecycle', () => {
     // ever match — a prior `.like('intent_id', 'test-e2e-%')` was always a
     // silent no-op, letting rows (and local pg_cron's own processing of
     // them) pile up across runs. ORG_ID is a dedicated local dev/test org
-    // (see AGENTS.md), so scoping by org_id alone is safe here.
+    // (see docs/DEVELOPMENT.md), so scoping by org_id alone is safe here.
     await supabase.from('insights').delete().eq('org_id', ORG_ID);
     await supabase.from('sources').delete().eq('org_id', ORG_ID);
     await supabase.from('intents').delete().eq('org_id', ORG_ID);
